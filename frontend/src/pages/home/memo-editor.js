@@ -1036,7 +1036,7 @@ function defaultEditorFileItems() {
     { label: "index.js", href: "frontend/index.js", detail: "memo 单入口逻辑" },
     { label: "index.css", href: "frontend/public/index.css", detail: "界面与编辑器样式" },
     { label: "main.go", href: "main.go", detail: "Velo 后端入口" },
-    { label: "app-config.json", href: "app-config.json", detail: "应用配置" },
+    { label: "velo.json", href: "velo.json", detail: "Velo 应用配置" },
     { label: "vim.js", href: "frontend/public/vim.js", detail: "Vim 模式插件" },
     {
       label: "prosemirror-editor.umd.js",

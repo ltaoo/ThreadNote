@@ -11,10 +11,10 @@ import (
 //go:embed frontend
 var frontendFS embed.FS
 
-//go:embed app-config.json
+//go:embed velo.json
 var appConfigData []byte
 
-//go:embed assets/appicon.png
+//go:embed assets/threadnote-logo.png
 var appIcon []byte
 
 var Version = "1.0.0"

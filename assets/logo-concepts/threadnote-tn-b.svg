@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadNote TN monogram, shared stem</title>
+  <desc id="desc">An interlocked charcoal T and N sharing one stem with an amber diagonal on a white macOS squircle.</desc>
+  <path d="M512 64C278 64 196 64 125 125S64 278 64 512s0 316 61 387 153 61 387 61 316 0 387-61 61-153 61-387 0-316-61-387S746 64 512 64Z" fill="#FFFFFF"/>
+  <path d="M204 284h360v96H438v360H332V380H204V284Z" fill="#1D1D1F"/>
+  <path d="M438 284h92v456h-92V284ZM728 284h92v456h-92V284Z" fill="#1D1D1F"/>
+  <path d="M506 284h92l222 456h-92L506 284Z" fill="#FFB020"/>
+</svg>

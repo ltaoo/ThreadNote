@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadNote minimal stitched notebook</title>
+  <desc id="desc">A bold charcoal notebook with three small amber stitches on a white macOS squircle.</desc>
+  <path d="M512 64C278 64 196 64 125 125S64 278 64 512s0 316 61 387 153 61 387 61 316 0 387-61 61-153 61-387 0-316-61-387S746 64 512 64Z" fill="#FFFFFF"/>
+  <path d="M300 232h424c31 0 56 25 56 56v448c0 31-25 56-56 56H300c-31 0-56-25-56-56V288c0-31 25-56 56-56Z" fill="#1D1D1F"/>
+  <path d="M390 304h318v416H390V304Z" fill="#FFFFFF"/>
+  <rect x="314" y="350" width="42" height="42" rx="10" fill="#FFB020"/>
+  <rect x="314" y="491" width="42" height="42" rx="10" fill="#FFB020"/>
+  <rect x="314" y="632" width="42" height="42" rx="10" fill="#FFB020"/>
+</svg>

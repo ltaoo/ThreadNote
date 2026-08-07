@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadNote TN monogram, angular</title>
+  <desc id="desc">A compact angular charcoal TN monogram with a small amber notch on a white macOS squircle.</desc>
+  <path d="M512 64C278 64 196 64 125 125S64 278 64 512s0 316 61 387 153 61 387 61 316 0 387-61 61-153 61-387 0-316-61-387S746 64 512 64Z" fill="#FFFFFF"/>
+  <path d="M210 284h320l-18 96h-101l-62 360H247l62-360h-117l18-96Z" fill="#FFB020" transform="translate(40)"/>
+  <path d="M514 740l78-456h94l71 272 46-272h99l-78 456h-92l-73-276-47 276h-98Z" fill="#1D1D1F" transform="translate(-125)"/>
+</svg>

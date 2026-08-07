@@ -1,0 +1,9 @@
+# Velo-generated build configuration
+.build/
+
+# Legacy Velo <= 1.0.0 compatibility assets
+build/
+
+# Release artifacts
+dist/
+*.syso

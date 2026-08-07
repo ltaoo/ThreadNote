@@ -119,11 +119,35 @@ go build -ldflags "-X main.Version=1.0.0 -X main.Mode=release" -o ThreadNote .
 使用与项目依赖匹配的 Velo CLI 生成平台包：
 
 ```bash
-go install github.com/ltaoo/velo/cmd/velo@v1.0.0
+go install github.com/ltaoo/velo/cmd/velo@v1.0.1
 velo build
 ```
 
-`velo build` 会读取根目录的 `app-config.json`，生成图标、平台配置和发布产物。正式发布前请确认包名、签名、更新源和厂商信息符合实际发布环境。
+`velo build` 会读取根目录的 `velo.json`，以 `assets/` 中的源素材生成平台配置和发布产物。其中 `.build/` 与 `dist/` 均为可再生目录，不纳入版本控制；`build/` 仅作为 Velo 1.0.0 及更早版本的遗留目录继续忽略。正式发布前请确认包名、签名、更新源和厂商信息符合实际发布环境。
+
+## 自动发布
+
+推送符合 `v1.2.3` 或 `v1.2.3-beta.1` 格式的标签后，
+[GitHub Actions](.github/workflows/release.yml) 会自动运行测试、构建当前可用平台的产物并创建 GitHub Release：
+
+- macOS：arm64 / amd64 DMG
+- Windows：amd64 ZIP（包含 `WebView2Loader.dll`）
+- 全部产物的 `checksums.txt`
+
+Velo 当前的 Linux WebView 仍是占位实现，因此工作流暂不发布不可运行的 Linux 桌面包；
+上游补齐 Linux WebView 后再恢复 Linux 构建任务。
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+macOS 签名与公证是可选的。需要启用时，在仓库 Actions Secrets 中完整配置：
+`APPLE_ID`、`APPLE_TEAM_ID`、`MAC_CERT_IDENTITY`、`MAC_CERT_P12_BASE64`、`MAC_CERT_PASSWORD`、
+`APPLE_API_KEY_P8_BASE64`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER_ID`。
+未完整配置时仍会生成未签名的 DMG。
+
+工作流使用 Velo v1.0.1；应先发布 Velo v1.0.1，再为本项目推送应用版本标签。
 
 ## Vault 数据结构
 
@@ -210,15 +234,16 @@ go run ./cmd/webhook-server
 ```text
 .
 ├── main.go                    # 应用入口与资源嵌入
-├── app-config.json            # Velo 构建、平台和更新配置
+├── velo.json                  # Velo 构建、平台和更新配置
 ├── internal/desktopapp/       # 桌面应用、领域逻辑和 Bridge API
 ├── internal/clientsdk/        # ACP/JSON-RPC/NDJSON 客户端
 ├── frontend/                  # 页面、领域模块和静态运行时资源
 ├── cmd/webhook-server/        # Webhook 调试接收器
 ├── assets/                    # 应用图标与安装包素材
-├── docs/                      # 使用与集成文档
-└── .build/                    # Velo/GoReleaser 生成配置
+└── docs/                      # 使用与集成文档
 ```
+
+构建时会按需生成 `.build/`（平台配置和图标）与 `dist/`（发布产物）；这些目录均已由 `.gitignore` 排除。
 
 进一步阅读：
 
@@ -235,4 +260,4 @@ go run ./cmd/webhook-server
 - Vault 是用户数据边界；不要把临时文件、构建产物或机器相关绝对路径写入 Vault 数据。
 - 私密 Memo/任务在锁定时会通过 Bridge API 脱敏，但 Vault 文件本身不是全盘加密。PIN 使用 bcrypt 哈希保存，不应把该功能描述为磁盘加密。
 - S3 凭据、Webhook 地址、自动更新源和本机 API 暴露范围都应在发布前完成安全审查。
-- `app-config.json` 中的更新地址目前使用 HTTP；生产发布建议改为受信任的 HTTPS 更新源并启用校验。
+- `velo.json` 使用当前 GitHub 仓库的 Release 作为更新源，并要求 SHA-256 校验。

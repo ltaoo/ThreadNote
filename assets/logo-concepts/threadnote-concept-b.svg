@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadNote open notebook logo</title>
+  <desc id="desc">A white macOS-style squircle containing a compact open indigo notebook with an amber bookmark.</desc>
+  <path
+    d="M512 52C261 52 187 52 119 119S52 261 52 512s0 325 67 393 142 67 393 67 325 0 393-67 67-142 67-393 0-325-67-393S763 52 512 52Z"
+    fill="#FFFFFF"
+    stroke="#4F46E5"
+    stroke-width="24"
+  />
+  <path
+    d="M190 298c0-34 28-62 62-62h202c24 0 45 11 58 28 13-17 34-28 58-28h202c34 0 62 28 62 62v438c0 28-23 50-50 50H586c-28 0-53 12-74 31-21-19-46-31-74-31H240c-28 0-50-23-50-50V298Z"
+    fill="#4F46E5"
+  />
+  <path
+    d="M250 294h188c24 0 44 20 44 44v378c-15-7-31-10-48-10H250V294ZM774 294H586c-24 0-44 20-44 44v378c15-7 31-10 48-10h184V294Z"
+    fill="#FFFFFF"
+  />
+  <path d="M486 292h52v340l-26-23-26 23V292Z" fill="#FFB020" />
+  <path d="M298 404h126M298 486h126M600 404h126M600 486h126" fill="none" stroke="#4F46E5" stroke-linecap="round" stroke-width="26" />
+</svg>

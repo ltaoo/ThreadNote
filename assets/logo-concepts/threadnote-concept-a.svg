@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadNote hardcover notebook logo</title>
+  <desc id="desc">A white macOS-style squircle containing an indigo notebook with an amber folded page corner.</desc>
+  <path
+    d="M512 52C261 52 187 52 119 119S52 261 52 512s0 325 67 393 142 67 393 67 325 0 393-67 67-142 67-393 0-325-67-393S763 52 512 52Z"
+    fill="#FFFFFF"
+    stroke="#4F46E5"
+    stroke-width="24"
+  />
+  <rect x="250" y="206" width="524" height="612" rx="76" fill="#4F46E5" />
+  <path
+    d="M366 266h286l62 62v410c0 15-12 26-26 26H366V266Z"
+    fill="#FFFFFF"
+  />
+  <path d="M652 266v62h62l-62-62Z" fill="#FFB020" />
+  <rect x="302" y="286" width="24" height="452" rx="12" fill="#FFFFFF" />
+  <circle cx="314" cy="342" r="19" fill="#FFB020" />
+  <circle cx="314" cy="492" r="19" fill="#FFB020" />
+  <circle cx="314" cy="642" r="19" fill="#FFB020" />
+  <path d="M430 420h210M430 510h210M430 600h150" fill="none" stroke="#4F46E5" stroke-linecap="round" stroke-width="28" />
+</svg>

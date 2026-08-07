@@ -2,8 +2,8 @@
   "RT_GROUP_ICON": {
     "APP": {
       "0000": [
-        "appicon.png",
-        "appicon.png"
+        "threadnote-logo.png",
+        "threadnote-logo.png"
       ]
     }
   },
@@ -16,13 +16,13 @@
         },
         "info": {
           "0409": {
-            "CompanyName": "Example Inc",
-            "FileDescription": "My Application Desktop Client",
+            "CompanyName": "ThreadNote",
+            "FileDescription": "ThreadNote Desktop",
             "FileVersion": "1.0.0",
-            "InternalName": "MyApp",
-            "LegalCopyright": "Copyright © 2024 Example Inc",
-            "OriginalFilename": "MyApp.exe",
-            "ProductName": "My Application",
+            "InternalName": "ThreadNote",
+            "LegalCopyright": "Copyright © 2024 ThreadNote",
+            "OriginalFilename": "ThreadNote.exe",
+            "ProductName": "ThreadNote",
             "ProductVersion": "1.0.0"
           }
         }
@@ -32,11 +32,11 @@
   "RT_MANIFEST": {
     "#1": {
       "0409": {
-        "description": "My Application Desktop Client",
+        "description": "ThreadNote Desktop",
         "dpi-awareness": "system",
         "execution-level": "as invoker",
         "identity": {
-          "name": "MyApp",
+          "name": "ThreadNote",
           "version": "1.0.0.0"
         },
         "long-path-aware": "true",

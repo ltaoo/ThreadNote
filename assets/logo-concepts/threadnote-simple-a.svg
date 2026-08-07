@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadNote minimal closed notebook</title>
+  <desc id="desc">A bold charcoal notebook with a small amber folded corner on a white macOS squircle.</desc>
+  <path d="M512 64C278 64 196 64 125 125S64 278 64 512s0 316 61 387 153 61 387 61 316 0 387-61 61-153 61-387 0-316-61-387S746 64 512 64Z" fill="#FFFFFF"/>
+  <path d="M312 238h336l112 112v390c0 29-23 52-52 52H312c-29 0-52-23-52-52V290c0-29 23-52 52-52Z" fill="#1D1D1F"/>
+  <path d="M384 310h232l72 72v338H384V310Z" fill="#FFFFFF"/>
+  <path d="M616 310v72h72l-72-72Z" fill="#FFB020"/>
+</svg>

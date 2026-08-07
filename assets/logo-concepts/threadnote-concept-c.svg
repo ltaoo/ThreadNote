@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadNote stitched notebook logo</title>
+  <desc id="desc">A white macOS-style squircle containing an indigo notebook bound by a single amber thread.</desc>
+  <path
+    d="M512 52C261 52 187 52 119 119S52 261 52 512s0 325 67 393 142 67 393 67 325 0 393-67 67-142 67-393 0-325-67-393S763 52 512 52Z"
+    fill="#FFFFFF"
+    stroke="#4F46E5"
+    stroke-width="24"
+  />
+  <rect x="246" y="204" width="532" height="616" rx="78" fill="#4F46E5" />
+  <rect x="330" y="256" width="390" height="512" rx="42" fill="#FFFFFF" />
+  <path d="M330 256v512" fill="none" stroke="#FFB020" stroke-width="34" />
+  <path d="M286 334h88M286 454h88M286 574h88M286 694h88" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-width="24" />
+  <circle cx="330" cy="334" r="15" fill="#FFB020" />
+  <circle cx="330" cy="454" r="15" fill="#FFB020" />
+  <circle cx="330" cy="574" r="15" fill="#FFB020" />
+  <circle cx="330" cy="694" r="15" fill="#FFB020" />
+  <path d="M416 390h218M416 482h218M416 574h154" fill="none" stroke="#4F46E5" stroke-linecap="round" stroke-width="28" />
+</svg>

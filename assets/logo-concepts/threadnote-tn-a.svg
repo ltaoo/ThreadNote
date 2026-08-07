@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadNote TN monogram, split diagonal</title>
+  <desc id="desc">A bold charcoal T and N with an amber diagonal on a white macOS squircle.</desc>
+  <path d="M512 64C278 64 196 64 125 125S64 278 64 512s0 316 61 387 153 61 387 61 316 0 387-61 61-153 61-387 0-316-61-387S746 64 512 64Z" fill="#FFFFFF"/>
+  <path d="M206 284h310v96H409v360H303V380h-97V284Z" fill="#1D1D1F"/>
+  <path d="M520 284h90v456h-90V284ZM728 284h90v456h-90V284Z" fill="#1D1D1F"/>
+  <path d="M610 284h91l117 456h-91L610 284Z" fill="#FFB020"/>
+</svg>

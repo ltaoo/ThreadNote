@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=MyApp
-Name[zh_CN]=MyApp
-Comment=A desktop application built with Velo
-Comment[zh_CN]=A desktop application built with Velo
-Exec=MyApp
-Icon=appicon
+Name=ThreadNote
+Name[zh_CN]=ThreadNote
+Comment=A local-first workspace for Markdown notes, tasks, and project knowledge
+Comment[zh_CN]=A local-first workspace for Markdown notes, tasks, and project knowledge
+Exec=ThreadNote
+Icon=threadnote-logo
 Terminal=false
-Categories=Utility;
-Keywords=app;velo;
+Categories=Office;Utility;
+Keywords=threadnote;notes;memo;markdown;tasks;productivity;
 StartupNotify=true

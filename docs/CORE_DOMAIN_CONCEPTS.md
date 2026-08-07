@@ -356,7 +356,7 @@ Detached Memo Window 是独立 memo 窗口。前端请求 `/api/memo-window/open
 
 Update 是桌面应用级能力，不属于 memo 领域，但属于项目核心基础设施。
 
-更新配置来自 `app-config.json` 的 `update` 字段。后端暴露：
+更新配置来自 `velo.json` 的 `update` 字段。后端暴露：
 
 - `/api/update/check`
 - `/api/update/download`
