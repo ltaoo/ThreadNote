@@ -1,0 +1,16 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "Frontend application",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint index.js",
+    "lint:fix": "eslint index.js --fix"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0"
+  },
+  "dependencies": {
+    "lunar-javascript": "^1.7.7"
+  }
+}

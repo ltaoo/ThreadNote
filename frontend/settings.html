@@ -1,0 +1,3485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>设置</title>
+  <script>
+    !function () {
+      try {
+        var root = document.documentElement;
+        var saved = localStorage.getItem("theme");
+        if (saved === "system" || !saved) {
+          var media = window.matchMedia("(prefers-color-scheme: dark)");
+          var theme = media.media !== "(prefers-color-scheme: dark)" || media.matches ? "dark" : "light";
+          root.style.colorScheme = theme;
+          root.setAttribute("data-theme", theme);
+        } else {
+          root.style.colorScheme = saved;
+          root.setAttribute("data-theme", saved);
+        }
+      } catch (_) { }
+    }();
+  </script>
+  <script src="/public/input-policy.js" defer></script>
+  <script type="module" src="/src/window-state.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --background: #ededed;
+      --BG-0: #ffffff;
+      --BG-1: #f7f7f7;
+      --BG-2: #ffffff;
+      --BG-3: #f0f2f1;
+      --FG-0: rgba(0, 0, 0, 0.9);
+      --FG-1: rgba(0, 0, 0, 0.58);
+      --FG-2: rgba(0, 0, 0, 0.34);
+      --border: #dedede;
+      --accent: #0f9f6e;
+      --accent-strong: #08784f;
+      --accent-soft: rgba(15, 159, 110, 0.12);
+      --danger: #c93a32;
+      --danger-soft: rgba(201, 58, 50, 0.1);
+      --font-root: 14px;
+      --font-xs: 0.8571rem;
+      --font-sm: 0.9286rem;
+      --font-md: 1rem;
+      --font-body: 1rem;
+      --font-2xl: 1.2857rem;
+      --font-3xl: 1.4286rem;
+      --font-title: 1.5714rem;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --background: #111111;
+      --BG-0: #151515;
+      --BG-1: #1d1d1d;
+      --BG-2: #191919;
+      --BG-3: #242424;
+      --FG-0: rgba(255, 255, 255, 0.86);
+      --FG-1: rgba(255, 255, 255, 0.56);
+      --FG-2: rgba(255, 255, 255, 0.34);
+      --border: rgba(255, 255, 255, 0.11);
+      --accent: #20b883;
+      --accent-strong: #7ee0bd;
+      --accent-soft: rgba(32, 184, 131, 0.15);
+      --danger: #ff746c;
+      --danger-soft: rgba(255, 116, 108, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      overscroll-behavior: none;
+    }
+
+    html {
+      font-size: var(--font-root);
+    }
+
+    body {
+      background: var(--background);
+      color: var(--FG-0);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: var(--font-body);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .settings-shell {
+      background: var(--BG-0);
+      display: grid;
+      grid-template-columns: 176px minmax(0, 1fr);
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .settings-sidebar {
+      background: var(--BG-1);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: 18px 14px;
+    }
+
+    .settings-brand {
+      margin-bottom: 18px;
+    }
+
+    .settings-title {
+      font-size: var(--font-2xl);
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .settings-subtitle {
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+      margin-top: 4px;
+    }
+
+    .settings-nav {
+      display: grid;
+      gap: 6px;
+    }
+
+    .settings-nav-button {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      border-radius: 6px;
+      color: var(--FG-1);
+      display: inline-flex;
+      gap: 8px;
+      height: 36px;
+      justify-content: flex-start;
+      padding: 0 10px;
+      text-align: left;
+      width: 100%;
+    }
+
+    .settings-nav-button.is-active,
+    .settings-nav-button:hover {
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+    }
+
+    .settings-nav-button svg,
+    .settings-section-icon svg,
+    .setting-status svg {
+      display: inline-block;
+      fill: none;
+      height: 16px;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2;
+      width: 16px;
+    }
+
+    .settings-main {
+      min-height: 0;
+      min-width: 0;
+      overflow: auto;
+      padding: 24px;
+    }
+
+    .settings-header {
+      align-items: flex-start;
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .settings-header h1 {
+      font-size: var(--font-title);
+      line-height: 1.2;
+      margin: 0;
+    }
+
+    .settings-header p {
+      color: var(--FG-1);
+      font-size: var(--font-md);
+      margin: 5px 0 0;
+    }
+
+    .setting-status {
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--FG-1);
+      display: inline-flex;
+      flex: 0 0 auto;
+      gap: 6px;
+      min-height: 30px;
+      padding: 0 10px;
+      white-space: nowrap;
+    }
+
+    .setting-status.is-ready {
+      background: var(--accent-soft);
+      border-color: transparent;
+      color: var(--accent-strong);
+    }
+
+    .setting-status.is-warning {
+      background: var(--danger-soft);
+      border-color: transparent;
+      color: var(--danger);
+    }
+
+    .settings-form {
+      display: grid;
+      gap: 14px;
+      max-width: 960px;
+    }
+
+    .settings-panel[hidden] {
+      display: none;
+    }
+
+    .settings-section {
+      border-top: 1px solid var(--border);
+      display: grid;
+      gap: 12px;
+      padding-top: 16px;
+    }
+
+    .settings-section:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .settings-profile-head {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    .settings-profile-title {
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+      font-weight: 700;
+    }
+
+    .settings-storage-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .settings-storage-row {
+      align-items: stretch;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .settings-storage-item {
+      align-items: center;
+      background: var(--BG-1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--FG-0);
+      display: grid;
+      gap: 4px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      min-height: 48px;
+      padding: 8px 10px;
+      text-align: left;
+      width: 100%;
+    }
+
+    .settings-storage-manage {
+      align-items: center;
+      background: var(--BG-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--FG-0);
+      display: inline-flex;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 12px;
+      white-space: nowrap;
+    }
+
+    .settings-storage-manage:hover {
+      border-color: var(--accent);
+      color: var(--accent-strong);
+    }
+
+    .settings-storage-actions {
+      display: inline-grid;
+      gap: 8px;
+      grid-auto-flow: column;
+    }
+
+    .settings-storage-item.is-selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+
+    .settings-storage-item-main {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .settings-storage-item-name {
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-storage-item-meta {
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-storage-badge {
+      background: var(--accent-soft);
+      border-radius: 999px;
+      color: var(--accent-strong);
+      font-size: var(--font-sm);
+      font-weight: 700;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+
+    .settings-section-head {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+    }
+
+    .settings-section-title {
+      font-size: var(--font-body);
+      font-weight: 700;
+    }
+
+    .settings-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .settings-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .settings-field.is-wide {
+      grid-column: 1 / -1;
+    }
+
+    .settings-label-row {
+      align-items: center;
+      color: var(--FG-1);
+      display: flex;
+      font-size: var(--font-sm);
+      font-weight: 700;
+      justify-content: space-between;
+      min-height: 18px;
+    }
+
+    .settings-required {
+      color: var(--accent-strong);
+      font-weight: 700;
+    }
+
+    .settings-input,
+    .settings-select,
+    .settings-textarea {
+      background: var(--BG-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--FG-0);
+      min-height: 36px;
+      outline: 0;
+      padding: 0 10px;
+      width: 100%;
+    }
+
+    .settings-textarea {
+      line-height: 1.5;
+      min-height: 72px;
+      padding: 9px 10px;
+      resize: vertical;
+    }
+
+    .settings-input:focus,
+    .settings-select:focus,
+    .settings-textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .settings-secret {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .settings-checks {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .settings-shortcut-card .settings-checks {
+      grid-template-columns: repeat(2, minmax(86px, 1fr));
+      min-width: 190px;
+    }
+
+    .settings-check {
+      align-items: center;
+      background: var(--BG-1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--FG-0);
+      display: flex;
+      gap: 8px;
+      min-height: 38px;
+      padding: 0 10px;
+    }
+
+    .settings-check input {
+      accent-color: var(--accent);
+      height: 15px;
+      width: 15px;
+    }
+
+    .settings-actions {
+      align-items: center;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 2px;
+      padding-top: 16px;
+    }
+
+    .settings-button {
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: inline-flex;
+      gap: 8px;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 12px;
+      white-space: nowrap;
+    }
+
+    .settings-button.is-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .settings-button.is-secondary {
+      background: var(--BG-2);
+      color: var(--FG-0);
+    }
+
+    .settings-button.is-danger {
+      background: transparent;
+      color: var(--danger);
+      margin-right: auto;
+    }
+
+    .settings-button:hover {
+      filter: brightness(0.98);
+    }
+
+    .settings-button:disabled {
+      cursor: default;
+      opacity: 0.58;
+    }
+
+    .settings-message {
+      color: var(--FG-1);
+      flex: 1 1 220px;
+      font-size: var(--font-sm);
+      min-width: 0;
+    }
+
+    .settings-info-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .settings-info-row {
+      align-items: center;
+      background: var(--BG-1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 140px minmax(0, 1fr);
+      min-height: 42px;
+      padding: 8px 10px;
+    }
+
+    .settings-info-label {
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+      font-weight: 700;
+    }
+
+    .settings-info-value {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-update-panel {
+      display: grid;
+      gap: 10px;
+    }
+
+    .settings-update-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .settings-update-progress {
+      background: var(--BG-1);
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+    }
+
+    .settings-update-progress-bar {
+      background: var(--accent);
+      height: 100%;
+      transition: width 0.2s ease;
+      width: 0;
+    }
+
+    .settings-update-message,
+    .settings-update-current {
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+    }
+
+    .settings-update-release {
+      display: grid;
+      gap: 6px;
+    }
+
+    .settings-update-version {
+      color: var(--accent-strong);
+      font-weight: 700;
+    }
+
+    .settings-update-notes {
+      background: var(--BG-1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--FG-0);
+      line-height: 1.5;
+      max-height: 180px;
+      overflow: auto;
+      padding: 10px;
+      white-space: pre-wrap;
+    }
+
+    .settings-shortcut-card {
+      align-items: center;
+      background: var(--BG-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 14px;
+    }
+
+    .settings-shortcut-card.is-vertical {
+      align-items: stretch;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .settings-shortcut-title {
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .settings-shortcut-description {
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+
+    .settings-shortcut-input {
+      background: var(--BG-0);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--FG-0);
+      font-weight: 700;
+      height: 34px;
+      min-width: 136px;
+      padding: 0 10px;
+      text-align: center;
+    }
+
+    .settings-shortcut-input:focus {
+      border-color: var(--accent);
+      outline: 2px solid var(--accent-soft);
+    }
+
+    .settings-shortcut-actions {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .settings-editor-picker {
+      display: grid;
+      gap: 8px;
+      min-width: min(380px, 100%);
+    }
+
+    .settings-editor-current {
+      align-items: center;
+      background: var(--BG-0);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: grid;
+      gap: 3px;
+      min-height: 42px;
+      padding: 7px 10px;
+    }
+
+    .settings-editor-current-name {
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-editor-current-path {
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-editor-search {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .settings-editor-list {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: grid;
+      max-height: 220px;
+      min-height: 42px;
+      overflow: auto;
+    }
+
+    .settings-editor-item {
+      align-items: center;
+      background: var(--BG-0);
+      border: 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--FG-0);
+      display: grid;
+      gap: 4px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      min-height: 46px;
+      padding: 8px 10px;
+      text-align: left;
+      width: 100%;
+    }
+
+    .settings-editor-item:last-child {
+      border-bottom: 0;
+    }
+
+    .settings-editor-item:hover,
+    .settings-editor-item.is-selected {
+      background: var(--accent-soft);
+    }
+
+    .settings-editor-item-main {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .settings-editor-item-name {
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-editor-item-meta {
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-editor-item-badge {
+      background: var(--BG-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+      padding: 2px 7px;
+      white-space: nowrap;
+    }
+
+    .settings-editor-rules {
+      border-top: 1px solid var(--border);
+      display: grid;
+      gap: 8px;
+      margin-top: 4px;
+      padding-top: 10px;
+    }
+
+    .settings-editor-rules-title {
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+      font-weight: 700;
+    }
+
+    .settings-editor-rule-add {
+      align-items: end;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(88px, 130px) minmax(0, 1fr) auto;
+    }
+
+    .settings-editor-rule-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .settings-editor-rule {
+      align-items: center;
+      background: var(--BG-0);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(74px, 110px) minmax(0, 1fr) auto;
+      padding: 8px;
+    }
+
+    .settings-editor-rule-extension {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-weight: 700;
+    }
+
+    .settings-inputsource-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .settings-inputsource-rule {
+      align-items: center;
+      background: var(--BG-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(180px, 1fr) minmax(180px, 220px) auto auto;
+      padding: 10px;
+    }
+
+    .settings-inputsource-rule.is-warning {
+      border-color: var(--danger);
+    }
+
+    .settings-inputsource-rule-main {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .settings-inputsource-rule-title {
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-inputsource-rule-warning {
+      color: var(--danger);
+      font-size: var(--font-sm);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-inputsource-rule-meta {
+      color: var(--FG-1);
+      font-size: var(--font-sm);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-inputsource-add {
+      align-items: end;
+      display: grid;
+      gap: 8px;
+      grid-template-columns: minmax(160px, 1fr) minmax(140px, 180px) minmax(180px, 220px) auto;
+    }
+
+    @media (max-width: 620px) {
+      .settings-shell {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .settings-sidebar {
+        border-bottom: 1px solid var(--border);
+        border-right: 0;
+        padding: 14px;
+      }
+
+      .settings-brand {
+        margin-bottom: 10px;
+      }
+
+      .settings-main {
+        padding: 18px 14px;
+      }
+
+      .settings-header {
+        display: grid;
+      }
+
+      .settings-grid,
+      .settings-checks,
+      .settings-shortcut-card .settings-checks {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .settings-profile-head {
+        align-items: stretch;
+        display: grid;
+      }
+
+      .settings-actions {
+        justify-content: stretch;
+      }
+
+      .settings-storage-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .settings-storage-actions {
+        grid-auto-flow: row;
+      }
+
+      .settings-button {
+        flex: 1 1 auto;
+      }
+
+      .settings-info-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .settings-update-actions {
+        display: grid;
+      }
+
+      .settings-button.is-danger {
+        margin-right: 0;
+      }
+
+      .settings-shortcut-card {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .settings-shortcut-input {
+        width: 100%;
+      }
+
+      .settings-inputsource-rule,
+      .settings-inputsource-add,
+      .settings-editor-search,
+      .settings-editor-rule-add,
+      .settings-editor-rule {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="settings-shell">
+    <aside class="settings-sidebar" aria-label="设置菜单">
+      <div class="settings-brand">
+        <div class="settings-title">设置</div>
+        <div class="settings-subtitle">Demo Desktop</div>
+      </div>
+      <nav class="settings-nav" aria-label="设置分类">
+        <button class="settings-nav-button is-active" type="button" data-panel="cloud-storage">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 19H7a5 5 0 1 1 1-9.9 6 6 0 0 1 11.4 2.5A3.8 3.8 0 0 1 17.5 19z"></path></svg>
+          <span>云存储</span>
+        </button>
+        <button class="settings-nav-button" type="button" data-panel="shortcuts">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 9h.01"></path><path d="M11 9h.01"></path><path d="M15 9h.01"></path><path d="M7 13h10"></path></svg>
+          <span>键盘</span>
+        </button>
+        <button class="settings-nav-button" type="button" data-panel="input-source">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 8h.01"></path><path d="M11 8h.01"></path><path d="M15 8h.01"></path><path d="M7 12h10"></path><path d="M9 16h6"></path></svg>
+          <span>输入法</span>
+        </button>
+        <button class="settings-nav-button" type="button" data-panel="calendar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h18"></path><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path></svg>
+          <span>日历</span>
+        </button>
+        <button class="settings-nav-button" type="button" data-panel="webhook">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+          <span>Webhook</span>
+        </button>
+        <button class="settings-nav-button" type="button" data-panel="about">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 8h.01"></path></svg>
+          <span>关于</span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="settings-main">
+      <header class="settings-header">
+        <div>
+          <h1 data-settings-title>云存储</h1>
+          <p data-settings-subtitle>S3/OSS 兼容对象存储配置</p>
+        </div>
+        <div class="setting-status" data-config-status>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
+          <span data-config-status-text>未配置</span>
+        </div>
+      </header>
+
+      <div class="settings-form settings-panel" data-settings-panel="cloud-storage">
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">存储配置</div>
+            <span>
+              <button class="settings-button is-secondary" type="button" data-action="add-storage">新增远端</button>
+              <button class="settings-button is-secondary" type="button" data-action="add-local-storage">新增本地</button>
+            </span>
+          </div>
+          <div class="settings-storage-list" data-storage-list></div>
+        </section>
+
+        <div class="settings-actions">
+          <div class="settings-message" data-settings-message></div>
+        </div>
+      </div>
+
+      <div class="settings-form settings-panel" data-settings-panel="shortcuts" hidden>
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">编辑器</div>
+          </div>
+          <div class="settings-shortcut-card">
+            <div>
+              <div class="settings-shortcut-title">Vim 模式</div>
+              <div class="settings-shortcut-description">默认关闭，开启后 memo 编辑器启用 Vim 键位。</div>
+            </div>
+            <label class="settings-check">
+              <input type="checkbox" data-editor-vim-enabled />
+              <span>启用</span>
+            </label>
+          </div>
+          <div class="settings-shortcut-card is-vertical">
+            <div>
+              <div class="settings-shortcut-title">本地文件打开应用</div>
+              <div class="settings-shortcut-description">控制 memo 本地文件链接 hover 时的打开按钮和点击后使用的应用。</div>
+            </div>
+            <div class="settings-editor-picker">
+              <div class="settings-editor-current" data-editor-app-current></div>
+              <div class="settings-editor-search">
+                <input class="settings-input" data-editor-app-search placeholder="搜索本机应用或编辑器" />
+                <button class="settings-button is-secondary" type="button" data-action="editor-app-refresh">刷新</button>
+              </div>
+              <div class="settings-editor-list" data-editor-app-list></div>
+              <div class="settings-editor-rules">
+                <div class="settings-editor-rules-title">按后缀打开</div>
+                <div class="settings-editor-rule-add">
+                  <label class="settings-field">
+                    <span class="settings-label-row">后缀</span>
+                    <input class="settings-input" data-editor-rule-extension placeholder=".html, .htm" />
+                  </label>
+                  <label class="settings-field">
+                    <span class="settings-label-row">打开应用</span>
+                    <select class="settings-select" data-editor-rule-app></select>
+                  </label>
+                  <button class="settings-button is-primary" type="button" data-action="editor-rule-add">添加</button>
+                </div>
+                <div class="settings-editor-rule-list" data-editor-rule-list></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">Memo 搜索</div>
+          </div>
+          <div class="settings-shortcut-card">
+            <div>
+              <div class="settings-shortcut-title">搜索并分离打开 memo</div>
+              <div class="settings-shortcut-description">按快捷键打开 memo 搜索，回车或点击结果后使用分离窗口打开。</div>
+            </div>
+            <input class="settings-shortcut-input" data-shortcut-input="openMemoSearch" readonly aria-label="搜索 memo 快捷键" />
+          </div>
+          <div class="settings-shortcut-actions">
+            <label class="settings-check">
+              <input type="checkbox" data-shortcut-enabled="openMemoSearch" />
+              <span>启用快捷键</span>
+            </label>
+            <button class="settings-button is-secondary" type="button" data-action="reset-shortcut">恢复默认</button>
+          </div>
+        </section>
+
+        <div class="settings-actions">
+          <div class="settings-message" data-shortcut-message></div>
+        </div>
+      </div>
+
+      <div class="settings-form settings-panel" data-settings-panel="input-source" hidden>
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">锁定策略</div>
+          </div>
+          <div class="settings-shortcut-card">
+            <div>
+              <div class="settings-shortcut-title">按应用锁定输入法</div>
+              <div class="settings-shortcut-description">启用后，前台应用匹配规则时会切换并保持指定输入法；无规则时可回退到全局默认。</div>
+            </div>
+            <label class="settings-check">
+              <input type="checkbox" data-inputsource-enabled />
+              <span>启用</span>
+            </label>
+          </div>
+          <div class="settings-grid">
+            <label class="settings-field is-wide">
+              <span class="settings-label-row">全局默认输入法</span>
+              <select class="settings-select" data-inputsource-default></select>
+            </label>
+          </div>
+          <div class="settings-info-list">
+            <div class="settings-info-row">
+              <div class="settings-info-label">当前输入法</div>
+              <div class="settings-info-value" data-inputsource-current>读取中</div>
+            </div>
+            <div class="settings-info-row">
+              <div class="settings-info-label">前台应用</div>
+              <div class="settings-info-value" data-inputsource-frontmost>读取中</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">应用规则</div>
+            <span>
+              <button class="settings-button is-secondary" type="button" data-action="inputsource-refresh">刷新状态</button>
+              <button class="settings-button is-secondary" type="button" data-action="inputsource-add-current">添加当前应用</button>
+            </span>
+          </div>
+          <div class="settings-inputsource-add">
+            <label class="settings-field">
+              <span class="settings-label-row">App ID / 路径</span>
+              <input class="settings-input" data-inputsource-new-app-id placeholder="com.apple.Terminal 或 C:\\...\app.exe" />
+            </label>
+            <label class="settings-field">
+              <span class="settings-label-row">显示名称</span>
+              <input class="settings-input" data-inputsource-new-app-name placeholder="可选" />
+            </label>
+            <label class="settings-field">
+              <span class="settings-label-row">锁定输入法</span>
+              <select class="settings-select" data-inputsource-new-source></select>
+            </label>
+            <button class="settings-button is-primary" type="button" data-action="inputsource-add-rule">添加</button>
+          </div>
+          <div class="settings-inputsource-list" data-inputsource-rule-list></div>
+        </section>
+
+        <div class="settings-actions">
+          <div class="settings-message" data-inputsource-message></div>
+        </div>
+      </div>
+
+      <div class="settings-form settings-panel" data-settings-panel="calendar" hidden>
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">日历视图</div>
+          </div>
+          <div class="settings-shortcut-card">
+            <div>
+              <div class="settings-shortcut-title">每周起始日</div>
+              <div class="settings-shortcut-description">控制首页 memo 日历的星期栏顺序和月视图起始位置。</div>
+            </div>
+            <div class="settings-checks" role="radiogroup" aria-label="每周起始日">
+              <label class="settings-check">
+                <input type="radio" name="calendarWeekStart" value="monday" data-calendar-week-start />
+                <span>周一</span>
+              </label>
+              <label class="settings-check">
+                <input type="radio" name="calendarWeekStart" value="sunday" data-calendar-week-start />
+                <span>周日</span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <div class="settings-actions">
+          <div class="settings-message" data-calendar-message></div>
+        </div>
+      </div>
+
+      <div class="settings-form settings-panel" data-settings-panel="webhook" hidden>
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">Webhook 列表</div>
+            <button class="settings-button is-primary" type="button" data-action="add-hook">新增 Webhook</button>
+          </div>
+          <div class="settings-storage-list" data-hook-list></div>
+        </section>
+
+        <div class="settings-actions">
+          <div class="settings-message" data-hook-message></div>
+        </div>
+      </div>
+
+      <div class="settings-form settings-panel" data-settings-panel="about" hidden>
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">应用信息</div>
+          </div>
+          <div class="settings-info-list">
+            <div class="settings-info-row">
+              <div class="settings-info-label">应用版本</div>
+              <div class="settings-info-value" data-app-version>读取中</div>
+            </div>
+            <div class="settings-info-row">
+              <div class="settings-info-label">Velo 版本</div>
+              <div class="settings-info-value" data-velo-version>读取中</div>
+            </div>
+            <div class="settings-info-row">
+              <div class="settings-info-label">运行模式</div>
+              <div class="settings-info-value" data-app-mode>读取中</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">启动</div>
+          </div>
+          <div class="settings-shortcut-card">
+            <div>
+              <div class="settings-shortcut-title">开机自动启动</div>
+              <div class="settings-shortcut-description" data-autostart-detail>读取中</div>
+            </div>
+            <label class="settings-check">
+              <input type="checkbox" data-autostart-enabled />
+              <span>启用</span>
+            </label>
+          </div>
+          <div class="settings-actions">
+            <div class="settings-message" data-autostart-message></div>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">更新</div>
+          </div>
+          <div class="settings-update-panel">
+            <div class="settings-update-actions" data-update-actions></div>
+            <div class="settings-update-progress" data-update-progress hidden>
+              <div class="settings-update-progress-bar" data-update-progress-bar></div>
+            </div>
+            <div class="settings-update-message" data-update-message>可手动检查新版本</div>
+            <div class="settings-update-release" data-update-release></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      var STORAGE_KEY = "demo-desktop:settings:cloud-storage:v1";
+      var EDITOR_SETTINGS_KEY = "demo-desktop:settings:editor:v1";
+      var SHORTCUTS_KEY = "demo-desktop:settings:shortcuts:v1";
+      var INPUT_SOURCE_LOCK_KEY = "demo-desktop:settings:input-source-lock:v1";
+      var EDITOR_SETTINGS_API = "/api/settings/editor";
+      var EDITOR_SETTINGS_SAVE_API = "/api/settings/editor/save";
+      var EDITOR_APPS_API = "/api/editor/apps";
+      var INPUT_SOURCE_LOCK_API = "/api/settings/input-source-lock";
+      var INPUT_SOURCE_LOCK_SAVE_API = "/api/settings/input-source-lock/save";
+      var AUTOSTART_API = "/api/settings/autostart";
+      var AUTOSTART_SAVE_API = "/api/settings/autostart/save";
+      var STORAGE_API = "/api/settings/cloud-storage";
+      var STORAGE_SAVE_API = "/api/settings/cloud-storage/save";
+      var OPEN_WINDOW_API = "/api/open_window";
+      var HOOKS_API = "/api/hooks";
+      var HOOKS_CREATE_API = "/api/hooks/create";
+      var HOOKS_UPDATE_API = "/api/hooks/update";
+      var HOOKS_DELETE_API = "/api/hooks/delete";
+      var activePanel = initialPanel();
+      var navButtons = Array.prototype.slice.call(document.querySelectorAll(".settings-nav-button[data-panel]"));
+      var panels = Array.prototype.slice.call(document.querySelectorAll("[data-settings-panel]"));
+      var headerTitle = document.querySelector("[data-settings-title]");
+      var headerSubtitle = document.querySelector("[data-settings-subtitle]");
+      var storagePanel = document.querySelector('[data-settings-panel="cloud-storage"]');
+      var shortcutsPanel = document.querySelector('[data-settings-panel="shortcuts"]');
+      var inputSourcePanel = document.querySelector('[data-settings-panel="input-source"]');
+      var calendarPanel = document.querySelector('[data-settings-panel="calendar"]');
+      var aboutPanel = document.querySelector('[data-settings-panel="about"]');
+      var webhookPanel = document.querySelector('[data-settings-panel="webhook"]');
+      var hookList = document.querySelector("[data-hook-list]");
+      var hookMessage = document.querySelector("[data-hook-message]");
+      var hooks = [];
+      var editingHookId = "";
+      var message = document.querySelector("[data-settings-message]");
+      var shortcutInput = document.querySelector('[data-shortcut-input="openMemoSearch"]');
+      var shortcutEnabled = document.querySelector('[data-shortcut-enabled="openMemoSearch"]');
+      var shortcutMessage = document.querySelector("[data-shortcut-message]");
+      var editorVimEnabled = document.querySelector("[data-editor-vim-enabled]");
+      var editorAppCurrent = document.querySelector("[data-editor-app-current]");
+      var editorAppSearch = document.querySelector("[data-editor-app-search]");
+      var editorAppList = document.querySelector("[data-editor-app-list]");
+      var editorRuleExtension = document.querySelector("[data-editor-rule-extension]");
+      var editorRuleApp = document.querySelector("[data-editor-rule-app]");
+      var editorRuleList = document.querySelector("[data-editor-rule-list]");
+      var calendarWeekStartInputs = Array.prototype.slice.call(document.querySelectorAll("[data-calendar-week-start]"));
+      var calendarMessage = document.querySelector("[data-calendar-message]");
+      var inputSourceEnabled = document.querySelector("[data-inputsource-enabled]");
+      var inputSourceDefault = document.querySelector("[data-inputsource-default]");
+      var inputSourceCurrent = document.querySelector("[data-inputsource-current]");
+      var inputSourceFrontmost = document.querySelector("[data-inputsource-frontmost]");
+      var inputSourceNewAppID = document.querySelector("[data-inputsource-new-app-id]");
+      var inputSourceNewAppName = document.querySelector("[data-inputsource-new-app-name]");
+      var inputSourceNewSource = document.querySelector("[data-inputsource-new-source]");
+      var inputSourceRuleList = document.querySelector("[data-inputsource-rule-list]");
+      var inputSourceMessage = document.querySelector("[data-inputsource-message]");
+      var status = document.querySelector("[data-config-status]");
+      var statusText = document.querySelector("[data-config-status-text]");
+      var storageList = document.querySelector("[data-storage-list]");
+      var appVersion = document.querySelector("[data-app-version]");
+      var veloVersion = document.querySelector("[data-velo-version]");
+      var appMode = document.querySelector("[data-app-mode]");
+      var autoStartEnabled = document.querySelector("[data-autostart-enabled]");
+      var autoStartDetail = document.querySelector("[data-autostart-detail]");
+      var autoStartMessage = document.querySelector("[data-autostart-message]");
+      var updateActions = document.querySelector("[data-update-actions]");
+      var updateMessage = document.querySelector("[data-update-message]");
+      var updateProgress = document.querySelector("[data-update-progress]");
+      var updateProgressBar = document.querySelector("[data-update-progress-bar]");
+      var updateRelease = document.querySelector("[data-update-release]");
+      var appInfo = null;
+      var updateState = {
+        info: null,
+        message: "",
+        progress: 0,
+        status: "idle",
+      };
+      var windowSession = null;
+      var pendingSettingsSessionState = null;
+      var state = normalizeSettings(null);
+      var editorSettings = loadEditorSettings();
+      var editorApps = [];
+      var editorAppsLoaded = false;
+      var editorAppsLoading = false;
+      var editorAppSearchTimer = null;
+      var shortcuts = loadShortcutSettings();
+      var inputSourceLock = loadInputSourceLockSettings();
+      var inputSourceStatus = defaultInputSourceStatus();
+      var inputSourceStatusLoaded = false;
+      var autoStart = defaultAutoStartSettings();
+      var autoStartLoaded = false;
+      var autoStartSaving = false;
+      var INPUT_SOURCE_UNSUPPORTED_MESSAGE = "当前平台不支持输入法锁定，或无法读取系统输入源。";
+      var INPUT_SOURCE_MISSING_PREFIX = "当前设备缺少已保存的输入法";
+
+      initWindowSession();
+      render();
+      loadAppInfo();
+      loadHooks();
+      bindUpdateMessages();
+      loadEditorConfig().then(function (settings) {
+        editorSettings = normalizeEditorSettings(settings);
+        renderEditorSettings();
+        if (activePanel === "shortcuts") ensureEditorAppsLoaded();
+      }, function (err) {
+        setShortcutMessage("读取编辑器设置失败: " + errorMessage(err), "warning");
+      });
+      loadInputSourceLockConfig().then(function (payload) {
+        inputSourceLock = normalizeInputSourceLockSettings(payload.config);
+        inputSourceStatus = normalizeInputSourceStatus(payload.status);
+        inputSourceStatusLoaded = true;
+        render();
+      }, function (err) {
+        inputSourceStatusLoaded = true;
+        setInputSourceMessage("读取输入法设置失败: " + errorMessage(err), "warning");
+      });
+      loadConfig().then(function (settings) {
+        state = normalizeSettings(settings);
+        applySettingsSessionState();
+        render();
+      }, function (err) {
+        setMessage("读取配置失败: " + errorMessage(err), "warning");
+      });
+      loadAutoStartConfig().then(function (settings) {
+        autoStart = normalizeAutoStartSettings(settings);
+        autoStartLoaded = true;
+        renderAutoStart();
+      }, function (err) {
+        autoStartLoaded = true;
+        renderAutoStart();
+        setAutoStartMessage("读取开机启动设置失败: " + errorMessage(err), "warning");
+      });
+
+      document.querySelector(".settings-nav").addEventListener("click", function (event) {
+        var button = event.target.closest("[data-panel]");
+        if (!button) return;
+        setActivePanel(button.dataset.panel || "cloud-storage");
+      });
+
+      storagePanel.addEventListener("click", function (event) {
+        var action = event.target.closest("[data-action]");
+        if (!action) return;
+
+        if (action.dataset.action === "manage-storage") {
+          openStorageManager(action.dataset.storageId || "");
+          return;
+        }
+
+        if (action.dataset.action === "edit-storage") {
+          openStorageEditor(action.dataset.storageId || "", "");
+          return;
+        }
+
+        if (action.dataset.action === "add-storage") {
+          openStorageEditor("", "s3");
+          return;
+        }
+
+        if (action.dataset.action === "add-local-storage") {
+          openStorageEditor("", "local");
+          return;
+        }
+
+        if (action.dataset.action === "activate-storage") {
+          activateStorage(action.dataset.storageId || "");
+          return;
+        }
+      });
+
+      shortcutsPanel.addEventListener("click", function (event) {
+        var action = event.target.closest("[data-action]");
+        if (!action) return;
+        if (action.dataset.action === "reset-shortcut") {
+          shortcuts = defaultShortcutSettings();
+          saveShortcutSettings(shortcuts);
+          renderShortcuts();
+          setShortcutMessage("已恢复默认快捷键", "ready");
+          return;
+        }
+        if (action.dataset.action === "editor-app-refresh") {
+          loadEditorApps(editorAppSearch ? editorAppSearch.value : "", { force: true });
+          return;
+        }
+        if (action.dataset.action === "select-editor-app") {
+          selectEditorApp(action.dataset.editorAppId || "");
+          return;
+        }
+        if (action.dataset.action === "editor-rule-add") {
+          addEditorFileRule();
+          return;
+        }
+        if (action.dataset.action === "editor-rule-remove") {
+          removeEditorFileRule(action.dataset.extension || "");
+        }
+      });
+
+      shortcutsPanel.addEventListener("input", function (event) {
+        if (!event.target.matches("[data-editor-app-search]")) return;
+        if (editorAppSearchTimer) window.clearTimeout(editorAppSearchTimer);
+        editorAppSearchTimer = window.setTimeout(function () {
+          editorAppSearchTimer = null;
+          loadEditorApps(event.target.value || "", { force: true });
+        }, 180);
+      });
+
+      shortcutsPanel.addEventListener("change", function (event) {
+        if (event.target.matches("[data-editor-rule-app-select]")) {
+          updateEditorFileRule(event.target.dataset.extension || "", event.target.value || "");
+          return;
+        }
+
+        if (event.target.matches("[data-editor-vim-enabled]")) {
+          var previousEditorSettings = editorSettings;
+          editorSettings = normalizeEditorSettings(Object.assign({}, editorSettings, {
+            vimMode: Boolean(event.target.checked),
+          }));
+          renderEditorSettings();
+          setShortcutMessage("正在保存 Vim 模式设置...", "");
+          saveEditorSettings(editorSettings).then(function (saved) {
+            editorSettings = normalizeEditorSettings(saved || editorSettings);
+            renderEditorSettings();
+            setShortcutMessage(editorSettings.vimMode ? "已启用 Vim 模式" : "已关闭 Vim 模式", editorSettings.vimMode ? "ready" : "");
+          }, function (err) {
+            editorSettings = previousEditorSettings;
+            renderEditorSettings();
+            setShortcutMessage("保存 Vim 模式设置失败: " + errorMessage(err), "warning");
+          });
+          return;
+        }
+
+        if (!event.target.matches("[data-shortcut-enabled]")) return;
+        shortcuts.enabled = Boolean(event.target.checked);
+        saveShortcutSettings(shortcuts);
+        renderShortcuts();
+        setShortcutMessage(shortcuts.enabled ? "已启用快捷键" : "已停用快捷键", shortcuts.enabled ? "ready" : "");
+      });
+
+      calendarPanel.addEventListener("change", function (event) {
+        if (!event.target.matches("[data-calendar-week-start]")) return;
+        var previousEditorSettings = editorSettings;
+        editorSettings = normalizeEditorSettings(Object.assign({}, editorSettings, {
+          calendarWeekStart: event.target.value,
+        }));
+        renderEditorSettings();
+        setCalendarMessage("正在保存日历设置...", "");
+        saveEditorSettings(editorSettings).then(function (saved) {
+          editorSettings = normalizeEditorSettings(saved || editorSettings);
+          renderEditorSettings();
+          setCalendarMessage(editorSettings.calendarWeekStart === "sunday" ? "已设为从周日开始" : "已设为从周一开始", "ready");
+        }, function (err) {
+          editorSettings = previousEditorSettings;
+          renderEditorSettings();
+          setCalendarMessage("保存日历设置失败: " + errorMessage(err), "warning");
+        });
+      });
+
+      inputSourcePanel.addEventListener("click", function (event) {
+        var action = event.target.closest("[data-action]");
+        if (!action) return;
+        if (action.dataset.action === "inputsource-refresh") {
+          refreshInputSourceLockStatus();
+          return;
+        }
+        if (action.dataset.action === "inputsource-add-current") {
+          addCurrentInputSourceAppRule();
+          return;
+        }
+        if (action.dataset.action === "inputsource-add-rule") {
+          addManualInputSourceAppRule();
+          return;
+        }
+        if (action.dataset.action === "inputsource-remove-rule") {
+          removeInputSourceAppRule(action.dataset.appId || "");
+        }
+      });
+
+      inputSourcePanel.addEventListener("change", function (event) {
+        if (event.target.matches("[data-inputsource-enabled]")) {
+          inputSourceLock.enabled = Boolean(event.target.checked);
+          saveInputSourceLockWithMessage(inputSourceLock.enabled ? "已启用输入法锁定" : "已停用输入法锁定");
+          return;
+        }
+        if (event.target.matches("[data-inputsource-default]")) {
+          inputSourceLock.defaultSourceId = event.target.value || "";
+          saveInputSourceLockWithMessage("已更新全局默认输入法");
+          return;
+        }
+        if (event.target.matches("[data-inputsource-rule-enabled]")) {
+          updateInputSourceRule(event.target.dataset.appId || "", {
+            enabled: Boolean(event.target.checked),
+          });
+          return;
+        }
+        if (event.target.matches("[data-inputsource-rule-source]")) {
+          updateInputSourceRule(event.target.dataset.appId || "", {
+            sourceId: event.target.value || "",
+          });
+        }
+      });
+
+      shortcutInput.addEventListener("keydown", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var shortcut = shortcutFromEvent(event);
+        if (!shortcut) return;
+        shortcuts.openMemoSearch = shortcut;
+        shortcuts.enabled = true;
+        saveShortcutSettings(shortcuts);
+        renderShortcuts();
+        setShortcutMessage("已保存 " + shortcut, "ready");
+      });
+
+      webhookPanel.addEventListener("click", function (event) {
+        var action = event.target.closest("[data-action]");
+        if (!action) return;
+
+        if (action.dataset.action === "add-hook") {
+          editingHookId = "";
+          renderHookList();
+          return;
+        }
+
+        if (action.dataset.action === "edit-hook") {
+          editingHookId = action.dataset.hookId || "";
+          renderHookList();
+          return;
+        }
+
+        if (action.dataset.action === "delete-hook") {
+          var hookId = action.dataset.hookId || "";
+          if (!confirm("确定要删除这个 Webhook 吗？")) return;
+          setHookMessage("正在删除...", "");
+          callHookAPI(HOOKS_DELETE_API, { id: hookId }).then(function () {
+            setHookMessage("已删除", "ready");
+            loadHooks();
+          }, function (err) {
+            setHookMessage("删除失败: " + errorMessage(err), "warning");
+          });
+          return;
+        }
+
+        if (action.dataset.action === "save-hook") {
+          var form = event.target.closest("[data-hook-form]");
+          if (!form) return;
+          var nameInput = form.querySelector("[data-hook-name]");
+          var urlInput = form.querySelector("[data-hook-url]");
+          var checkboxes = Array.prototype.slice.call(form.querySelectorAll("[data-hook-event]:checked"));
+          var enabledInput = form.querySelector("[data-hook-enabled]");
+          var name = (nameInput && nameInput.value || "").trim();
+          var url = (urlInput && urlInput.value || "").trim();
+          var events = checkboxes.map(function (cb) { return cb.value; });
+          var enabled = enabledInput ? enabledInput.checked : true;
+
+          if (!name) { setHookMessage("请填写名称", "warning"); return; }
+          if (!url) { setHookMessage("请填写 URL", "warning"); return; }
+          if (!events.length) { setHookMessage("请至少选择一个事件", "warning"); return; }
+
+          var payload = { name: name, url: url, enabled: enabled, events: events };
+          var isNew = !editingHookId;
+          if (isNew) {
+            setHookMessage("正在创建...", "");
+            callHookAPI(HOOKS_CREATE_API, payload).then(function () {
+              editingHookId = "";
+              setHookMessage("已创建", "ready");
+              loadHooks();
+            }, function (err) {
+              setHookMessage("创建失败: " + errorMessage(err), "warning");
+            });
+          } else {
+            payload.id = editingHookId;
+            setHookMessage("正在保存...", "");
+            callHookAPI(HOOKS_UPDATE_API, payload).then(function () {
+              editingHookId = "";
+              setHookMessage("已保存", "ready");
+              loadHooks();
+            }, function (err) {
+              setHookMessage("保存失败: " + errorMessage(err), "warning");
+            });
+          }
+          return;
+        }
+
+        if (action.dataset.action === "cancel-hook-form") {
+          editingHookId = "";
+          renderHookList();
+          return;
+        }
+      });
+
+      webhookPanel.addEventListener("change", function (event) {
+        if (event.target.matches("[data-hook-toggle]")) {
+          var hookId = event.target.dataset.hookId || "";
+          var enabled = Boolean(event.target.checked);
+          callHookAPI(HOOKS_UPDATE_API, { id: hookId, enabled: enabled }).then(function () {
+            setHookMessage(enabled ? "已启用" : "已停用", enabled ? "ready" : "");
+            loadHooks();
+          }, function (err) {
+            setHookMessage("更新失败: " + errorMessage(err), "warning");
+            loadHooks();
+          });
+        }
+      });
+
+      aboutPanel.addEventListener("click", function (event) {
+        var action = event.target.closest("[data-action]");
+        if (!action) return;
+
+        if (action.dataset.action === "check-update") {
+          checkUpdate();
+          return;
+        }
+
+        if (action.dataset.action === "download-update") {
+          downloadUpdate();
+          return;
+        }
+
+        if (action.dataset.action === "apply-update") {
+          applyUpdate();
+        }
+      });
+
+      aboutPanel.addEventListener("change", function (event) {
+        if (!event.target.matches("[data-autostart-enabled]")) return;
+        setAutoStartEnabled(Boolean(event.target.checked));
+      });
+
+      window.addEventListener("focus", function () {
+        loadEditorConfig().then(function (settings) {
+          editorSettings = normalizeEditorSettings(settings);
+          renderEditorSettings();
+          if (activePanel === "shortcuts") ensureEditorAppsLoaded();
+        }, function (_) { });
+        shortcuts = loadShortcutSettings();
+        render();
+        loadInputSourceLockConfig().then(function (payload) {
+          inputSourceLock = normalizeInputSourceLockSettings(payload.config);
+          inputSourceStatus = normalizeInputSourceStatus(payload.status);
+          inputSourceStatusLoaded = true;
+          render();
+        }, function (_) {
+          inputSourceStatusLoaded = true;
+        });
+        loadConfig().then(function (settings) {
+          state = normalizeSettings(settings);
+          render();
+        }, function (_) { });
+        loadAutoStartConfig().then(function (settings) {
+          autoStart = normalizeAutoStartSettings(settings);
+          autoStartLoaded = true;
+          renderAutoStart();
+        }, function (_) {
+          autoStartLoaded = true;
+          renderAutoStart();
+        });
+        loadAppInfo();
+        loadHooks();
+      });
+
+      function activateStorage(storageId) {
+        var id = sanitizeStorageId(storageId);
+        if (!id || id === state.activeStorageId) return;
+        var exists = state.storages.some(function (storage) {
+          return storage.id === id;
+        });
+        if (!exists) return;
+        state.activeStorageId = id;
+        state.storages = state.storages.map(function (storage) {
+          return Object.assign({}, storage, {
+            enabled: storage.id === id,
+          });
+        });
+        render();
+        scheduleWindowSessionSnapshot();
+        setMessage("正在切换启用存储...", "");
+        saveConfig(state).then(function (saved) {
+          state = normalizeSettings(saved || state);
+          render();
+          setMessage("已启用 " + (activeStorage(state) || {}).name, "ready");
+        }, function (err) {
+          setMessage("启用失败: " + errorMessage(err), "warning");
+          return loadConfig().then(function (settings) {
+            state = normalizeSettings(settings);
+            render();
+          });
+        });
+      }
+
+      function loadConfig() {
+        if (canUseNativeStorage()) {
+          return callStorage(STORAGE_API, "GET").then(function (data) {
+            if (data && data.found && data.config) {
+              return normalizeSettings(data.config);
+            }
+            return normalizeSettings(loadLocalConfig());
+          }, function () {
+            return loadLocalConfig();
+          });
+        }
+        return Promise.resolve(loadLocalConfig());
+      }
+
+      function loadLocalConfig() {
+        try {
+          var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+          return normalizeSettings(saved);
+        } catch (_) {
+          return normalizeSettings(null);
+        }
+      }
+
+      function saveConfig(settings) {
+        var next = normalizeSettings(settings);
+        if (canUseNativeStorage()) {
+          return callStorage(STORAGE_SAVE_API, "POST", next).then(function (data) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            return data && data.config ? data.config : next;
+          });
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return Promise.resolve(next);
+      }
+
+      function callStorage(url, method, args) {
+        return invoke(url, { method: method, args: args }).then(function (resp) {
+          if (!resp || resp.code !== 0) {
+            throw new Error((resp && resp.msg) || "storage request failed");
+          }
+          return resp.data;
+        });
+      }
+
+      function canUseNativeStorage() {
+        return typeof invoke === "function";
+      }
+
+      function loadAppInfo() {
+        if (!canUseNativeStorage()) {
+          appInfo = {
+            mode: "browser",
+            velo: "不可用",
+            version: "不可用",
+          };
+          renderAbout();
+          return;
+        }
+        callStorage("/api/app", "GET").then(function (data) {
+          appInfo = data || {};
+          renderAbout();
+        }, function () {
+          appInfo = {
+            mode: "读取失败",
+            velo: "读取失败",
+            version: "读取失败",
+          };
+          renderAbout();
+        });
+      }
+
+      function loadAutoStartConfig() {
+        if (canUseNativeStorage()) {
+          return callStorage(AUTOSTART_API, "GET").then(function (data) {
+            return normalizeAutoStartSettings(data && data.config ? data.config : data);
+          });
+        }
+        return Promise.resolve(defaultAutoStartSettings());
+      }
+
+      function saveAutoStartSettings(value) {
+        var next = normalizeAutoStartSettings(value);
+        if (canUseNativeStorage()) {
+          return callStorage(AUTOSTART_SAVE_API, "POST", { enabled: next.enabled }).then(function (data) {
+            return normalizeAutoStartSettings(data && data.config ? data.config : next);
+          });
+        }
+        return Promise.reject(new Error("当前环境不支持开机启动设置"));
+      }
+
+      function setAutoStartEnabled(enabled) {
+        var previous = autoStart;
+        autoStart = normalizeAutoStartSettings(Object.assign({}, autoStart, {
+          enabled: enabled,
+        }));
+        autoStartSaving = true;
+        renderAutoStart();
+        setAutoStartMessage(enabled ? "正在开启开机自动启动..." : "正在关闭开机自动启动...", "");
+        saveAutoStartSettings(autoStart).then(function (saved) {
+          autoStart = normalizeAutoStartSettings(saved);
+          autoStartSaving = false;
+          autoStartLoaded = true;
+          renderAutoStart();
+          setAutoStartMessage(autoStart.enabled ? "已开启开机自动启动" : "已关闭开机自动启动", autoStart.enabled ? "ready" : "");
+        }, function (err) {
+          autoStart = previous;
+          autoStartSaving = false;
+          autoStartLoaded = true;
+          renderAutoStart();
+          setAutoStartMessage("保存失败: " + errorMessage(err), "warning");
+        });
+      }
+
+      function bindUpdateMessages() {
+        if (!window.onGoMessage) return;
+        window.onGoMessage(function (payload) {
+          if (!payload || payload.type !== "download_progress") return;
+          updateState.progress = Math.round(payload.percentage || 0);
+          var speed = payload.speed || 0;
+          var speedText = speed > 1048576
+            ? (speed / 1048576).toFixed(1) + " MB/s"
+            : (speed / 1024).toFixed(0) + " KB/s";
+          updateState.message = "正在下载更新... " + updateState.progress + "% (" + speedText + ")";
+          renderUpdate();
+        });
+      }
+
+      function checkUpdate() {
+        if (!canUseNativeStorage()) {
+          updateState.status = "idle";
+          updateState.message = "当前环境不支持检查更新";
+          renderUpdate();
+          return;
+        }
+        updateState.status = "checking";
+        updateState.message = "正在检查更新...";
+        updateState.info = null;
+        updateState.progress = 0;
+        renderUpdate();
+
+        callStorage("/api/update/check", "GET").then(function (data) {
+          if (data && data.hasUpdate) {
+            updateState.status = "checked";
+            updateState.info = data;
+            updateState.message = "发现新版本: " + data.version;
+          } else {
+            updateState.status = "idle";
+            updateState.message = "当前已是最新版本 (" + ((data && data.currentVersion) || "未知") + ")";
+          }
+          renderUpdate();
+        }, function (err) {
+          updateState.status = "idle";
+          updateState.message = "检查失败: " + errorMessage(err);
+          renderUpdate();
+        });
+      }
+
+      function downloadUpdate() {
+        if (!canUseNativeStorage()) {
+          updateState.status = "checked";
+          updateState.message = "当前环境不支持下载更新";
+          renderUpdate();
+          return;
+        }
+        updateState.status = "downloading";
+        updateState.progress = 0;
+        updateState.message = "正在下载更新... 0%";
+        renderUpdate();
+
+        callStorage("/api/update/download", "GET").then(function (data) {
+          if (data && data.success) {
+            updateState.progress = 100;
+            updateState.status = "downloaded";
+            updateState.message = "下载完成，可以应用更新";
+          } else {
+            updateState.status = "checked";
+            updateState.message = "下载失败: " + ((data && data.error) || "未知错误");
+          }
+          renderUpdate();
+        }, function (err) {
+          updateState.status = "checked";
+          updateState.message = "下载失败: " + errorMessage(err);
+          renderUpdate();
+        });
+      }
+
+      function applyUpdate() {
+        if (!canUseNativeStorage()) {
+          updateState.status = "downloaded";
+          updateState.message = "当前环境不支持应用更新";
+          renderUpdate();
+          return;
+        }
+        updateState.status = "applying";
+        updateState.message = "正在应用更新并重启...";
+        renderUpdate();
+
+        callStorage("/api/update/restart", "GET").then(function (data) {
+          if (!data || !data.success) {
+            updateState.status = "downloaded";
+            updateState.message = "应用失败: " + ((data && data.error) || "未知错误");
+            renderUpdate();
+          }
+        }, function (err) {
+          updateState.status = "downloaded";
+          updateState.message = "应用失败: " + errorMessage(err);
+          renderUpdate();
+        });
+      }
+
+      function render() {
+        renderShell();
+        renderStorageList();
+        renderEditorSettings();
+        renderInputSourceLock();
+        renderShortcuts();
+        renderHookList();
+        renderStatus(state);
+        renderAbout();
+        renderAutoStart();
+      }
+
+      function setActivePanel(panelName) {
+        activePanel = panelName === "about" || panelName === "shortcuts" || panelName === "input-source" || panelName === "calendar" || panelName === "webhook" ? panelName : "cloud-storage";
+        render();
+        if (activePanel === "shortcuts") ensureEditorAppsLoaded();
+        replacePanelQuery();
+        scheduleWindowSessionSnapshot();
+      }
+
+      function renderShell() {
+        var isAbout = activePanel === "about";
+        var isShortcuts = activePanel === "shortcuts";
+        var isInputSource = activePanel === "input-source";
+        var isCalendar = activePanel === "calendar";
+        var isWebhook = activePanel === "webhook";
+        navButtons.forEach(function (button) {
+          button.classList.toggle("is-active", button.dataset.panel === activePanel);
+        });
+        panels.forEach(function (panel) {
+          panel.hidden = panel.dataset.settingsPanel !== activePanel;
+        });
+        headerTitle.textContent = isAbout ? "关于" : isShortcuts ? "键盘" : isInputSource ? "输入法" : isCalendar ? "日历" : isWebhook ? "Webhook" : "云存储";
+        headerSubtitle.textContent = isAbout ? "版本信息与应用更新" : isShortcuts ? "编辑器模式、文件打开应用与快速入口" : isInputSource ? "按前台应用锁定键盘输入法" : isCalendar ? "周起始日与日历偏好" : isWebhook ? "事件通知与自动化集成" : "S3/OSS 兼容对象存储配置";
+        status.hidden = isAbout || isShortcuts || isInputSource || isCalendar || isWebhook;
+      }
+
+      function renderAbout() {
+        appVersion.textContent = appInfo && appInfo.version ? appInfo.version : "读取中";
+        veloVersion.textContent = appInfo && appInfo.velo ? appInfo.velo : "读取中";
+        appMode.textContent = appInfo && appInfo.mode ? appInfo.mode : "读取中";
+        renderUpdate();
+      }
+
+      function renderAutoStart() {
+        autoStart = normalizeAutoStartSettings(autoStart);
+        if (autoStartEnabled) {
+          autoStartEnabled.checked = autoStart.enabled;
+          autoStartEnabled.disabled = autoStartSaving || !autoStart.supported;
+        }
+        if (autoStartDetail) {
+          if (!canUseNativeStorage()) {
+            autoStartDetail.textContent = "仅桌面应用运行时可用。";
+          } else if (!autoStartLoaded) {
+            autoStartDetail.textContent = "正在读取系统开机启动状态。";
+          } else if (!autoStart.supported) {
+            autoStartDetail.textContent = "当前平台暂不支持开机自动启动。";
+          } else if (autoStart.enabled) {
+            autoStartDetail.textContent = (autoStart.appName || "应用") + " 会在登录后自动启动。";
+          } else {
+            autoStartDetail.textContent = (autoStart.appName || "应用") + " 不会在登录后自动启动。";
+          }
+        }
+      }
+
+      function renderUpdate() {
+        updateActions.innerHTML = updateActionsTemplate(updateState.status);
+        updateMessage.textContent = updateState.message || "可手动检查新版本";
+        updateProgress.hidden = updateState.status !== "downloading" && updateState.progress <= 0;
+        updateProgressBar.style.width = updateState.progress + "%";
+        updateRelease.innerHTML = updateState.info ? updateReleaseTemplate(updateState.info) : "";
+      }
+
+      function updateActionsTemplate(updateStatus) {
+        if (updateStatus === "checking") {
+          return '<button class="settings-button is-secondary" type="button" disabled>检查中...</button>';
+        }
+        if (updateStatus === "checked") {
+          return [
+            '<button class="settings-button is-secondary" type="button" data-action="check-update">重新检查</button>',
+            '<button class="settings-button is-primary" type="button" data-action="download-update">下载更新</button>',
+          ].join("");
+        }
+        if (updateStatus === "downloading") {
+          return '<button class="settings-button is-secondary" type="button" disabled>下载中...</button>';
+        }
+        if (updateStatus === "downloaded") {
+          return [
+            '<button class="settings-button is-secondary" type="button" data-action="check-update">重新检查</button>',
+            '<button class="settings-button is-primary" type="button" data-action="apply-update">应用更新并重启</button>',
+          ].join("");
+        }
+        if (updateStatus === "applying") {
+          return '<button class="settings-button is-secondary" type="button" disabled>应用中...</button>';
+        }
+        return '<button class="settings-button is-secondary" type="button" data-action="check-update">检查更新</button>';
+      }
+
+      function updateReleaseTemplate(info) {
+        return [
+          '<div class="settings-update-version">新版本 ' + escapeHTML(info.version || "") + '</div>',
+          '<div class="settings-update-current">当前版本 ' + escapeHTML(info.currentVersion || "") + '</div>',
+          '<div class="settings-update-notes">' + escapeHTML(info.releaseNotes || "暂无更新说明") + '</div>',
+        ].join("");
+      }
+
+      function initialPanel() {
+        try {
+          var params = new URLSearchParams(window.location.search || "");
+          if (params.get("panel") === "shortcuts") return "shortcuts";
+          if (params.get("panel") === "input-source") return "input-source";
+          if (params.get("panel") === "calendar") return "calendar";
+          if (params.get("panel") === "webhook") return "webhook";
+          return params.get("panel") === "about" ? "about" : "cloud-storage";
+        } catch (_) {
+          return "cloud-storage";
+        }
+      }
+
+      function replacePanelQuery() {
+        try {
+          var url = new URL(window.location.href);
+          if (activePanel === "about" || activePanel === "shortcuts" || activePanel === "input-source" || activePanel === "calendar" || activePanel === "webhook") {
+            url.searchParams.set("panel", activePanel);
+          } else {
+            url.searchParams.delete("panel");
+          }
+          window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+        } catch (_) { }
+      }
+
+      function initWindowSession() {
+        if (typeof window.registerWindowSession !== "function") {
+          window.setTimeout(initWindowSession, 40);
+          return;
+        }
+        windowSession = window.registerWindowSession({
+          entryPage: "settings.html",
+          getState: getSettingsSessionState,
+          restoreState: restoreSettingsSessionState,
+          title: "设置",
+        });
+      }
+
+      function getSettingsSessionState() {
+        return {
+          activeStorageId: state.activeStorageId || "",
+          panel: activePanel,
+        };
+      }
+
+      function restoreSettingsSessionState(sessionState) {
+        var saved = sessionState && typeof sessionState === "object" ? sessionState : {};
+        pendingSettingsSessionState = saved;
+        applySettingsSessionState();
+      }
+
+      function applySettingsSessionState() {
+        var saved = pendingSettingsSessionState || {};
+        if (saved.panel) {
+          activePanel = saved.panel === "about" || saved.panel === "shortcuts" || saved.panel === "input-source" || saved.panel === "calendar" || saved.panel === "webhook" ? saved.panel : "cloud-storage";
+          replacePanelQuery();
+        }
+        if (saved.activeStorageId && state.storages.some(function (storage) { return storage.id === saved.activeStorageId; })) {
+          state.activeStorageId = saved.activeStorageId;
+        }
+        render();
+      }
+
+      function scheduleWindowSessionSnapshot() {
+        if (windowSession && windowSession.scheduleSnapshot) {
+          windowSession.scheduleSnapshot();
+        }
+      }
+
+      function renderShortcuts() {
+        shortcuts = normalizeShortcutSettings(shortcuts);
+        if (shortcutInput) shortcutInput.value = shortcuts.openMemoSearch;
+        if (shortcutEnabled) shortcutEnabled.checked = shortcuts.enabled;
+      }
+
+      function renderEditorSettings() {
+        editorSettings = normalizeEditorSettings(editorSettings);
+        if (editorVimEnabled) editorVimEnabled.checked = editorSettings.vimMode;
+        calendarWeekStartInputs.forEach(function (input) {
+          input.checked = input.value === editorSettings.calendarWeekStart;
+        });
+        renderEditorAppPicker();
+      }
+
+      function renderEditorAppPicker() {
+        if (!editorAppCurrent || !editorAppList) return;
+        var selected = normalizeFileEditor(editorSettings.fileEditor);
+        editorAppCurrent.innerHTML = [
+          '<div class="settings-editor-current-name">' + escapeHTML(fileEditorLabel(selected)) + '</div>',
+          '<div class="settings-editor-current-path">' + escapeHTML(selected.path || selected.id || "默认") + '</div>',
+        ].join("");
+
+        if (editorAppsLoading) {
+          editorAppList.innerHTML = '<div class="settings-editor-item"><span class="settings-editor-item-main"><span class="settings-editor-item-name">正在读取本机应用...</span><span class="settings-editor-item-meta">请稍候</span></span></div>';
+          renderEditorFileRules();
+          return;
+        }
+        if (!editorApps.length) {
+          editorAppList.innerHTML = '<div class="settings-editor-item"><span class="settings-editor-item-main"><span class="settings-editor-item-name">暂无候选应用</span><span class="settings-editor-item-meta">可尝试搜索应用名称或点击刷新</span></span></div>';
+          renderEditorFileRules();
+          return;
+        }
+
+        editorAppList.innerHTML = editorApps.map(function (app) {
+          var isSelected = editorAppKey(app) === editorAppKey(selected);
+          return [
+            '<button class="settings-editor-item ' + (isSelected ? "is-selected" : "") + '" type="button" data-action="select-editor-app" data-editor-app-id="' + escapeAttr(app.id) + '">',
+            '<span class="settings-editor-item-main">',
+            '<span class="settings-editor-item-name">' + escapeHTML(fileEditorLabel(app)) + '</span>',
+            '<span class="settings-editor-item-meta">' + escapeHTML(app.path || app.id) + '</span>',
+            '</span>',
+            '<span class="settings-editor-item-badge">' + escapeHTML(app.supportsLine ? "支持行号" : (app.kind === "editor" ? "编辑器" : "App")) + '</span>',
+            '</button>',
+          ].join("");
+        }).join("");
+        renderEditorFileRules();
+      }
+
+      function renderEditorFileRules() {
+        if (editorRuleApp) {
+          editorRuleApp.innerHTML = editorAppOptions((editorRuleApp.value || "").trim());
+        }
+        if (!editorRuleList) return;
+        var rules = normalizeFileEditorRules(editorSettings.fileEditorRules);
+        if (!rules.length) {
+          editorRuleList.innerHTML = '<div class="settings-editor-rule"><span class="settings-editor-item-main"><span class="settings-editor-item-name">暂无后缀规则</span><span class="settings-editor-item-meta">例如添加 .mp4 并选择系统默认应用。</span></span></div>';
+          return;
+        }
+        editorRuleList.innerHTML = rules.map(function (rule) {
+          return [
+            '<div class="settings-editor-rule">',
+            '<span class="settings-editor-rule-extension">' + escapeHTML(rule.extension) + '</span>',
+            '<select class="settings-select" data-editor-rule-app-select data-extension="' + escapeAttr(rule.extension) + '">',
+            editorAppOptions(editorAppKey(rule.editor)),
+            '</select>',
+            '<button class="settings-button is-secondary" type="button" data-action="editor-rule-remove" data-extension="' + escapeAttr(rule.extension) + '">移除</button>',
+            '</div>',
+          ].join("");
+        }).join("");
+      }
+
+      function editorAppOptions(selectedKey) {
+        var selected = String(selectedKey || "");
+        var apps = editorAppCandidates();
+        return apps.map(function (app) {
+          var key = editorAppKey(app);
+          return '<option value="' + escapeAttr(key) + '"' + (key === selected ? " selected" : "") + '>' + escapeHTML(fileEditorLabel(app)) + '</option>';
+        }).join("");
+      }
+
+      function editorAppCandidates() {
+        var all = [];
+        defaultEditorApps().forEach(function (app) { all.push(app); });
+        editorApps.forEach(function (app) { all.push(app); });
+        all.push(normalizeEditorApp(editorSettings.fileEditor));
+        normalizeFileEditorRules(editorSettings.fileEditorRules).forEach(function (rule) {
+          all.push(normalizeEditorApp(rule.editor));
+        });
+        var seen = Object.create(null);
+        return all.filter(function (app) {
+          app = normalizeEditorApp(app);
+          var key = editorAppKey(app);
+          if (!key || seen[key]) return false;
+          seen[key] = true;
+          return true;
+        });
+      }
+
+      function ensureEditorAppsLoaded() {
+        if (editorAppsLoaded || editorAppsLoading) return;
+        loadEditorApps(editorAppSearch ? editorAppSearch.value : "");
+      }
+
+      function loadEditorApps(query, options) {
+        options = options || {};
+        if (!canUseNativeStorage()) {
+          editorApps = defaultEditorApps();
+          editorAppsLoaded = true;
+          editorAppsLoading = false;
+          renderEditorAppPicker();
+          return Promise.resolve(editorApps);
+        }
+        editorAppsLoading = true;
+        renderEditorAppPicker();
+        return callStorage(EDITOR_APPS_API + "?q=" + encodeURIComponent(String(query || "").trim()), "GET").then(function (data) {
+          editorApps = Array.isArray(data && data.apps) ? data.apps.map(normalizeEditorApp).filter(function (app) { return app.id; }) : [];
+          editorAppsLoaded = true;
+          editorAppsLoading = false;
+          renderEditorAppPicker();
+          if (options.force) setShortcutMessage(editorApps.length ? "已刷新本机应用列表" : "未找到匹配应用", editorApps.length ? "ready" : "warning");
+          return editorApps;
+        }, function (err) {
+          editorAppsLoading = false;
+          renderEditorAppPicker();
+          setShortcutMessage("读取本机应用失败: " + errorMessage(err), "warning");
+          return [];
+        });
+      }
+
+      function selectEditorApp(appId) {
+        var id = String(appId || "").trim();
+        var app = editorApps.find(function (item) {
+          return item.id === id;
+        });
+        if (!app) return;
+        var previousEditorSettings = editorSettings;
+        editorSettings = normalizeEditorSettings(Object.assign({}, editorSettings, {
+          fileEditor: app,
+        }));
+        renderEditorSettings();
+        setShortcutMessage("正在保存本地文件打开应用...", "");
+        saveEditorSettings(editorSettings).then(function (saved) {
+          editorSettings = normalizeEditorSettings(saved || editorSettings);
+          renderEditorSettings();
+          setShortcutMessage("已设为在 " + fileEditorLabel(editorSettings.fileEditor) + " 中打开", "ready");
+        }, function (err) {
+          editorSettings = previousEditorSettings;
+          renderEditorSettings();
+          setShortcutMessage("保存打开应用失败: " + errorMessage(err), "warning");
+        });
+      }
+
+      function addEditorFileRule() {
+        var extensions = normalizeFileExtensions(editorRuleExtension && editorRuleExtension.value);
+        if (!extensions.length) {
+          setShortcutMessage("请填写有效后缀，例如 .html, .htm", "warning");
+          return;
+        }
+        var editor = editorAppByKey(editorRuleApp && editorRuleApp.value);
+        if (!editor) {
+          setShortcutMessage("请选择打开应用", "warning");
+          return;
+        }
+        var previousEditorSettings = editorSettings;
+        var rules = normalizeFileEditorRules(editorSettings.fileEditorRules).filter(function (rule) {
+          return extensions.indexOf(rule.extension) === -1;
+        });
+        extensions.forEach(function (extension) {
+          rules.push({ extension: extension, editor: editor });
+        });
+        editorSettings = normalizeEditorSettings(Object.assign({}, editorSettings, {
+          fileEditorRules: rules,
+        }));
+        if (editorRuleExtension) editorRuleExtension.value = "";
+        renderEditorSettings();
+        setShortcutMessage("正在保存后缀规则...", "");
+        saveEditorSettings(editorSettings).then(function (saved) {
+          editorSettings = normalizeEditorSettings(saved || editorSettings);
+          renderEditorSettings();
+          setShortcutMessage("已保存 " + extensions.join(", ") + " 打开规则", "ready");
+        }, function (err) {
+          editorSettings = previousEditorSettings;
+          renderEditorSettings();
+          setShortcutMessage("保存后缀规则失败: " + errorMessage(err), "warning");
+        });
+      }
+
+      function updateEditorFileRule(extension, appKey) {
+        var normalizedExtension = normalizeFileExtension(extension);
+        var editor = editorAppByKey(appKey);
+        if (!normalizedExtension || !editor) return;
+        var previousEditorSettings = editorSettings;
+        var rules = normalizeFileEditorRules(editorSettings.fileEditorRules).map(function (rule) {
+          if (rule.extension !== normalizedExtension) return rule;
+          return { extension: normalizedExtension, editor: editor };
+        });
+        editorSettings = normalizeEditorSettings(Object.assign({}, editorSettings, {
+          fileEditorRules: rules,
+        }));
+        renderEditorSettings();
+        setShortcutMessage("正在保存后缀规则...", "");
+        saveEditorSettings(editorSettings).then(function (saved) {
+          editorSettings = normalizeEditorSettings(saved || editorSettings);
+          renderEditorSettings();
+          setShortcutMessage("已更新 " + normalizedExtension + " 打开规则", "ready");
+        }, function (err) {
+          editorSettings = previousEditorSettings;
+          renderEditorSettings();
+          setShortcutMessage("保存后缀规则失败: " + errorMessage(err), "warning");
+        });
+      }
+
+      function removeEditorFileRule(extension) {
+        var normalizedExtension = normalizeFileExtension(extension);
+        if (!normalizedExtension) return;
+        var previousEditorSettings = editorSettings;
+        editorSettings = normalizeEditorSettings(Object.assign({}, editorSettings, {
+          fileEditorRules: normalizeFileEditorRules(editorSettings.fileEditorRules).filter(function (rule) {
+            return rule.extension !== normalizedExtension;
+          }),
+        }));
+        renderEditorSettings();
+        setShortcutMessage("正在移除后缀规则...", "");
+        saveEditorSettings(editorSettings).then(function (saved) {
+          editorSettings = normalizeEditorSettings(saved || editorSettings);
+          renderEditorSettings();
+          setShortcutMessage("已移除 " + normalizedExtension + " 打开规则", "ready");
+        }, function (err) {
+          editorSettings = previousEditorSettings;
+          renderEditorSettings();
+          setShortcutMessage("移除后缀规则失败: " + errorMessage(err), "warning");
+        });
+      }
+
+      function editorAppByKey(key) {
+        var selected = String(key || "");
+        var apps = editorAppCandidates();
+        return apps.find(function (app) {
+          return editorAppKey(app) === selected;
+        }) || null;
+      }
+
+      function defaultEditorApps() {
+        return [normalizeEditorApp(defaultFileEditor()), normalizeEditorApp(noneFileEditor()), normalizeEditorApp(systemFileEditor()), normalizeEditorApp(browserFileEditor())];
+      }
+
+      function normalizeEditorApp(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        var app = normalizeFileEditor(raw);
+        return {
+          id: app.id,
+          name: app.name,
+          path: app.path,
+          kind: String(raw.kind || (raw.supportsLine ? "editor" : "app")),
+          available: raw.available !== false,
+          supportsLine: raw.supportsLine === true,
+        };
+      }
+
+      function editorAppKey(value) {
+        var app = normalizeFileEditor(value);
+        return [app.id || "", app.path || ""].join("\n");
+      }
+
+      function fileEditorLabel(value) {
+        return normalizeFileEditor(value).name || "编辑器";
+      }
+
+      function renderInputSourceLock() {
+        inputSourceLock = normalizeInputSourceLockSettings(inputSourceLock);
+        inputSourceStatus = normalizeInputSourceStatus(inputSourceStatus);
+        if (inputSourceEnabled) inputSourceEnabled.checked = inputSourceLock.enabled;
+        if (inputSourceDefault) {
+          inputSourceDefault.innerHTML = inputSourceOptions(inputSourceLock.defaultSourceId, true);
+          inputSourceDefault.disabled = !inputSourceStatus.supported;
+        }
+        if (inputSourceNewSource) {
+          inputSourceNewSource.innerHTML = inputSourceOptions(inputSourceNewSource.value || inputSourceLock.defaultSourceId, false);
+          inputSourceNewSource.disabled = !inputSourceStatus.supported || !inputSourceStatus.sources.length;
+        }
+        if (inputSourceCurrent) {
+          inputSourceCurrent.textContent = inputSourceStatus.current && inputSourceStatus.current.id
+            ? sourceLabel(inputSourceStatus.current)
+            : (inputSourceStatus.currentError || "不可用");
+        }
+        if (inputSourceFrontmost) {
+          var app = inputSourceStatus.frontmostApp || {};
+          inputSourceFrontmost.textContent = app.id ? ((app.name || app.id) + " · " + app.id) : (inputSourceStatus.frontmostError || "不可用");
+        }
+        renderInputSourceRuleList();
+        if (inputSourceStatusLoaded && !inputSourceStatus.supported) {
+          setInputSourceMessage(INPUT_SOURCE_UNSUPPORTED_MESSAGE, "warning");
+        } else if (inputSourceStatusLoaded && inputSourceMissingMessage()) {
+          setInputSourceMessage(inputSourceMissingMessage(), "warning");
+        } else if (inputSourceStatus.supported && inputSourceMessage && isManagedInputSourceMessage(inputSourceMessage.textContent)) {
+          setInputSourceMessage("", "");
+        }
+      }
+
+      function renderInputSourceRuleList() {
+        if (!inputSourceRuleList) return;
+        var rules = inputSourceLock.appRules || [];
+        if (!rules.length) {
+          inputSourceRuleList.innerHTML = '<div class="settings-storage-item"><span class="settings-storage-item-main"><span class="settings-storage-item-name">暂无应用规则</span><span class="settings-storage-item-meta">添加 App ID 后，该应用成为前台时会锁定到指定输入法。</span></span></div>';
+          return;
+        }
+        inputSourceRuleList.innerHTML = rules.map(function (rule) {
+          var appLabel = rule.appName || rule.appId;
+          var missingRule = missingInputSourceRuleForApp(rule.appId);
+          return [
+            '<div class="settings-inputsource-rule' + (missingRule ? ' is-warning' : '') + '">',
+            '<div class="settings-inputsource-rule-main">',
+            '<div class="settings-inputsource-rule-title">' + escapeHTML(appLabel) + '</div>',
+            '<div class="settings-inputsource-rule-meta">' + escapeHTML(rule.appId) + '</div>',
+            missingRule ? '<div class="settings-inputsource-rule-warning">本机缺少 ' + escapeHTML(missingRule.sourceId) + '，已跳过锁定</div>' : '',
+            '</div>',
+            '<select class="settings-select" data-inputsource-rule-source data-app-id="' + escapeAttr(rule.appId) + '">',
+            inputSourceOptions(rule.sourceId, false),
+            '</select>',
+            '<label class="settings-check">',
+            '<input type="checkbox" data-inputsource-rule-enabled data-app-id="' + escapeAttr(rule.appId) + '" ' + (rule.enabled ? "checked" : "") + ' />',
+            '<span>启用</span>',
+            '</label>',
+            '<button class="settings-button is-secondary" type="button" data-action="inputsource-remove-rule" data-app-id="' + escapeAttr(rule.appId) + '">移除</button>',
+            '</div>',
+          ].join("");
+        }).join("");
+      }
+
+      function inputSourceOptions(selectedID, includeNone) {
+        var selected = String(selectedID || "");
+        var options = [];
+        if (includeNone) {
+          options.push('<option value=""' + (selected ? "" : " selected") + '>不设置全局默认</option>');
+        }
+        inputSourceStatus.sources.forEach(function (source) {
+          var id = source.id || "";
+          options.push('<option value="' + escapeAttr(id) + '"' + (id === selected ? " selected" : "") + '>' + escapeHTML(sourceLabel(source)) + '</option>');
+        });
+        if (selected && !inputSourceStatus.sources.some(function (source) { return source.id === selected; })) {
+          options.push('<option value="' + escapeAttr(selected) + '" selected>' + escapeHTML(selected + "（未在当前列表中）") + '</option>');
+        }
+        return options.join("");
+      }
+
+      function sourceLabel(source) {
+        if (!source) return "";
+        var label = source.name || source.id || "";
+        if (source.language) label += " · " + source.language;
+        if (source.id && source.id !== source.name) label += " · " + source.id;
+        return label;
+      }
+
+      function inputSourceExists(sourceId) {
+        var id = String(sourceId || "").trim();
+        if (!id) return false;
+        return inputSourceStatus.sources.some(function (source) {
+          return source.id === id;
+        });
+      }
+
+      function missingInputSourceIDs() {
+        if (!inputSourceLock.enabled || !inputSourceStatus.supported) return [];
+        var explicit = uniqueStrings(inputSourceStatus.missingSourceIds || []);
+        if (explicit.length) return explicit;
+        var missing = [];
+        if (inputSourceLock.defaultSourceId && !inputSourceExists(inputSourceLock.defaultSourceId)) {
+          missing.push(inputSourceLock.defaultSourceId);
+        }
+        (inputSourceLock.appRules || []).forEach(function (rule) {
+          if (rule.enabled && rule.sourceId && !inputSourceExists(rule.sourceId)) {
+            missing.push(rule.sourceId);
+          }
+        });
+        return uniqueStrings(missing);
+      }
+
+      function missingDefaultInputSourceID() {
+        if (!inputSourceLock.enabled || !inputSourceStatus.supported) return "";
+        if (inputSourceStatus.missingDefaultSourceId) return inputSourceStatus.missingDefaultSourceId;
+        return inputSourceLock.defaultSourceId && !inputSourceExists(inputSourceLock.defaultSourceId) ? inputSourceLock.defaultSourceId : "";
+      }
+
+      function missingInputSourceRuleForApp(appId) {
+        if (!inputSourceLock.enabled || !inputSourceStatus.supported) return null;
+        var id = String(appId || "").trim();
+        if (!id) return null;
+        var explicit = (inputSourceStatus.missingAppRules || []).find(function (rule) {
+          return rule.appId === id;
+        });
+        if (explicit) return explicit;
+        var rule = (inputSourceLock.appRules || []).find(function (item) {
+          return item.appId === id;
+        });
+        if (!rule || !rule.enabled || !rule.sourceId || inputSourceExists(rule.sourceId)) return null;
+        return {
+          appId: rule.appId,
+          appName: rule.appName,
+          sourceId: rule.sourceId,
+        };
+      }
+
+      function inputSourceMissingMessage() {
+        var missingIDs = missingInputSourceIDs();
+        if (!missingIDs.length) return "";
+        var details = [];
+        var missingDefault = missingDefaultInputSourceID();
+        if (missingDefault) details.push("全局默认 " + missingDefault);
+        var missingRules = (inputSourceLock.appRules || []).map(function (rule) {
+          return missingInputSourceRuleForApp(rule.appId);
+        }).filter(Boolean);
+        if (missingRules.length) {
+          details.push("应用规则 " + missingRules.slice(0, 3).map(function (rule) {
+            return (rule.appName || rule.appId) + " -> " + rule.sourceId;
+          }).join("；"));
+        }
+        var suffix = details.length ? "（" + details.join("；") + "）" : "：" + missingIDs.join("、");
+        return INPUT_SOURCE_MISSING_PREFIX + suffix + "。缺失项已在本机跳过，不会锁定。";
+      }
+
+      function isManagedInputSourceMessage(text) {
+        return text === INPUT_SOURCE_UNSUPPORTED_MESSAGE || String(text || "").indexOf(INPUT_SOURCE_MISSING_PREFIX) === 0;
+      }
+
+      function loadInputSourceLockSettings() {
+        try {
+          return normalizeInputSourceLockSettings(JSON.parse(localStorage.getItem(INPUT_SOURCE_LOCK_KEY) || "null"));
+        } catch (_) {
+          return defaultInputSourceLockSettings();
+        }
+      }
+
+      function loadInputSourceLockConfig() {
+        if (canUseNativeStorage()) {
+          return callStorage(INPUT_SOURCE_LOCK_API, "GET").then(function (data) {
+            var config = normalizeInputSourceLockSettings(data && data.config);
+            localStorage.setItem(INPUT_SOURCE_LOCK_KEY, JSON.stringify(config));
+            return {
+              config: config,
+              status: normalizeInputSourceStatus(data && data.status),
+            };
+          });
+        }
+        return Promise.resolve({
+          config: loadInputSourceLockSettings(),
+          status: defaultInputSourceStatus(),
+        });
+      }
+
+      function saveInputSourceLockSettings(value) {
+        var next = normalizeInputSourceLockSettings(value);
+        if (canUseNativeStorage()) {
+          return callStorage(INPUT_SOURCE_LOCK_SAVE_API, "POST", next).then(function (data) {
+            var saved = normalizeInputSourceLockSettings(data && data.config ? data.config : next);
+            inputSourceStatus = normalizeInputSourceStatus(data && data.status);
+            localStorage.setItem(INPUT_SOURCE_LOCK_KEY, JSON.stringify(saved));
+            return saved;
+          });
+        }
+        localStorage.setItem(INPUT_SOURCE_LOCK_KEY, JSON.stringify(next));
+        return Promise.resolve(next);
+      }
+
+      function saveInputSourceLockWithMessage(successText) {
+        var previous = inputSourceLock;
+        inputSourceLock = normalizeInputSourceLockSettings(inputSourceLock);
+        renderInputSourceLock();
+        setInputSourceMessage("正在保存输入法锁定设置...", "");
+        saveInputSourceLockSettings(inputSourceLock).then(function (saved) {
+          inputSourceLock = normalizeInputSourceLockSettings(saved);
+          renderInputSourceLock();
+          setInputSourceMessage(successText || "已保存输入法锁定设置", "ready");
+        }, function (err) {
+          inputSourceLock = previous;
+          renderInputSourceLock();
+          setInputSourceMessage("保存失败: " + errorMessage(err), "warning");
+        });
+      }
+
+      function refreshInputSourceLockStatus() {
+        setInputSourceMessage("正在刷新输入法状态...", "");
+        loadInputSourceLockConfig().then(function (payload) {
+          inputSourceLock = normalizeInputSourceLockSettings(payload.config);
+          inputSourceStatus = normalizeInputSourceStatus(payload.status);
+          inputSourceStatusLoaded = true;
+          render();
+          setInputSourceMessage("已刷新输入法状态", "ready");
+        }, function (err) {
+          inputSourceStatusLoaded = true;
+          setInputSourceMessage("刷新失败: " + errorMessage(err), "warning");
+        });
+      }
+
+      function addCurrentInputSourceAppRule() {
+        var app = inputSourceStatus.frontmostApp || {};
+        if (!app.id) {
+          setInputSourceMessage("当前无法读取前台应用", "warning");
+          return;
+        }
+        upsertInputSourceRule({
+          appId: app.id,
+          appName: app.name || app.id,
+          sourceId: inputSourceLock.defaultSourceId || ((inputSourceStatus.current || {}).id || firstInputSourceID()),
+          enabled: true,
+        });
+        saveInputSourceLockWithMessage("已添加当前应用规则");
+      }
+
+      function addManualInputSourceAppRule() {
+        var appId = String((inputSourceNewAppID && inputSourceNewAppID.value) || "").trim();
+        if (!appId) {
+          setInputSourceMessage("请填写 App ID / 路径", "warning");
+          return;
+        }
+        var sourceId = String((inputSourceNewSource && inputSourceNewSource.value) || "").trim() || firstInputSourceID();
+        if (!sourceId) {
+          setInputSourceMessage("请先选择一个输入法", "warning");
+          return;
+        }
+        upsertInputSourceRule({
+          appId: appId,
+          appName: String((inputSourceNewAppName && inputSourceNewAppName.value) || "").trim(),
+          sourceId: sourceId,
+          enabled: true,
+        });
+        if (inputSourceNewAppID) inputSourceNewAppID.value = "";
+        if (inputSourceNewAppName) inputSourceNewAppName.value = "";
+        saveInputSourceLockWithMessage("已添加应用规则");
+      }
+
+      function updateInputSourceRule(appId, patch) {
+        var id = String(appId || "").trim();
+        if (!id) return;
+        inputSourceLock.appRules = inputSourceLock.appRules.map(function (rule) {
+          if (rule.appId !== id) return rule;
+          return normalizeInputSourceRule(Object.assign({}, rule, patch || {}));
+        });
+        saveInputSourceLockWithMessage("已更新应用规则");
+      }
+
+      function removeInputSourceAppRule(appId) {
+        var id = String(appId || "").trim();
+        if (!id) return;
+        inputSourceLock.appRules = inputSourceLock.appRules.filter(function (rule) {
+          return rule.appId !== id;
+        });
+        saveInputSourceLockWithMessage("已移除应用规则");
+      }
+
+      function upsertInputSourceRule(rule) {
+        var next = normalizeInputSourceRule(rule);
+        if (!next.appId) return;
+        var found = false;
+        inputSourceLock.appRules = inputSourceLock.appRules.map(function (item) {
+          if (item.appId !== next.appId) return item;
+          found = true;
+          return next;
+        });
+        if (!found) inputSourceLock.appRules.push(next);
+        inputSourceLock = normalizeInputSourceLockSettings(inputSourceLock);
+      }
+
+      function firstInputSourceID() {
+        return inputSourceStatus.sources.length ? inputSourceStatus.sources[0].id : "";
+      }
+
+      function defaultInputSourceLockSettings() {
+        return {
+          enabled: false,
+          defaultSourceId: "",
+          appRules: [],
+        };
+      }
+
+      function normalizeInputSourceLockSettings(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        var seen = Object.create(null);
+        var rules = Array.isArray(raw.appRules) ? raw.appRules.map(normalizeInputSourceRule).filter(function (rule) {
+          if (!rule.appId || seen[rule.appId]) return false;
+          seen[rule.appId] = true;
+          return true;
+        }) : [];
+        return {
+          enabled: raw.enabled === true,
+          defaultSourceId: String(raw.defaultSourceId || "").trim(),
+          appRules: rules,
+        };
+      }
+
+      function normalizeInputSourceRule(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        return {
+          appId: String(raw.appId || "").trim(),
+          appName: String(raw.appName || "").trim(),
+          sourceId: String(raw.sourceId || "").trim(),
+          enabled: raw.enabled !== false,
+        };
+      }
+
+      function defaultInputSourceStatus() {
+        return {
+          enabled: false,
+          runtimeEnabled: false,
+          supported: false,
+          sources: [],
+          current: null,
+          frontmostApp: null,
+          sourceError: "",
+          currentError: "",
+          frontmostError: "",
+          hasMissingSources: false,
+          missingDefaultSourceId: "",
+          missingSourceIds: [],
+          missingAppRules: [],
+        };
+      }
+
+      function normalizeInputSourceStatus(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        return {
+          enabled: raw.enabled === true,
+          runtimeEnabled: raw.runtimeEnabled === true,
+          supported: raw.supported === true,
+          sources: Array.isArray(raw.sources) ? raw.sources.map(normalizeInputSource).filter(function (source) { return source.id; }) : [],
+          current: normalizeInputSource(raw.current),
+          frontmostApp: normalizeFrontmostApp(raw.frontmostApp),
+          sourceError: String(raw.sourceError || ""),
+          currentError: String(raw.currentError || ""),
+          frontmostError: String(raw.frontmostError || ""),
+          hasMissingSources: raw.hasMissingSources === true,
+          missingDefaultSourceId: String(raw.missingDefaultSourceId || "").trim(),
+          missingSourceIds: Array.isArray(raw.missingSourceIds) ? uniqueStrings(raw.missingSourceIds) : [],
+          missingAppRules: Array.isArray(raw.missingAppRules) ? raw.missingAppRules.map(normalizeMissingInputSourceRule).filter(function (rule) { return rule.appId && rule.sourceId; }) : [],
+        };
+      }
+
+      function normalizeInputSource(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        var id = String(raw.ID || raw.id || "").trim();
+        return {
+          id: id,
+          name: String(raw.Name || raw.name || id).trim(),
+          language: String(raw.Language || raw.language || "").trim(),
+          enabled: raw.Enabled !== false && raw.enabled !== false,
+          selectable: raw.Selectable !== false && raw.selectable !== false,
+        };
+      }
+
+      function normalizeFrontmostApp(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        var id = String(raw.ID || raw.id || "").trim();
+        return {
+          id: id,
+          name: String(raw.Name || raw.name || id).trim(),
+          pid: Number(raw.PID || raw.pid || 0) || 0,
+        };
+      }
+
+      function normalizeMissingInputSourceRule(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        return {
+          appId: String(raw.AppID || raw.appId || "").trim(),
+          appName: String(raw.AppName || raw.appName || "").trim(),
+          sourceId: String(raw.SourceID || raw.sourceId || "").trim(),
+        };
+      }
+
+      function uniqueStrings(values) {
+        var seen = Object.create(null);
+        var result = [];
+        values.forEach(function (value) {
+          var text = String(value || "").trim();
+          if (!text || seen[text]) return;
+          seen[text] = true;
+          result.push(text);
+        });
+        return result.sort();
+      }
+
+      function setInputSourceMessage(text, tone) {
+        if (!inputSourceMessage) return;
+        inputSourceMessage.textContent = text || "";
+        inputSourceMessage.style.color = tone === "warning" ? "var(--danger)" : tone === "ready" ? "var(--accent-strong)" : "";
+      }
+
+      function setCalendarMessage(text, tone) {
+        if (!calendarMessage) return;
+        calendarMessage.textContent = text || "";
+        calendarMessage.style.color = tone === "warning" ? "var(--danger)" : tone === "ready" ? "var(--accent-strong)" : "";
+      }
+
+      function setAutoStartMessage(text, tone) {
+        if (!autoStartMessage) return;
+        autoStartMessage.textContent = text || "";
+        autoStartMessage.style.color = tone === "warning" ? "var(--danger)" : tone === "ready" ? "var(--accent-strong)" : "";
+      }
+
+      function loadEditorSettings() {
+        try {
+          return normalizeEditorSettings(JSON.parse(localStorage.getItem(EDITOR_SETTINGS_KEY) || "null"));
+        } catch (_) {
+          return defaultEditorSettings();
+        }
+      }
+
+      function saveEditorSettings(value) {
+        var next = normalizeEditorSettings(value);
+        if (canUseNativeStorage()) {
+          return callStorage(EDITOR_SETTINGS_SAVE_API, "POST", next).then(function (data) {
+            var saved = normalizeEditorSettings(data && data.config ? data.config : next);
+            localStorage.setItem(EDITOR_SETTINGS_KEY, JSON.stringify(saved));
+            return saved;
+          });
+        }
+        localStorage.setItem(EDITOR_SETTINGS_KEY, JSON.stringify(next));
+        return Promise.resolve(next);
+      }
+
+      function loadEditorConfig() {
+        if (canUseNativeStorage()) {
+          return callStorage(EDITOR_SETTINGS_API, "GET").then(function (data) {
+            if (data && data.config) {
+              var settings = normalizeEditorSettings(data.config);
+              localStorage.setItem(EDITOR_SETTINGS_KEY, JSON.stringify(settings));
+              return settings;
+            }
+            return loadEditorSettings();
+          }, function () {
+            return loadEditorSettings();
+          });
+        }
+        return Promise.resolve(loadEditorSettings());
+      }
+
+      function defaultEditorSettings() {
+        return {
+          calendarWeekStart: "monday",
+          fileEditor: defaultFileEditor(),
+          fileEditorRules: defaultFileEditorRules(),
+          vimMode: false,
+        };
+      }
+
+      function normalizeEditorSettings(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        var weekStart = raw.calendarWeekStart === "sunday" ? "sunday" : "monday";
+        var rules = Array.isArray(raw.fileEditorRules) ? normalizeFileEditorRules(raw.fileEditorRules) : defaultFileEditorRules();
+        return {
+          calendarWeekStart: weekStart,
+          fileEditor: normalizeFileEditor(raw.fileEditor),
+          fileEditorRules: rules,
+          vimMode: raw.vimMode === true,
+        };
+      }
+
+      function defaultFileEditor() {
+        return {
+          id: "code",
+          name: "VS Code",
+          path: "",
+        };
+      }
+
+      function systemFileEditor() {
+        return {
+          id: "system",
+          name: "系统默认应用",
+          path: "",
+        };
+      }
+
+      function browserFileEditor() {
+        return {
+          id: "browser",
+          name: "浏览器",
+          path: "",
+        };
+      }
+
+      function noneFileEditor() {
+        return {
+          id: "none",
+          name: "不打开",
+          path: "",
+        };
+      }
+
+      function defaultFileEditorRules() {
+        var code = defaultFileEditor();
+        var none = noneFileEditor();
+        var browser = browserFileEditor();
+        return [
+          { extension: ".js", editor: code },
+          { extension: ".ts", editor: code },
+          { extension: ".tsx", editor: code },
+          { extension: ".jsx", editor: code },
+          { extension: ".html", editor: browser },
+          { extension: ".mp4", editor: none },
+          { extension: ".mp3", editor: none },
+        ];
+      }
+
+      function normalizeFileEditor(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        var defaults = defaultFileEditor();
+        var path = String(raw.path || "").trim();
+        var id = String(raw.id || "").trim();
+        if (!id && path) id = "app:" + path;
+        if (!id && !path && !String(raw.name || "").trim()) return defaults;
+        var name = String(raw.name || "").trim() || fileEditorNameFromPath(path) || editorNameFromID(id) || defaults.name;
+        return {
+          id: id || defaults.id,
+          name: name,
+          path: path,
+        };
+      }
+
+      function normalizeFileEditorRules(value) {
+        var seen = Object.create(null);
+        var rules = Array.isArray(value) ? value : [];
+        return rules.map(function (rule) {
+          var extension = normalizeFileExtension(rule && rule.extension);
+          if (!extension || seen[extension]) return null;
+          seen[extension] = true;
+          return {
+            extension: extension,
+            editor: normalizeFileEditor(rule && rule.editor),
+          };
+        }).filter(Boolean);
+      }
+
+      function normalizeFileExtension(value) {
+        var text = String(value || "").trim().toLowerCase().replace(/^\.+/, "");
+        if (!text || !/^[a-z0-9_-]+$/.test(text)) return "";
+        return "." + text;
+      }
+
+      function normalizeFileExtensions(value) {
+        var seen = Object.create(null);
+        return String(value || "").split(/[,，]/).map(normalizeFileExtension).filter(function (extension) {
+          if (!extension || seen[extension]) return false;
+          seen[extension] = true;
+          return true;
+        });
+      }
+
+      function editorNameFromID(id) {
+        switch (String(id || "").trim()) {
+          case "code":
+            return "VS Code";
+          case "code-insiders":
+            return "VS Code Insiders";
+          case "cursor":
+            return "Cursor";
+          case "trae":
+            return "Trae";
+          case "webstorm":
+            return "WebStorm";
+          case "idea":
+            return "IntelliJ IDEA";
+          case "nvim":
+            return "Neovim";
+          case "vim":
+            return "Vim";
+          case "emacs":
+            return "Emacs";
+          case "none":
+            return "不打开";
+          case "system":
+            return "系统默认应用";
+          case "browser":
+            return "浏览器";
+          default:
+            return "";
+        }
+      }
+
+      function fileEditorNameFromPath(path) {
+        var value = String(path || "").trim();
+        if (!value) return "";
+        var parts = value.split(/[\\/]/);
+        return (parts[parts.length - 1] || value).replace(/\.app$/i, "");
+      }
+
+      function loadShortcutSettings() {
+        try {
+          return normalizeShortcutSettings(JSON.parse(localStorage.getItem(SHORTCUTS_KEY) || "null"));
+        } catch (_) {
+          return defaultShortcutSettings();
+        }
+      }
+
+      function saveShortcutSettings(value) {
+        shortcuts = normalizeShortcutSettings(value);
+        localStorage.setItem(SHORTCUTS_KEY, JSON.stringify(shortcuts));
+      }
+
+      function defaultShortcutSettings() {
+        return {
+          enabled: true,
+          openMemoSearch: "Ctrl+O",
+        };
+      }
+
+      function defaultAutoStartSettings() {
+        return {
+          appName: "",
+          enabled: false,
+          supported: false,
+        };
+      }
+
+      function normalizeAutoStartSettings(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        return {
+          appName: String(raw.appName || ""),
+          enabled: Boolean(raw.enabled),
+          supported: Boolean(raw.supported),
+        };
+      }
+
+      function normalizeShortcutSettings(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        var defaults = defaultShortcutSettings();
+        return {
+          enabled: raw.enabled !== false,
+          openMemoSearch: normalizeShortcut(raw.openMemoSearch) || defaults.openMemoSearch,
+        };
+      }
+
+      function shortcutFromEvent(event) {
+        var key = shortcutKeyName(event.key);
+        if (!key) return "";
+        var parts = [];
+        if (event.ctrlKey) parts.push("Ctrl");
+        if (event.altKey) parts.push("Alt");
+        if (event.shiftKey) parts.push("Shift");
+        if (event.metaKey) parts.push("Meta");
+        if (!parts.length && key.length === 1) return "";
+        parts.push(key);
+        return parts.join("+");
+      }
+
+      function normalizeShortcut(value) {
+        var raw = String(value || "").trim();
+        if (!raw) return "";
+        var parts = raw.split("+").map(function (part) {
+          return part.trim();
+        }).filter(Boolean);
+        if (!parts.length) return "";
+        var modifiers = [];
+        var key = "";
+        parts.forEach(function (part) {
+          var lower = part.toLowerCase();
+          if (lower === "ctrl" || lower === "control") {
+            if (modifiers.indexOf("Ctrl") < 0) modifiers.push("Ctrl");
+          } else if (lower === "alt" || lower === "option") {
+            if (modifiers.indexOf("Alt") < 0) modifiers.push("Alt");
+          } else if (lower === "shift") {
+            if (modifiers.indexOf("Shift") < 0) modifiers.push("Shift");
+          } else if (lower === "meta" || lower === "cmd" || lower === "command") {
+            if (modifiers.indexOf("Meta") < 0) modifiers.push("Meta");
+          } else {
+            key = shortcutKeyName(part);
+          }
+        });
+        if (!key) return "";
+        if (!modifiers.length && key.length === 1) return "";
+        return modifiers.concat(key).join("+");
+      }
+
+      function shortcutKeyName(key) {
+        var original = String(key || "");
+        if (original === " ") return "Space";
+        var value = original.trim();
+        if (!value) return "";
+        var lower = value.toLowerCase();
+        if (lower === "control" || lower === "shift" || lower === "alt" || lower === "meta") return "";
+        if (lower === "escape" || lower === "esc") return "Esc";
+        if (lower === "arrowup") return "Up";
+        if (lower === "arrowdown") return "Down";
+        if (lower === "arrowleft") return "Left";
+        if (lower === "arrowright") return "Right";
+        if (value.length === 1) return value.toUpperCase();
+        return value.charAt(0).toUpperCase() + value.slice(1);
+      }
+
+      function setShortcutMessage(text, tone) {
+        if (!shortcutMessage) return;
+        shortcutMessage.textContent = text || "";
+        shortcutMessage.style.color = tone === "warning" ? "var(--danger)" : tone === "ready" ? "var(--accent-strong)" : "";
+      }
+
+      function renderStorageList() {
+        if (!state.storages.length) {
+          storageList.innerHTML = '<div class="settings-storage-item"><span class="settings-storage-item-main"><span class="settings-storage-item-name">暂无存储</span><span class="settings-storage-item-meta">点击新增存储开始配置</span></span></div>';
+          return;
+        }
+        storageList.innerHTML = state.storages.map(function (storage) {
+          var active = storage.id === state.activeStorageId;
+          var meta = [storage.id, providerLabel(storage.provider), storage.bucket].filter(Boolean).join(" · ");
+          return [
+            '<div class="settings-storage-row">',
+            '<button class="settings-storage-item ' + (active ? "is-selected" : "") + '" type="button" data-action="activate-storage" data-storage-id="' + escapeAttr(storage.id) + '">',
+            '<span class="settings-storage-item-main">',
+            '<span class="settings-storage-item-name">' + escapeHTML(storage.name || storage.id) + '</span>',
+            '<span class="settings-storage-item-meta">' + escapeHTML(meta || "未配置") + '</span>',
+            '</span>',
+            active ? '<span class="settings-storage-badge">启用</span>' : '',
+            '</button>',
+            '<span class="settings-storage-actions">',
+            '<button class="settings-storage-manage" type="button" data-action="edit-storage" data-storage-id="' + escapeAttr(storage.id) + '">编辑</button>',
+            '<button class="settings-storage-manage" type="button" data-action="manage-storage" data-storage-id="' + escapeAttr(storage.id) + '">管理</button>',
+            '</span>',
+            '</div>',
+          ].join("");
+        }).join("");
+      }
+
+      function openStorageManager(storageId) {
+        var id = sanitizeStorageId(storageId);
+        if (!id) return;
+        callStorage(OPEN_WINDOW_API + "?pathname=/oss-manager&storageId=" + encodeURIComponent(id), "GET").then(function () {
+          setMessage("已打开文件管理窗口", "ready");
+        }, function (err) {
+          setMessage("打开文件管理失败: " + errorMessage(err), "warning");
+        });
+      }
+
+      function openStorageEditor(storageId, provider) {
+        var id = sanitizeStorageId(storageId);
+        var query = "?pathname=/oss-storage-editor";
+        if (id) query += "&storageId=" + encodeURIComponent(id);
+        if (provider) query += "&provider=" + encodeURIComponent(provider);
+        callStorage(OPEN_WINDOW_API + query, "GET").then(function () {
+          setMessage(id ? "已打开编辑窗口" : "已打开新增窗口", "ready");
+        }, function (err) {
+          setMessage("打开编辑窗口失败: " + errorMessage(err), "warning");
+        });
+      }
+
+      function renderStatus(settings) {
+        var active = activeStorage(settings);
+        var missing = active ? missingFields(active) : [];
+        status.classList.remove("is-ready", "is-warning");
+        if (!active || !hasAnyConfig(active)) {
+          statusText.textContent = "未配置";
+          return;
+        }
+        if (missing.length) {
+          status.classList.add("is-warning");
+          statusText.textContent = "待补充";
+          return;
+        }
+        status.classList.add("is-ready");
+        statusText.textContent = active.enabled ? "已启用" : "已保存";
+      }
+
+      function missingFields(config) {
+        if (!config) {
+          return ["名称", "Storage ID", "存储类型", "Endpoint", "Bucket", "Access Key ID", "Secret Access Key"];
+        }
+        var labels = [];
+        if (!config.name) labels.push("名称");
+        if (!config.id) labels.push("Storage ID");
+        if (!config.provider) labels.push("存储类型");
+        if (!config.endpoint && !(isLocalProvider(config.provider) && normalizeLocalSettings(config.local))) labels.push(isLocalProvider(config.provider) ? "本地根目录" : "Endpoint");
+        if (!config.bucket) labels.push("Bucket");
+        if (!isLocalProvider(config.provider)) {
+          if (!config.accessKeyId) labels.push("Access Key ID");
+          if (!config.secretAccessKey) labels.push("Secret Access Key");
+        }
+        return labels;
+      }
+
+      function hasAnyConfig(config) {
+        if (!config) return false;
+        return [
+          config.id,
+          config.name,
+          config.endpoint,
+          config.local,
+          config.bucket,
+          config.accessKeyId,
+          config.secretAccessKey,
+          config.sessionToken,
+          config.region,
+          config.pathPrefix,
+          config.publicBaseUrl,
+        ].some(Boolean);
+      }
+
+      function normalizeSettings(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        var storages;
+        if (Array.isArray(raw.storages)) {
+          storages = raw.storages.map(normalizeProfile).filter(function (storage) {
+            return storage.id;
+          });
+        } else if (hasLegacyConfig(raw)) {
+          storages = [normalizeProfile(Object.assign({ id: "default", name: "默认存储" }, raw), 0)];
+        } else {
+          storages = [];
+        }
+
+        var used = Object.create(null);
+        storages = storages.map(function (storage, index) {
+          var baseId = sanitizeStorageId(storage.id || storage.name || storage.provider || storage.bucket || "storage-" + (index + 1));
+          if (!baseId) baseId = "storage-" + (index + 1);
+          used[baseId] = (used[baseId] || 0) + 1;
+          if (used[baseId] > 1) baseId = baseId + "-" + used[baseId];
+          storage.id = baseId;
+          if (!storage.name) storage.name = storage.bucket || storage.provider || storage.id;
+          return storage;
+        });
+
+        var activeStorageId = sanitizeStorageId(raw.activeStorageId || "");
+        if (!storages.some(function (storage) { return storage.id === activeStorageId; })) {
+          var enabled = storages.find(function (storage) { return storage.enabled; });
+          activeStorageId = enabled ? enabled.id : ((storages[0] && storages[0].id) || "");
+        }
+        return {
+          activeStorageId: activeStorageId,
+          defaultsInitialized: Boolean(raw.defaultsInitialized),
+          storages: storages,
+        };
+      }
+
+      function normalizeProfile(profile) {
+        var raw = profile && typeof profile === "object" ? profile : {};
+        return {
+          accessKeyId: String(raw.accessKeyId || "").trim(),
+          bucket: String(raw.bucket || "").trim(),
+          enabled: Boolean(raw.enabled),
+          endpoint: String(raw.endpoint || "").trim(),
+          forcePathStyle: raw.forcePathStyle !== false,
+          id: sanitizeStorageId(raw.id || ""),
+          local: normalizeLocalSettings(raw.local),
+          name: String(raw.name || "").trim(),
+          pathPrefix: String(raw.pathPrefix || "").trim(),
+          provider: String(raw.provider || "s3").trim() || "s3",
+          publicBaseUrl: String(raw.publicBaseUrl || "").trim(),
+          region: String(raw.region || "").trim(),
+          secretAccessKey: String(raw.secretAccessKey || ""),
+          sessionToken: String(raw.sessionToken || "").trim(),
+          useSSL: raw.useSSL !== false,
+        };
+      }
+
+      function hasLegacyConfig(config) {
+        return Boolean(config && typeof config === "object" && (
+          config.enabled ||
+          config.endpoint ||
+          config.local ||
+          config.bucket ||
+          config.accessKeyId ||
+          config.secretAccessKey ||
+          config.sessionToken ||
+          config.region ||
+          config.pathPrefix ||
+          config.publicBaseUrl
+        ));
+      }
+
+      function activeStorage(settings) {
+        var next = normalizeSettings(settings);
+        return next.storages.find(function (storage) {
+          return storage.id === next.activeStorageId;
+        }) || null;
+      }
+
+      function sanitizeStorageId(value) {
+        return String(value || "")
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+      }
+
+      function providerLabel(provider) {
+        var labels = {
+          "aliyun-oss": "Aliyun OSS",
+          "aws-s3": "AWS S3",
+          "custom": "Custom",
+          "local": "Local",
+          "local-oss": "Local",
+          "qiniu-kodo": "Qiniu Kodo",
+          "s3": "S3",
+          "tencent-cos": "Tencent COS",
+        };
+        return labels[provider] || provider;
+      }
+
+      function isLocalProvider(provider) {
+        var value = String(provider || "").trim().toLowerCase();
+        return value === "local" || value === "local-oss";
+      }
+
+      function normalizeLocalSettings(value) {
+        var raw = value && typeof value === "object" ? value : {};
+        var root = String(raw.root || "").trim();
+        var rootMode = String(raw.rootMode || "").trim().toLowerCase();
+        if (!rootMode) {
+          if (!root) return null;
+          rootMode = root.charAt(0) === "/" || root.indexOf(":\\") === 1 || root.indexOf("~/") === 0 ? "absolute" : "vault";
+        }
+        if (rootMode === "vault") {
+          root = root.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "") || "storage";
+          return { root: root, rootMode: "vault" };
+        }
+        if (rootMode === "absolute" && root) {
+          return { root: root, rootMode: "absolute" };
+        }
+        return null;
+      }
+
+      function setMessage(text, tone) {
+        message.textContent = text || "";
+        message.style.color = tone === "warning" ? "var(--danger)" : tone === "ready" ? "var(--accent-strong)" : "";
+      }
+
+      function errorMessage(err) {
+        return (err && err.message) || err || "未知错误";
+      }
+
+      function escapeHTML(value) {
+        return String(value || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function escapeAttr(value) {
+        return escapeHTML(value).replace(/`/g, "&#96;");
+      }
+
+      function callHookAPI(url, body, method) {
+        method = method || "POST";
+        var req = { method: method };
+        if (body !== undefined) req.args = body;
+        return invoke(url, req).then(function (resp) {
+          if (!resp || resp.code !== 0) {
+            throw new Error((resp && resp.msg) || "request failed");
+          }
+          return resp.data;
+        });
+      }
+
+      function loadHooks() {
+        if (!canUseNativeStorage()) {
+          hooks = [];
+          renderHookList();
+          return;
+        }
+        callHookAPI(HOOKS_API, undefined, "GET").then(function (data) {
+          hooks = Array.isArray(data && data.hooks) ? data.hooks : [];
+          renderHookList();
+        }, function (err) {
+          setHookMessage("读取 Webhook 失败: " + errorMessage(err), "warning");
+        });
+      }
+
+      function renderHookList() {
+        if (!hookList) return;
+        var isAdding = editingHookId === "";
+        if (!hooks.length && !isAdding) {
+          hookList.innerHTML = '<div class="settings-storage-item"><span class="settings-storage-item-main"><span class="settings-storage-item-name">暂无 Webhook</span><span class="settings-storage-item-meta">点击"新增 Webhook"创建事件通知</span></span></div>';
+          return;
+        }
+        hookList.innerHTML = hooks.map(function (hook) {
+          if (hook.id === editingHookId) {
+            return renderHookForm(hook);
+          }
+          var urlDisplay = (hook.url || "").length > 50 ? (hook.url || "").substring(0, 50) + "..." : (hook.url || "");
+          var eventLabels = (hook.events || []).map(eventTag).join("");
+          return [
+            '<div class="settings-storage-row">',
+            '<div class="settings-storage-item">',
+            '<span class="settings-storage-item-main">',
+            '<span class="settings-storage-item-name">' + escapeHTML(hook.name || hook.id) + '</span>',
+            '<span class="settings-storage-item-meta">' + escapeHTML(urlDisplay) + '</span>',
+            '<span style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">' + eventLabels + '</span>',
+            '</span>',
+            '<span class="settings-storage-actions">',
+            '<label class="settings-check" style="margin-right:4px">',
+            '<input type="checkbox" data-hook-toggle data-hook-id="' + escapeAttr(hook.id) + '" ' + (hook.enabled ? "checked" : "") + ' />',
+            '<span>启用</span>',
+            '</label>',
+            '<button class="settings-storage-manage" type="button" data-action="edit-hook" data-hook-id="' + escapeAttr(hook.id) + '">编辑</button>',
+            '<button class="settings-storage-manage" type="button" data-action="delete-hook" data-hook-id="' + escapeAttr(hook.id) + '">删除</button>',
+            '</span>',
+            '</div>',
+            '</div>',
+          ].join("");
+        }).join("");
+
+        if (isAdding) {
+          hookList.innerHTML = renderHookForm(null) + hookList.innerHTML;
+        }
+      }
+
+      function renderHookForm(hook) {
+        var isNew = !hook;
+        var name = hook ? (hook.name || "") : "";
+        var url = hook ? (hook.url || "") : "";
+        var enabled = hook ? hook.enabled : true;
+        var selectedEvents = hook ? (hook.events || []) : [];
+        var allEvents = [
+          { value: "task.created", label: "task.created" },
+          { value: "task.completed", label: "task.completed" },
+          { value: "task.reopened", label: "task.reopened" },
+          { value: "task.deleted", label: "task.deleted" },
+          { value: "memo.created", label: "memo.created" },
+          { value: "memo.updated", label: "memo.updated" },
+          { value: "memo.deleted", label: "memo.deleted" },
+          { value: "asset.uploaded", label: "asset.uploaded" },
+          { value: "comment.created", label: "comment.created" },
+          { value: "comment.updated", label: "comment.updated" },
+          { value: "comment.deleted", label: "comment.deleted" },
+        ];
+        var checkboxesHTML = allEvents.map(function (ev) {
+          var checked = selectedEvents.indexOf(ev.value) !== -1;
+          return '<label class="settings-check"><input type="checkbox" data-hook-event value="' + escapeAttr(ev.value) + '" ' + (checked ? "checked" : "") + ' /><span>' + escapeHTML(ev.label) + '</span></label>';
+        }).join("");
+
+        return [
+          '<div class="settings-storage-item" data-hook-form style="display:grid;gap:10px;padding:12px 10px;grid-template-columns:minmax(0,1fr)">',
+          '<div class="settings-grid">',
+          '<label class="settings-field"><span class="settings-label-row">名称</span><input class="settings-input" data-hook-name value="' + escapeAttr(name) + '" placeholder="My Webhook" /></label>',
+          '<label class="settings-field"><span class="settings-label-row">URL</span><input class="settings-input" data-hook-url value="' + escapeAttr(url) + '" placeholder="https://example.com/hook" /></label>',
+          '<div class="settings-field is-wide"><span class="settings-label-row">事件</span><div class="settings-checks">' + checkboxesHTML + '</div></div>',
+          '</div>',
+          '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">',
+          '<label class="settings-check"><input type="checkbox" data-hook-enabled ' + (enabled ? "checked" : "") + ' /><span>启用</span></label>',
+          '<button class="settings-button is-primary" type="button" data-action="save-hook">保存</button>',
+          '<button class="settings-button is-secondary" type="button" data-action="cancel-hook-form">取消</button>',
+          '</div>',
+          '</div>',
+        ].join("");
+      }
+
+      function eventTag(eventType) {
+        var colors = {
+          "task.created": "var(--accent-soft)",
+          "task.completed": "var(--accent-soft)",
+          "task.reopened": "var(--accent-soft)",
+          "task.deleted": "var(--danger-soft)",
+          "memo.created": "rgba(59,130,246,0.12)",
+          "memo.updated": "rgba(59,130,246,0.12)",
+          "memo.deleted": "var(--danger-soft)",
+          "asset.uploaded": "rgba(168,85,247,0.12)",
+          "comment.created": "rgba(234,179,8,0.15)",
+          "comment.updated": "rgba(234,179,8,0.15)",
+          "comment.deleted": "var(--danger-soft)",
+        };
+        var textColors = {
+          "task.created": "var(--accent-strong)",
+          "task.completed": "var(--accent-strong)",
+          "task.reopened": "var(--accent-strong)",
+          "task.deleted": "var(--danger)",
+          "memo.created": "#3b82f6",
+          "memo.updated": "#3b82f6",
+          "memo.deleted": "var(--danger)",
+          "asset.uploaded": "#a855f7",
+          "comment.created": "#ca8a04",
+          "comment.updated": "#ca8a04",
+          "comment.deleted": "var(--danger)",
+        };
+        var bg = colors[eventType] || "var(--accent-soft)";
+        var fg = textColors[eventType] || "var(--accent-strong)";
+        return '<span style="background:' + bg + ';color:' + fg + ';border-radius:999px;font-size:var(--font-xs);font-weight:700;padding:2px 8px;white-space:nowrap">' + escapeHTML(eventType) + '</span>';
+      }
+
+      function setHookMessage(text, tone) {
+        if (!hookMessage) return;
+        hookMessage.textContent = text || "";
+        hookMessage.style.color = tone === "warning" ? "var(--danger)" : tone === "ready" ? "var(--accent-strong)" : "";
+      }
+    })();
+  </script>
+</body>
+
+</html>

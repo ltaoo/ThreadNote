@@ -1,0 +1,47 @@
+{
+  "RT_GROUP_ICON": {
+    "APP": {
+      "0000": [
+        "appicon.png",
+        "appicon.png"
+      ]
+    }
+  },
+  "RT_VERSION": {
+    "#1": {
+      "0000": {
+        "fixed": {
+          "file_version": "1.0.0.0",
+          "product_version": "1.0.0.0"
+        },
+        "info": {
+          "0409": {
+            "CompanyName": "Example Inc",
+            "FileDescription": "My Application Desktop Client",
+            "FileVersion": "1.0.0",
+            "InternalName": "MyApp",
+            "LegalCopyright": "Copyright © 2024 Example Inc",
+            "OriginalFilename": "MyApp.exe",
+            "ProductName": "My Application",
+            "ProductVersion": "1.0.0"
+          }
+        }
+      }
+    }
+  },
+  "RT_MANIFEST": {
+    "#1": {
+      "0409": {
+        "description": "My Application Desktop Client",
+        "dpi-awareness": "system",
+        "execution-level": "as invoker",
+        "identity": {
+          "name": "MyApp",
+          "version": "1.0.0.0"
+        },
+        "long-path-aware": "true",
+        "minimum-os": "win7"
+      }
+    }
+  }
+}

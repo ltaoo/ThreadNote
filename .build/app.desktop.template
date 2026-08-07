@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=MyApp
+Name[zh_CN]=MyApp
+Comment=A desktop application built with Velo
+Comment[zh_CN]=A desktop application built with Velo
+Exec=MyApp
+Icon=appicon
+Terminal=false
+Categories=Utility;
+Keywords=app;velo;
+StartupNotify=true
