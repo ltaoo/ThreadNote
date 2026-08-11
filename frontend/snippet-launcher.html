@@ -116,6 +116,8 @@
     }
 
     .snippet-input {
+      position: relative;
+      z-index: 1;
       width: 100%;
       min-width: 0;
       height: 38px;
@@ -128,6 +130,32 @@
       font-size: 21px;
       line-height: 38px;
       user-select: text;
+    }
+
+    .snippet-input-wrap {
+      position: relative;
+      min-width: 0;
+      height: 38px;
+    }
+
+    .snippet-input-ghost {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      color: var(--launcher-muted);
+      font: inherit;
+      font-size: 21px;
+      line-height: 38px;
+      pointer-events: none;
+      white-space: pre;
+    }
+
+    .snippet-input-ghost[hidden] {
+      display: none;
+    }
+
+    .snippet-input-ghost-prefix {
+      visibility: hidden;
     }
 
     .snippet-input::placeholder {
@@ -313,7 +341,10 @@
   <main class="snippet-launcher" data-snippet-launcher>
     <section class="snippet-search" data-velo-drag>
       <div class="snippet-prompt">›</div>
-      <input class="snippet-input" data-snippet-input data-velo-no-drag autocomplete="off" spellcheck="false" placeholder="snippet / link" />
+      <div class="snippet-input-wrap" data-velo-no-drag>
+        <span class="snippet-input-ghost" data-snippet-input-ghost aria-hidden="true" hidden></span>
+        <input class="snippet-input" data-snippet-input autocomplete="off" spellcheck="false" placeholder="搜索 snippet 和 link" />
+      </div>
       <button class="snippet-close" type="button" title="关闭" data-velo-no-drag data-action="close">×</button>
     </section>
 
