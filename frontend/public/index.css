@@ -3189,6 +3189,187 @@ mark.memo-find-match.is-active {
   white-space: nowrap;
 }
 
+mark.memo-command-match {
+  background: #fde68a;
+  border-radius: 2px;
+  color: inherit;
+  padding: 0 1px;
+}
+
+[data-theme="dark"] mark.memo-command-match {
+  background: #92400e;
+}
+
+.comment-detail-window-title {
+  color: var(--FG-1);
+  flex: 0 0 auto;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  padding-right: 12px;
+}
+
+.comment-detail-body {
+  padding: 12px;
+}
+
+.comment-detail-content {
+  display: grid;
+  gap: 12px;
+  margin: 0 auto;
+  max-width: 720px;
+}
+
+.comment-detail-section {
+  background: var(--BG-0);
+  border: 1px solid var(--border);
+  border-radius: var(--memo-radius);
+  overflow: hidden;
+}
+
+.comment-detail-section-title {
+  align-items: center;
+  background: var(--BG-1);
+  border-bottom: 1px solid var(--border);
+  color: var(--FG-1);
+  display: flex;
+  font-size: var(--font-sm);
+  font-weight: 800;
+  justify-content: space-between;
+  padding: 9px 12px;
+}
+
+.comment-detail-section-body {
+  padding: 12px;
+}
+
+.comment-detail-primary {
+  border-color: var(--memo-accent-border);
+}
+
+.comment-detail-primary .comment-detail-section-title {
+  background: var(--memo-accent-soft);
+  color: var(--memo-accent-strong);
+}
+
+.comment-detail-page .memo-window-comment-hover-actions,
+.comment-detail-page .memo-comment-footer,
+.comment-detail-page .memo-card-head-actions,
+.comment-detail-page .memo-reactions-add-wrap,
+.comment-detail-page .memo-window-comment-expand-button {
+  display: none;
+}
+
+.comment-detail-page .memo-window-comment-collapse,
+.comment-detail-page .memo-window-comment-collapse.is-collapsed {
+  max-height: none;
+  overflow: visible;
+}
+
+.comment-detail-memo .comment-detail-section-body {
+  padding: 0;
+}
+
+.comment-detail-memo .memo-window-card {
+  min-height: 0;
+}
+
+.comment-detail-memo .memo-window-card-head {
+  padding: 12px 12px 0;
+}
+
+.comment-detail-memo .memo-card-reading {
+  padding: 0 12px 12px;
+}
+
+.todo-detail-content {
+  display: grid;
+  gap: 12px;
+  margin: 0 auto;
+  max-width: 720px;
+}
+
+.todo-detail-status {
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  font-weight: 800;
+  padding: 3px 8px;
+}
+
+.todo-detail-status.is-open {
+  background: color-mix(in srgb, var(--memo-accent) 14%, transparent);
+  color: var(--memo-accent-strong);
+}
+
+.todo-detail-status.is-complete {
+  background: color-mix(in srgb, var(--GREEN) 14%, transparent);
+  color: var(--GREEN);
+}
+
+.todo-detail-card {
+  display: grid;
+  gap: 12px;
+}
+
+.todo-detail-check-row {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+}
+
+.todo-detail-check-row input {
+  accent-color: var(--memo-accent);
+  height: 18px;
+  margin: 2px 0 0;
+  width: 18px;
+}
+
+.todo-detail-task-title {
+  color: var(--FG-0);
+  font-size: var(--font-lg);
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.todo-detail-card.is-complete .todo-detail-task-title {
+  color: var(--FG-1);
+  text-decoration: line-through;
+}
+
+.todo-detail-task-description {
+  color: var(--FG-1);
+  line-height: 1.65;
+  padding-left: 28px;
+  white-space: pre-wrap;
+}
+
+.todo-detail-source {
+  align-items: center;
+  color: var(--FG-1);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--font-sm);
+  gap: 6px 12px;
+  padding-left: 28px;
+}
+
+.todo-detail-source-text {
+  color: var(--FG-0);
+}
+
+.todo-detail-page .memo-window-comment-hover-actions,
+.todo-detail-page .memo-comment-footer,
+.todo-detail-page .memo-card-head-actions,
+.todo-detail-page .memo-reactions-add-wrap,
+.todo-detail-page .memo-window-comment-expand-button {
+  display: none;
+}
+
+.todo-detail-page .memo-window-comment-collapse,
+.todo-detail-page .memo-window-comment-collapse.is-collapsed {
+  max-height: none;
+  overflow: visible;
+}
+
 .memo-command-empty {
   align-items: center;
   color: var(--FG-1);

@@ -27,6 +27,11 @@ var commentRepliesWindowCache = struct {
 	items map[string]CommentRepliesWindowPayload
 }{items: make(map[string]CommentRepliesWindowPayload)}
 
+var todo_window_cache = struct {
+	sync.RWMutex
+	items map[string]TodoWindowPayload
+}{items: make(map[string]TodoWindowPayload)}
+
 type MemoWindowPayload struct {
 	Fixed    bool            `json:"fixed"`
 	Memo     json.RawMessage `json:"memo"`
@@ -36,9 +41,19 @@ type MemoWindowPayload struct {
 
 type CommentRepliesWindowPayload struct {
 	Comment json.RawMessage `json:"comment"`
+	ReplyTo json.RawMessage `json:"replyTo,omitempty"`
 	Replies json.RawMessage `json:"replies"`
 	Memo    json.RawMessage `json:"memo"`
 	Memos   json.RawMessage `json:"memos"`
+	Query   string          `json:"query,omitempty"`
+}
+
+type TodoWindowPayload struct {
+	Todo    json.RawMessage `json:"todo"`
+	Memo    json.RawMessage `json:"memo"`
+	Comment json.RawMessage `json:"comment,omitempty"`
+	Memos   json.RawMessage `json:"memos"`
+	Query   string          `json:"query,omitempty"`
 }
 
 func droppedFilesFromPayload(payload string, logger *zerolog.Logger) ([]velo.H, velo.H) {
@@ -140,7 +155,7 @@ func memoWindowMemosPayload(memo json.RawMessage, memos json.RawMessage) json.Ra
 	return json.RawMessage("[" + string(memo) + "]")
 }
 
-func commentRepliesWindowCommentID(raw json.RawMessage) (string, error) {
+func comment_replies_window_comment_id(raw json.RawMessage) (string, error) {
 	if len(raw) == 0 || !json.Valid(raw) {
 		return "", fmt.Errorf("comment is required")
 	}
@@ -153,6 +168,23 @@ func commentRepliesWindowCommentID(raw json.RawMessage) (string, error) {
 	id := strings.TrimSpace(comment.ID)
 	if id == "" {
 		return "", fmt.Errorf("comment id is required")
+	}
+	return id, nil
+}
+
+func todo_window_todo_id(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 || !json.Valid(raw) {
+		return "", fmt.Errorf("todo is required")
+	}
+	var todo struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &todo); err != nil {
+		return "", err
+	}
+	id := strings.TrimSpace(todo.ID)
+	if id == "" {
+		return "", fmt.Errorf("todo id is required")
 	}
 	return id, nil
 }

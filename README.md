@@ -188,7 +188,7 @@ Memo 使用 YAML front matter 保存结构化元数据，正文保持为普通 M
 | `Cmd+Shift+M` | 显示主窗口（macOS） |
 | `Cmd+Shift+H` | 隐藏主窗口（macOS） |
 | `Ctrl+Shift+Space` / `Cmd+Shift+Space` | 打开代码片段/链接启动器 |
-| `Ctrl+O` | 搜索并在分离窗口打开 Memo，默认可在设置中修改 |
+| `Ctrl+O` | 搜索 Memo、评论与代办，并分别在对应的分离窗口中打开，默认可在设置中修改 |
 
 应用内还支持在设置中开启 Vim 模式、选择本地文件的默认打开应用，以及按文件后缀配置不同编辑器。
 

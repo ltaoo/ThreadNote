@@ -163,10 +163,10 @@ function detachedMemoWindowTemplate() {
         <input class="memo-hidden-input" type="file" multiple data-window-comment-file-input />
       </form>
       <div class="memo-command-palette" data-memo-search-palette hidden>
-        <div class="memo-command-panel" role="dialog" aria-modal="true" aria-label="搜索 memo、代办和代码片段">
+        <div class="memo-command-panel" role="dialog" aria-modal="true" aria-label="搜索 memo、评论和代办">
           <label class="memo-command-search">
             ${SVG.search}
-            <input type="search" data-memo-search-input placeholder="搜索 memo / 代办 / 代码片段" autocomplete="off" />
+            <input type="search" data-memo-search-input placeholder="搜索 memo / 评论 / 代办" autocomplete="off" />
           </label>
           <div class="memo-command-results" data-memo-search-results role="listbox"></div>
         </div>
@@ -214,12 +214,12 @@ function detachedMemoCardTemplate(memo, renderContext, options = {}) {
         </div>
         ${toc}
       </div>
-      ${comments.length ? detachedMemoCommentsTemplate(comments, renderContext, editingCommentId, expandedCommentIds) : ""}
+      ${comments.length ? detachedMemoCommentsTemplate(comments, renderContext, editingCommentId, expandedCommentIds, options.highlightCommentId) : ""}
     </article>
   `;
 }
 
-function detachedMemoCommentsTemplate(comments, renderContext, editingCommentId = "", expandedCommentIds) {
+function detachedMemoCommentsTemplate(comments, renderContext, editingCommentId = "", expandedCommentIds, highlightCommentId = "") {
   var replyCounts = {};
   var commentById = {};
   comments.forEach(function (c) {
@@ -240,6 +240,7 @@ function detachedMemoCommentsTemplate(comments, renderContext, editingCommentId 
           if (replyToPreview.length > 80) replyToPreview = replyToPreview.slice(0, 80) + "...";
         }
         return detachedMemoCommentTemplate(comment, renderContext, editingCommentId, expandedCommentIds, {
+          highlighted: comment.id === highlightCommentId,
           replyCount: replyCounts[comment.id] || 0,
           replyToPreview: replyToPreview,
         });
@@ -257,13 +258,13 @@ function detachedMemoCommentTemplate(comment, renderContext, editingCommentId = 
   var replyCount = typeof options.replyCount === "number" && options.replyCount > 0 ? options.replyCount : 0;
   var replyBadgeHTML = replyCount > 0 ? `<button class="memo-comment-reply-badge" type="button" data-window-comment-action="openCommentReplies">${replyCount}条回复</button>` : "";
   var replyToChipHTML = "";
-  if (comment.replyTo) {
+  if (comment.replyTo && options.showReplyTo !== false) {
     var replyToPreview = String(options.replyToPreview || "").trim();
     var replyToLabel = replyToPreview || "comment:" + comment.replyTo;
     replyToChipHTML = `<div class="memo-comment-reply-to"><span class="memo-comment-reply-to-label">回复</span><span class="memo-comment-reply-to-content" title="${escapeAttr(replyToPreview || comment.replyTo)}">${escapeHTML(replyToLabel)}</span></div>`;
   }
   return `
-    <article class="memo-comment memo-window-comment ${editing ? "is-editing" : ""}" data-comment-id="${escapeAttr(comment.id)}">
+    <article class="memo-comment memo-window-comment ${editing ? "is-editing" : ""} ${options.highlighted ? "is-highlighted" : ""}" data-comment-id="${escapeAttr(comment.id)}">
       <header class="memo-comment-head">
         <div class="memo-avatar memo-comment-avatar">U</div>
         <div>
@@ -590,10 +591,10 @@ function shellTemplate() {
         </section>
       </aside>
       <div class="memo-command-palette" data-memo-search-palette hidden>
-        <div class="memo-command-panel" role="dialog" aria-modal="true" aria-label="搜索 memo、代办和代码片段">
+        <div class="memo-command-panel" role="dialog" aria-modal="true" aria-label="搜索 memo、评论和代办">
           <label class="memo-command-search">
             ${SVG.search}
-            <input type="search" data-memo-search-input placeholder="搜索 memo / 代办 / 代码片段" autocomplete="off" />
+            <input type="search" data-memo-search-input placeholder="搜索 memo / 评论 / 代办" autocomplete="off" />
           </label>
           <div class="memo-command-results" data-memo-search-results role="listbox"></div>
         </div>

@@ -3,6 +3,7 @@ package desktopapp
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -404,37 +405,38 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 			return c.Error(err.Error())
 		}
 
-		commentID, err := commentRepliesWindowCommentID(req.Comment)
+		comment_id, err := comment_replies_window_comment_id(req.Comment)
 		if err != nil {
 			return c.Error(err.Error())
 		}
 
 		commentRepliesWindowCache.Lock()
-		commentRepliesWindowCache.items[commentID] = req
+		commentRepliesWindowCache.items[comment_id] = req
 		commentRepliesWindowCache.Unlock()
 
-		windowName := "comment-replies-" + sanitizeStorageID(commentID)
+		window_name := "comment-replies-" + sanitizeStorageID(comment_id)
 		b.OpenWindow(&velo.VeloWebviewOpt{
-			Name:       windowName,
-			Title:      "评论回复",
-			Pathname:   "comment-replies.html?id=" + commentID,
+			Name:       window_name,
+			Title:      "评论详情",
+			Pathname:   "comment-replies.html?id=" + comment_id,
 			Width:      460,
 			Height:     560,
 			Frameless:  true,
 			EntryPage:  "comment-replies.html",
 			FrontendFS: appAssets.FrontendFS,
 		})
-		return c.Ok(velo.H{"success": true, "id": commentID, "windowName": windowName})
+		b.SendMessage(velo.H{"type": "comment_detail_updated", "commentId": comment_id})
+		return c.Ok(velo.H{"success": true, "id": comment_id, "windowName": window_name})
 	})
 
 	b.Get("/api/comment-replies/get", func(c *velo.BoxContext) interface{} {
-		commentID := strings.TrimSpace(c.Query("id"))
-		if commentID == "" {
+		comment_id := strings.TrimSpace(c.Query("id"))
+		if comment_id == "" {
 			return c.Error("id is required")
 		}
 
 		commentRepliesWindowCache.RLock()
-		payload, ok := commentRepliesWindowCache.items[commentID]
+		payload, ok := commentRepliesWindowCache.items[comment_id]
 		commentRepliesWindowCache.RUnlock()
 		if !ok {
 			return c.Ok(velo.H{"found": false})
@@ -442,9 +444,63 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 		return c.Ok(velo.H{
 			"found":   true,
 			"comment": payload.Comment,
+			"replyTo": payload.ReplyTo,
 			"replies": payload.Replies,
 			"memo":    payload.Memo,
 			"memos":   payload.Memos,
+			"query":   payload.Query,
+		})
+	})
+
+	b.Post("/api/todo-window/open", func(c *velo.BoxContext) interface{} {
+		var req TodoWindowPayload
+		if err := c.BindJSON(&req); err != nil {
+			return c.Error(err.Error())
+		}
+
+		todo_id, err := todo_window_todo_id(req.Todo)
+		if err != nil {
+			return c.Error(err.Error())
+		}
+
+		todo_window_cache.Lock()
+		todo_window_cache.items[todo_id] = req
+		todo_window_cache.Unlock()
+
+		window_name := "todo-window-" + sanitizeStorageID(todo_id)
+		b.OpenWindow(&velo.VeloWebviewOpt{
+			Name:       window_name,
+			Title:      "代办详情",
+			Pathname:   "todo-window.html?id=" + url.QueryEscape(todo_id),
+			Width:      460,
+			Height:     560,
+			Frameless:  true,
+			EntryPage:  "todo-window.html",
+			FrontendFS: appAssets.FrontendFS,
+		})
+		b.SendMessage(velo.H{"type": "todo_detail_updated", "todoId": todo_id})
+		return c.Ok(velo.H{"success": true, "id": todo_id, "windowName": window_name})
+	})
+
+	b.Get("/api/todo-window/get", func(c *velo.BoxContext) interface{} {
+		todo_id := strings.TrimSpace(c.Query("id"))
+		if todo_id == "" {
+			return c.Error("id is required")
+		}
+
+		todo_window_cache.RLock()
+		payload, ok := todo_window_cache.items[todo_id]
+		todo_window_cache.RUnlock()
+		if !ok {
+			return c.Ok(velo.H{"found": false})
+		}
+		return c.Ok(velo.H{
+			"found":   true,
+			"todo":    payload.Todo,
+			"memo":    payload.Memo,
+			"comment": payload.Comment,
+			"memos":   payload.Memos,
+			"query":   payload.Query,
 		})
 	})
 }

@@ -169,8 +169,23 @@ import {
 } from "./memo-editor.js";
 import { renderMemoMarkdown } from "./memo-markdown.js";
 import { mountMemoEditDialog } from "./memo-dialog-edit.js";
-import { addMonths, dateFromKey, formatDateKey, memoDateKey, startOfMonth } from "./memo-date.js";
+import { addMonths, dateFromKey, formatDateKey, formatRelativeDate, memoDateKey, startOfMonth } from "./memo-date.js";
 import { registerWindowSession } from "../../window-state.js";
+import {
+  MemoQuickSearchModel,
+  memoQuickSearchContextKey,
+  memoQuickSearchHighlightParts,
+  readMemoQuickSearchOpenContext,
+  writeMemoQuickSearchOpenContext,
+} from "./memo-quick-search-model.js";
+import {
+  buildCommentDetailPayload,
+  writeCommentDetailPayload,
+} from "../../comment-detail-model.js";
+import {
+  buildTodoDetailPayload,
+  writeTodoDetailPayload,
+} from "../../todo-detail-model.js";
 import {
   closestAnchor,
   closestElement,
@@ -683,9 +698,6 @@ export function mountMemosHome(root) {
     boards: [],
     boardsLoading: false,
     memoRefIndex: null,
-    memoSearchActiveIndex: 0,
-    memoSearchOpen: false,
-    memoSearchQuery: "",
     memoDrafts: [],
     memoDialog: null,
     memos: loadMemos(),
@@ -743,6 +755,21 @@ export function mountMemosHome(root) {
   let memoDialogEditor = null;
   let memoDialogController = null;
   let acpChatController = null;
+  const memoQuickSearchModel = new MemoQuickSearchModel({
+    formatDate: formatRelativeDate,
+    openResult(context) {
+      closeMemoSearchPalette();
+      if (context.todoId) {
+        openTodoDetail(context.result && context.result.todo, context.query);
+        return;
+      }
+      if (context.commentId) {
+        openCommentDetail(context.commentId, context.query);
+        return;
+      }
+      detachMemo(context.memoId, { query: context.query });
+    },
+  });
 
   root.innerHTML = shellTemplate();
 
@@ -2383,9 +2410,11 @@ export function mountMemosHome(root) {
     );
   }
 
-  function detachMemo(memoId) {
+  function detachMemo(memoId, searchContext) {
     const memo = findMemo(memoId);
     if (!memo) return;
+
+    writeMemoQuickSearchOpenContext(globalThis.localStorage, memo.id, searchContext);
 
     if (typeof invoke !== "function") {
       window.open("memo-window.html?id=" + encodeURIComponent(memo.id), "_blank", "noopener");
@@ -2413,9 +2442,8 @@ export function mountMemosHome(root) {
   }
 
   function openMemoSearchPalette() {
-    state.memoSearchOpen = true;
-    state.memoSearchQuery = "";
-    state.memoSearchActiveIndex = 0;
+    syncMemoQuickSearchSources();
+    memoQuickSearchModel.open();
     renderMemoSearchPalette();
     window.requestAnimationFrame(function () {
       if (!els.memoSearchInput) return;
@@ -2425,60 +2453,36 @@ export function mountMemosHome(root) {
   }
 
   function closeMemoSearchPalette() {
-    state.memoSearchOpen = false;
-    state.memoSearchQuery = "";
-    state.memoSearchActiveIndex = 0;
+    memoQuickSearchModel.close();
     renderMemoSearchPalette();
   }
 
-  function openMemoSearchResult(memoId) {
-    if (!memoId) return;
-    const result = memoSearchResults().find((item) => item.key === memoId || item.id === memoId);
-    if (result && result.kind === "codeblock") {
-      closeMemoSearchPalette();
-      copyText(result.block.code).then(
-        () => showToast("已复制代码片段"),
-        () => showToast("复制失败"),
-      );
-      return;
-    }
-
-    const targetMemoId = result && result.memoId ? result.memoId : memoId;
-    const memo = findMemo(targetMemoId);
-    if (!memo) {
-      showToast("找不到 memo");
-      return;
-    }
-    closeMemoSearchPalette();
-    detachMemo(memo.id);
+  function openMemoSearchResult(resultKey) {
+    if (!memoQuickSearchModel.activateByKey(resultKey)) showToast("找不到搜索结果");
   }
 
   function renderMemoSearchPalette() {
     if (!els.memoSearchPalette) return;
-    els.memoSearchPalette.hidden = !state.memoSearchOpen;
-    if (!state.memoSearchOpen) {
-      if (els.memoSearchInput) els.memoSearchInput.value = "";
-      if (els.memoSearchResults) els.memoSearchResults.innerHTML = "";
-      return;
+    const snapshot = memoQuickSearchModel.snapshot();
+    els.memoSearchPalette.hidden = !snapshot.open;
+    if (!snapshot.open) return;
+
+    if (els.memoSearchInput && els.memoSearchInput.value.trim() !== snapshot.query) {
+      els.memoSearchInput.value = snapshot.query;
     }
 
-    if (els.memoSearchInput && els.memoSearchInput.value.trim() !== state.memoSearchQuery) {
-      els.memoSearchInput.value = state.memoSearchQuery;
-    }
-
-    const results = memoSearchResults();
+    const results = snapshot.results;
     if (!els.memoSearchResults) return;
     if (!results.length) {
-      els.memoSearchResults.innerHTML = '<div class="memo-command-empty">没有匹配的 memo 或代码片段</div>';
+      els.memoSearchResults.innerHTML = '<div class="memo-command-empty">没有匹配的 memo、评论或代办</div>';
       return;
     }
 
-    state.memoSearchActiveIndex = Math.max(0, Math.min(state.memoSearchActiveIndex, results.length - 1));
     els.memoSearchResults.innerHTML = results.map(function (result, index) {
       return [
-        '<button class="memo-command-result ' + (index === state.memoSearchActiveIndex ? "is-active" : "") + '" type="button" role="option" aria-selected="' + (index === state.memoSearchActiveIndex ? "true" : "false") + '" data-memo-search-result="' + escapeAttr(result.key) + '">',
-        '<span class="memo-command-result-title"><span class="memo-command-result-kind">' + escapeHTML(result.kindLabel) + '</span>' + escapeHTML(result.title) + '</span>',
-        '<span class="memo-command-result-summary">' + escapeHTML(result.summary) + '</span>',
+        '<button class="memo-command-result ' + (index === snapshot.activeIndex ? "is-active" : "") + '" type="button" role="option" aria-selected="' + (index === snapshot.activeIndex ? "true" : "false") + '" data-memo-search-result="' + escapeAttr(result.key) + '">',
+        '<span class="memo-command-result-title"><span class="memo-command-result-kind">' + escapeHTML(result.kindLabel) + '</span>' + memoQuickSearchPartsHTML(result.titleParts) + '</span>',
+        '<span class="memo-command-result-summary">' + memoQuickSearchPartsHTML(result.summaryParts) + '</span>',
         '<span class="memo-command-result-meta">' + escapeHTML(result.meta) + '</span>',
         '</button>',
       ].join("");
@@ -2488,106 +2492,19 @@ export function mountMemosHome(root) {
     if (active) active.scrollIntoView({ block: "nearest" });
   }
 
-  function memoSearchResults() {
-    const query = state.memoSearchQuery.toLowerCase();
-    const memoResults = state.memos
-      .filter(function (memo) {
-        if (!query) return true;
-        return matchesSearchQuery([
-          memo.id,
-          memoTitle(memo),
-          memo.content,
-          memo.visibility,
-          projectLabel(memo.projectId),
-        ].join(" "), query);
-      })
-      .sort(function (a, b) {
-        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      })
-      .map(function (memo) {
-        return {
-          id: memo.id,
-          key: "memo:" + memo.id,
-          kind: "memo",
-          kindLabel: "MEMO",
-          memoId: memo.id,
-          priority: 2,
-          summary: compactText(memo.content, 112),
-          time: new Date(memo.createdAt).getTime() || 0,
-          title: memoTitle(memo),
-          meta: [
-            memo.archived ? "归档" : "",
-            memo.pinned ? "置顶" : "",
-            projectLabel(memo.projectId),
-            formatRelativeDate(memo.createdAt),
-          ].filter(Boolean).join(" · "),
-        };
-      });
+  function syncMemoQuickSearchSources() {
+    memoQuickSearchModel.setSources({
+      comments: state.comments,
+      memos: state.memos,
+      projects: state.projects,
+    });
+  }
 
-    const todoResults = collectTodos(state.memos)
-      .filter(function (todo) {
-        if (!query) return true;
-        return matchesSearchQuery([
-          todo.text,
-          todo.memo.content,
-          todo.memo.id,
-        ].join(" "), query);
-      })
-      .slice(0, 20)
-      .map(function (todo) {
-        return {
-          id: todo.id,
-          key: "todo:" + todo.id,
-          kind: "todo",
-          kindLabel: todo.checked ? "DONE" : "TODO",
-          memoId: todo.memoId || todo.memo.id,
-          priority: todo.checked ? 3 : 1,
-          summary: compactText(todo.text, 112),
-          time: new Date(todo.memo.createdAt).getTime() || 0,
-          title: todo.text,
-          meta: [
-            todo.checked ? "已完成" : "未完成",
-            projectLabel(todo.memo.projectId),
-          ].filter(Boolean).join(" · "),
-        };
-      });
-
-    const codeResults = collectCodeBlocks(memoDocumentsWithComments(state.memos, state.comments, state.memos))
-      .filter(function (block) {
-        if (!query) return block.marked;
-        return matchesSearchQuery(codeBlockSearchText(block), query);
-      })
-      .sort(sortCodeBlocks)
-      .map(function (block) {
-        return {
-          block,
-          id: block.id,
-          key: "codeblock:" + block.id,
-          kind: "codeblock",
-          kindLabel: block.marked ? "SNIP" : "CODE",
-          memoId: block.memoId,
-          priority: block.marked ? 0 : 4,
-          summary: compactText(block.code, 112),
-          time: new Date(block.memo.createdAt).getTime() || 0,
-          title: block.label || "代码片段",
-          meta: [
-            block.marked ? "代码片段" : "未标记代码块",
-            block.language,
-            block.aliases && block.aliases.length ? block.aliases.join(" ") : "",
-            projectLabel(block.memo.projectId),
-            "Enter 复制",
-          ].filter(Boolean).join(" · "),
-        };
-      });
-
-    return todoResults.concat(codeResults, memoResults)
-      .sort(function (a, b) {
-        if (query && a.priority !== b.priority) return a.priority - b.priority;
-        if (!query && a.kind !== b.kind) return a.kind === "memo" ? -1 : 1;
-        return state.sortDesc ? b.time - a.time : a.time - b.time;
-      })
-      .slice(0, 12);
+  function memoQuickSearchPartsHTML(parts) {
+    return (Array.isArray(parts) ? parts : []).map(function (part) {
+      const text = escapeHTML(part && part.text);
+      return part && part.matched ? '<mark class="memo-command-match">' + text + '</mark>' : text;
+    }).join("");
   }
 
   function openMemoSearchShortcut() {
@@ -2793,8 +2710,7 @@ export function mountMemosHome(root) {
 
   function handleInput(event) {
     if (event.target.matches("[data-memo-search-input]")) {
-      state.memoSearchQuery = event.target.value.trim();
-      state.memoSearchActiveIndex = 0;
+      memoQuickSearchModel.setQuery(event.target.value);
       renderMemoSearchPalette();
       return;
     }
@@ -2844,7 +2760,7 @@ export function mountMemosHome(root) {
       }
     }
 
-    if (state.memoSearchOpen) {
+    if (memoQuickSearchModel.snapshot().open) {
       handleMemoSearchKeydown(event);
       return;
     }
@@ -2878,26 +2794,23 @@ export function mountMemosHome(root) {
       return;
     }
 
-    const results = memoSearchResults();
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      state.memoSearchActiveIndex = results.length ? (state.memoSearchActiveIndex + 1) % results.length : 0;
+      memoQuickSearchModel.moveActive(1);
       renderMemoSearchPalette();
       return;
     }
 
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      state.memoSearchActiveIndex = results.length ? (state.memoSearchActiveIndex - 1 + results.length) % results.length : 0;
+      memoQuickSearchModel.moveActive(-1);
       renderMemoSearchPalette();
       return;
     }
 
     if (event.key === "Enter") {
       event.preventDefault();
-      if (!results.length) return;
-      const active = results[Math.min(state.memoSearchActiveIndex, results.length - 1)];
-      if (active) openMemoSearchResult(active.id);
+      memoQuickSearchModel.activateActive();
     }
   }
 
@@ -4770,24 +4683,46 @@ export function mountMemosHome(root) {
   }
 
   function openCommentReplies(commentId) {
-    var comment = findComment(commentId);
-    if (!comment) return;
-    var memo = findMemo(comment.memoId);
-    if (!memo) return;
-    var replies = state.comments.filter(function (c) {
-      return c && c.replyTo === commentId;
+    openCommentDetail(commentId, "");
+  }
+
+  function openTodoDetail(todo, query) {
+    const payload = buildTodoDetailPayload(todo, state.comments, state.memos, query);
+    if (!payload) {
+      showToast("找不到代办详情");
+      return;
+    }
+    writeMemoQuickSearchOpenContext(globalThis.localStorage, payload.memo.id, null);
+    writeTodoDetailPayload(globalThis.localStorage, payload);
+    if (typeof invoke !== "function") {
+      window.open("todo-window.html?id=" + encodeURIComponent(payload.todo.id), "_blank", "noopener");
+      return;
+    }
+    invoke("/api/todo-window/open", {
+      method: "POST",
+      args: payload,
+    }).catch(function (err) {
+      showToast("打开代办详情失败: " + errorMessage(err));
     });
-    if (typeof invoke !== "function") return;
+  }
+
+  function openCommentDetail(commentId, query) {
+    const payload = buildCommentDetailPayload(state.comments, state.memos, commentId, query);
+    if (!payload) {
+      showToast("找不到评论详情");
+      return;
+    }
+    writeMemoQuickSearchOpenContext(globalThis.localStorage, payload.memo.id, null);
+    writeCommentDetailPayload(globalThis.localStorage, payload);
+    if (typeof invoke !== "function") {
+      window.open("comment-replies.html?id=" + encodeURIComponent(commentId), "_blank", "noopener");
+      return;
+    }
     invoke("/api/comment-replies/open", {
       method: "POST",
-      args: {
-        comment: comment,
-        replies: replies,
-        memo: memo,
-        memos: state.memos,
-      },
+      args: payload,
     }).catch(function (err) {
-      showToast("打开回复窗口失败: " + errorMessage(err));
+      showToast("打开评论详情失败: " + errorMessage(err));
     });
   }
 
@@ -5873,6 +5808,10 @@ export function mountMemosHome(root) {
     renderPinned();
     renderMainContent();
     renderPinDialog();
+    if (memoQuickSearchModel.snapshot().open) {
+      syncMemoQuickSearchSources();
+      renderMemoSearchPalette();
+    }
   }
 
   function renderMainChrome() {
@@ -8162,6 +8101,8 @@ export function mountMemosHome(root) {
 
 export function mountDetachedMemoWindow(root, options = {}) {
   const params = new URLSearchParams(window.location.search);
+  const detachedMemoId = params.get("id") || "";
+  const initialSearchContext = readMemoQuickSearchOpenContext(globalThis.localStorage, detachedMemoId);
   const state = {
     commentDraft: "",
     commentEditDraft: "",
@@ -8190,13 +8131,14 @@ export function mountDetachedMemoWindow(root, options = {}) {
     historyDiffLoading: {},
     memos: [],
     projects: [],
+    searchQuery: initialSearchContext.query,
     editorSettings: loadEditorSettings(),
     snapshotDebounceTimer: null,
     snapshotInFlight: false,
     snapshotPollTimer: null,
     toastTimer: null,
     windowSession: null,
-    windowName: detachedMemoWindowName(params.get("id") || ""),
+    windowName: detachedMemoWindowName(detachedMemoId),
     findOpen: false,
     findQuery: "",
     findMatches: [],
@@ -8244,6 +8186,7 @@ export function mountDetachedMemoWindow(root, options = {}) {
   window.addEventListener("click", handleExternalLinkClick, true);
   window.addEventListener("beforeunload", handleDetachedBeforeUnload);
   window.addEventListener("resize", scheduleDetachedWindowStateSnapshot);
+  window.addEventListener("storage", handleDetachedSearchContextStorage);
   root.addEventListener("click", handleClick);
   root.addEventListener("change", handleChange);
   root.addEventListener("input", handleInput);
@@ -8260,6 +8203,7 @@ export function mountDetachedMemoWindow(root, options = {}) {
       window.removeEventListener("click", handleExternalLinkClick, true);
       window.removeEventListener("beforeunload", handleDetachedBeforeUnload);
       window.removeEventListener("resize", scheduleDetachedWindowStateSnapshot);
+      window.removeEventListener("storage", handleDetachedSearchContextStorage);
       root.removeEventListener("click", handleClick);
       root.removeEventListener("change", handleChange);
       root.removeEventListener("keydown", handleKeydown, true);
@@ -8582,6 +8526,13 @@ export function mountDetachedMemoWindow(root, options = {}) {
         loadDetachedMemo();
       }
     });
+  }
+
+  function handleDetachedSearchContextStorage(event) {
+    if (!state.memo || event.key !== memoQuickSearchContextKey(state.memo.id)) return;
+    const context = readMemoQuickSearchOpenContext(globalThis.localStorage, state.memo.id, event.newValue);
+    state.searchQuery = context.query;
+    renderDetachedMemo();
   }
 
   function startDetachedWindowStateSnapshots() {
@@ -9405,6 +9356,7 @@ export function mountDetachedMemoWindow(root, options = {}) {
   // ---- find bar ----
 
   function openFindBar() {
+    clearFindHighlights();
     state.findOpen = true;
     els.findBar.hidden = false;
     els.findInput.value = "";
@@ -9425,7 +9377,7 @@ export function mountDetachedMemoWindow(root, options = {}) {
     renderDetachedMemo();
   }
 
-  function doFind(query) {
+  function doFind(query, matchTerms) {
     clearFindHighlights();
     state.findQuery = query;
 
@@ -9454,6 +9406,25 @@ export function mountDetachedMemoWindow(root, options = {}) {
     var marks = [];
     textNodes.forEach(function (textNode) {
       var text = textNode.textContent;
+      if (matchTerms) {
+        var highlightedParts = memoQuickSearchHighlightParts(text, query);
+        if (!highlightedParts.some(function (part) { return part.matched; })) return;
+        var highlightedParent = textNode.parentNode;
+        if (!highlightedParent) return;
+        highlightedParts.forEach(function (part) {
+          if (!part.matched) {
+            highlightedParent.insertBefore(document.createTextNode(part.text), textNode);
+            return;
+          }
+          var highlightedMark = document.createElement("mark");
+          highlightedMark.className = "memo-find-match";
+          highlightedMark.textContent = part.text;
+          marks.push(highlightedMark);
+          highlightedParent.insertBefore(highlightedMark, textNode);
+        });
+        highlightedParent.removeChild(textNode);
+        return;
+      }
       var lower = text.toLowerCase();
       var fragments = [];
       var idx = 0;
@@ -9491,6 +9462,12 @@ export function mountDetachedMemoWindow(root, options = {}) {
     updateFindCount();
     updateFindActiveClass();
     scrollToActiveMatch();
+  }
+
+  function applyDetachedSearchHighlights() {
+    const query = String(state.searchQuery || "").trim();
+    if (!query || state.findOpen) return;
+    doFind(query, true);
   }
 
   function navigateFind(direction) {
@@ -9589,7 +9566,11 @@ export function mountDetachedMemoWindow(root, options = {}) {
     return createMemoCommentInVault(memo.id, state.commentDraft, undefined, undefined, replyTo).then(
       function (comment) {
         const normalized = normalizeMemoCommentPayload(comment);
-        if (normalized) state.comments = commentsForDetachedMemo(memo.id).concat(normalized);
+        if (normalized) {
+          state.comments = state.comments
+            .filter(function (item) { return item && item.id !== normalized.id; })
+            .concat(normalized);
+        }
         state.commentDraft = "";
         state.commentPreviewVisible = false;
         state.replyToCommentId = "";
@@ -9616,22 +9597,22 @@ export function mountDetachedMemoWindow(root, options = {}) {
   }
 
   function detachedOpenCommentReplies(commentId) {
-    var comment = state.comments.find(function (c) { return c && c.id === commentId; });
-    if (!comment) return;
-    var replies = state.comments.filter(function (c) {
-      return c && c.replyTo === commentId;
-    });
-    if (typeof invoke !== "function") return;
+    const payload = buildCommentDetailPayload(state.comments, state.memos, commentId, "");
+    if (!payload) {
+      showToast("找不到评论详情");
+      return;
+    }
+    writeMemoQuickSearchOpenContext(globalThis.localStorage, payload.memo.id, null);
+    writeCommentDetailPayload(globalThis.localStorage, payload);
+    if (typeof invoke !== "function") {
+      window.open("comment-replies.html?id=" + encodeURIComponent(commentId), "_blank", "noopener");
+      return;
+    }
     invoke("/api/comment-replies/open", {
       method: "POST",
-      args: {
-        comment: comment,
-        replies: replies,
-        memo: state.memo,
-        memos: state.memos,
-      },
+      args: payload,
     }).catch(function (err) {
-      showToast("打开回复窗口失败: " + errorMessage(err));
+      showToast("打开评论详情失败: " + errorMessage(err));
     });
   }
 
@@ -9802,6 +9783,7 @@ export function mountDetachedMemoWindow(root, options = {}) {
     syncDetachedCommentExpandControls();
     syncDetachedCommentForm();
     renderDetachedCommentPreview();
+    applyDetachedSearchHighlights();
   }
 
   function renderDetachedState(message) {
@@ -9847,6 +9829,7 @@ export function mountDetachedMemoWindow(root, options = {}) {
       showToast("找不到引用的 memo");
       return;
     }
+    writeMemoQuickSearchOpenContext(globalThis.localStorage, memoId, null);
     if (typeof invoke !== "function") {
       window.open("memo-window.html?id=" + encodeURIComponent(memoId), "_blank", "noopener");
       return;

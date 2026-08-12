@@ -53,6 +53,16 @@ func TestMemoWindowNameUsesMemoID(t *testing.T) {
 	}
 }
 
+func TestTodoWindowTodoID(t *testing.T) {
+	id, err := todo_window_todo_id(json.RawMessage(`{"id":"memo-1:3","text":"ship"}`))
+	if err != nil {
+		t.Fatalf("todo_window_todo_id returned error: %v", err)
+	}
+	if id != "memo-1:3" {
+		t.Fatalf("todo id = %q, want %q", id, "memo-1:3")
+	}
+}
+
 func stringSliceContains(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {

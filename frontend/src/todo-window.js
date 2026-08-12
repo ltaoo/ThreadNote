@@ -1,8 +1,8 @@
 import { buildMemoReferenceIndex } from "./domain/memos.js";
 import {
-  CommentDetailModel,
-  readCommentDetailPayload,
-} from "./comment-detail-model.js";
+  readTodoDetailPayload,
+  TodoDetailModel,
+} from "./todo-detail-model.js";
 import {
   detachedMemoCardTemplate,
   detachedMemoCommentTemplate,
@@ -11,26 +11,26 @@ import {
 import { memoQuickSearchHighlightParts } from "./pages/home/memo-quick-search-model.js";
 import { escapeHTML } from "./pages/home/memo-utils.js";
 
-class CommentDetailView {
+class TodoDetailView {
   constructor(root, model) {
     this.root = root;
     this.model = model;
   }
 
-  async mount(commentId) {
+  async mount(todoId) {
     this.render(this.model.snapshot());
-    const state = await this.model.load(commentId);
+    const state = await this.model.load(todoId);
     this.render(state);
   }
 
   render(state) {
     if (state.loading) {
-      this.root.innerHTML = this.shell('<div class="memo-window-empty">正在加载评论...</div>');
+      this.root.innerHTML = this.shell('<div class="memo-window-empty">正在加载代办...</div>');
       return;
     }
     if (!state.found) {
       this.root.innerHTML = this.shell(
-        '<div class="memo-window-empty">' + escapeHTML(state.error || "未找到评论") + "</div>",
+        '<div class="memo-window-empty">' + escapeHTML(state.error || "未找到代办") + "</div>",
       );
       return;
     }
@@ -41,79 +41,55 @@ class CommentDetailView {
     };
     const render_context = detachedMemoRenderContext(render_state, "", { readonly: true });
     const sections = [
-      this.commentSection("评论内容", state.comment, render_context, {
-        className: "comment-detail-primary",
-        highlighted: true,
-      }),
+      this.todoSection(state.todo),
       this.memoSection(state.memo, render_context),
     ];
-    if (state.replyTo) {
-      sections.push(this.commentSection("回复的评论", state.replyTo, render_context));
-    }
-    if (state.replies.length) {
-      sections.push(this.commentsSection("收到的回复", state.replies, render_context));
-    }
+    if (state.comment) sections.push(this.commentSection(state.comment, render_context));
 
-    document.title = "评论详情";
+    document.title = "代办详情";
     this.root.innerHTML = this.shell(
-      '<div class="comment-detail-content" data-comment-detail-content>' + sections.join("") + "</div>",
+      '<div class="todo-detail-content" data-todo-detail-content>' + sections.join("") + "</div>",
     );
     this.highlightQuery(state.query);
   }
 
   shell(content) {
     return `
-      <div class="memo-window-shell comment-detail-page velo-drag" data-velo-drag>
+      <div class="memo-window-shell todo-detail-page velo-drag" data-velo-drag>
         <header class="memo-window-titlebar velo-drag" data-velo-drag>
           <div class="memo-window-native-controls" aria-hidden="true"></div>
           <div class="memo-window-drag-region" aria-hidden="true"></div>
-          <div class="comment-detail-window-title">评论详情</div>
+          <div class="comment-detail-window-title">代办详情</div>
         </header>
         <main class="memo-window-body velo-no-drag comment-detail-body">${content}</main>
       </div>
     `;
   }
 
-  commentSection(title, item, renderContext, options) {
-    const config = options || {};
+  todoSection(todo) {
+    const status_label = todo.checked ? "已完成" : "未完成";
+    const source_label = todo.sourceCommentId ? "评论中的代办" : "Memo 中的代办";
     return `
-      <section class="comment-detail-section ${escapeHTML(config.className || "")}" aria-label="${escapeHTML(title)}">
-        <div class="comment-detail-section-title">${escapeHTML(title)}</div>
-        <div class="comment-detail-section-body memo-comment-list">
-          ${this.commentTemplate(item, renderContext, Boolean(config.highlighted))}
-        </div>
-      </section>
-    `;
-  }
-
-  commentsSection(title, items, renderContext) {
-    return `
-      <section class="comment-detail-section" aria-label="${escapeHTML(title)}">
+      <section class="comment-detail-section comment-detail-primary todo-detail-primary" aria-label="代办内容">
         <div class="comment-detail-section-title">
-          <span>${escapeHTML(title)}</span>
-          <strong>${items.length}</strong>
+          <span>代办内容</span>
+          <span class="todo-detail-status ${todo.checked ? "is-complete" : "is-open"}">${status_label}</span>
         </div>
-        <div class="comment-detail-section-body memo-comment-list">
-          ${items.map((item) => this.commentTemplate(item, renderContext, false)).join("")}
+        <div class="comment-detail-section-body">
+          <article class="todo-detail-card ${todo.checked ? "is-complete" : ""}">
+            <div class="todo-detail-check-row">
+              <input type="checkbox" ${todo.checked ? "checked" : ""} disabled aria-label="${escapeHTML(status_label)}" />
+              <div class="todo-detail-task-title">${escapeHTML(todo.title)}</div>
+            </div>
+            ${todo.description ? `<div class="todo-detail-task-description">${escapeHTML(todo.description)}</div>` : ""}
+            <div class="todo-detail-source">
+              <span>${escapeHTML(source_label)}</span>
+              ${todo.sourceText ? `<span class="todo-detail-source-text">${escapeHTML(todo.sourceText)}</span>` : ""}
+            </div>
+          </article>
         </div>
       </section>
     `;
-  }
-
-  commentTemplate(item, renderContext, highlighted) {
-    if (!item || !item.comment) return "";
-    return detachedMemoCommentTemplate(
-      item.comment,
-      renderContext,
-      "",
-      new Set([item.comment.id]),
-      {
-        highlighted,
-        replyCount: item.replyCount,
-        replyToPreview: item.replyToPreview,
-        showReplyTo: false,
-      },
-    );
   }
 
   memoSection(memo, renderContext) {
@@ -127,14 +103,28 @@ class CommentDetailView {
     `;
   }
 
+  commentSection(comment, renderContext) {
+    return `
+      <section class="comment-detail-section" aria-label="所在评论">
+        <div class="comment-detail-section-title">所在评论</div>
+        <div class="comment-detail-section-body memo-comment-list">
+          ${detachedMemoCommentTemplate(comment, renderContext, "", new Set([comment.id]), {
+            replyCount: 0,
+            showReplyTo: false,
+          })}
+        </div>
+      </section>
+    `;
+  }
+
   highlightQuery(query) {
     const text = String(query || "").trim();
     if (!text) return;
-    const content = this.root.querySelector("[data-comment-detail-content]");
+    const content = this.root.querySelector("[data-todo-detail-content]");
     if (!content) return;
 
     const text_nodes = [];
-    content.querySelectorAll(".memo-content, .memo-comment-reply-to-content").forEach(function (container) {
+    content.querySelectorAll(".todo-detail-task-title, .todo-detail-task-description, .todo-detail-source-text, .memo-content").forEach(function (container) {
       collectTextNodes(container, text_nodes);
     });
     const marks = [];
@@ -157,7 +147,7 @@ class CommentDetailView {
       parent.removeChild(text_node);
     });
 
-    const primary = content.querySelector(".comment-detail-primary mark.memo-find-match");
+    const primary = content.querySelector(".todo-detail-primary mark.memo-find-match");
     (primary || marks[0])?.classList.add("is-active");
   }
 }
@@ -177,17 +167,17 @@ function collectTextNodes(node, output) {
 document.addEventListener("DOMContentLoaded", function () {
   const root = document.querySelector("#root");
   if (!root) return;
-  const comment_id = String(new URLSearchParams(window.location.search).get("id") || "").trim();
+  const todo_id = String(new URLSearchParams(window.location.search).get("id") || "").trim();
   const services = typeof globalThis.invoke === "function"
     ? { request: globalThis.invoke }
-    : { readLocal(id) { return readCommentDetailPayload(globalThis.localStorage, id); } };
-  const model = new CommentDetailModel(services);
-  const view = new CommentDetailView(root, model);
-  view.mount(comment_id);
+    : { readLocal(id) { return readTodoDetailPayload(globalThis.localStorage, id); } };
+  const model = new TodoDetailModel(services);
+  const view = new TodoDetailView(root, model);
+  view.mount(todo_id);
   if (typeof globalThis.onGoMessage === "function") {
     globalThis.onGoMessage(function (payload) {
-      if (!payload || payload.type !== "comment_detail_updated" || payload.commentId !== comment_id) return;
-      view.mount(comment_id);
+      if (!payload || payload.type !== "todo_detail_updated" || payload.todoId !== todo_id) return;
+      view.mount(todo_id);
     });
   }
 });
