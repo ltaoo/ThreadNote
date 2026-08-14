@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 400" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadNote DMG background</title>
+  <desc id="desc">A warm paper-inspired installer background with amber thread details and a curved drag arrow.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FCFBF8"/>
+      <stop offset="1" stop-color="#F2EEE6"/>
+    </linearGradient>
+    <radialGradient id="amber-glow" cx="0" cy="0" r="1" gradientTransform="translate(132 132) rotate(35) scale(280 230)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFAE24" stop-opacity=".16"/>
+      <stop offset=".55" stop-color="#FFAE24" stop-opacity=".045"/>
+      <stop offset="1" stop-color="#FFAE24" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="thread" x1="258" y1="170" x2="402" y2="170" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFBE52"/>
+      <stop offset="1" stop-color="#F59A0B"/>
+    </linearGradient>
+    <filter id="soft-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#202124" flood-opacity=".08"/>
+    </filter>
+  </defs>
+
+  <rect width="660" height="400" fill="url(#paper)"/>
+  <rect width="660" height="400" fill="url(#amber-glow)"/>
+
+  <path d="M-42 368c114-74 209-58 304-4 92 52 201 48 440-54" fill="none" stroke="#FFAE24" stroke-width="78" stroke-linecap="round" opacity=".045"/>
+  <g transform="translate(38 32) scale(.052)" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M475 700V340l240 360V340" stroke="#202124" stroke-width="104"/>
+    <path d="M310 340h245M435 340l-60 360" stroke="#FFAE24" stroke-width="104"/>
+  </g>
+  <text x="86" y="58" fill="#202124" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="-.35">ThreadNote</text>
+  <text x="87" y="77" fill="#817B70" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" font-weight="600" letter-spacing="1.55">LOCAL-FIRST WORKSPACE</text>
+
+  <text x="410" y="57" fill="#202124" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="middle">Drag ThreadNote to Applications</text>
+  <text x="410" y="79" fill="#817B70" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" text-anchor="middle">Install once. Keep your notes close.</text>
+
+  <circle cx="180" cy="170" r="82" fill="#FFAE24" opacity=".045"/>
+  <circle cx="480" cy="170" r="82" fill="#202124" opacity=".025"/>
+
+  <g filter="url(#soft-shadow)">
+    <path d="M264 170c36-25 94 25 132 0" fill="none" stroke="url(#thread)" stroke-width="5" stroke-linecap="round"/>
+    <path d="m386 159 12 11-12 11" fill="none" stroke="#F59A0B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <path d="M52 310h556" stroke="#D9D3C8" stroke-width="1"/>
+  <text x="330" y="343" fill="#4F4B45" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="500" text-anchor="middle">Notes · Tasks · Project knowledge</text>
+  <text x="330" y="365" fill="#9A9388" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10" font-weight="500" letter-spacing="1.2" text-anchor="middle">PRIVATE BY DEFAULT</text>
+</svg>

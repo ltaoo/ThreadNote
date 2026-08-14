@@ -1,5 +1,9 @@
 # ThreadNote
 
+<p align="center">
+  <img src="assets/threadnote-logo.png" width="160" alt="ThreadNote 图标">
+</p>
+
 ThreadNote 是一个本地优先的桌面知识与任务工作台。它以 Markdown Memo 为核心，把随手记录、双向引用、项目归档、独立任务、GTD、看板、附件和自动化整合在同一个本地 Vault 中。
 
 应用使用 Go 与 [Velo](https://github.com/ltaoo/velo) 提供桌面壳和原生能力，前端由原生 ES Modules 驱动，并随 Go 二进制一同嵌入。日常使用不依赖数据库服务，主要数据直接保存在用户选择的目录中，便于备份、迁移和使用其他工具读取。
