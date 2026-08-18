@@ -26,6 +26,7 @@ type Assets struct {
 	FrontendFS    fs.FS
 	Mode          string
 	ProjectDir    string
+	TrayIcon      []byte
 	Version       string
 }
 
@@ -154,10 +155,10 @@ func Run(assets Assets) {
 		logger.Warn().Msgf("Updater init: %v", err)
 	}
 
-	// Keep secondary windows alive when the main window closes, but terminate the
-	// app once every window has been closed so it cannot remain docked headless.
-	quitOnLastWindowClosed := true
-	opt := velo.VeloAppOpt{Mode: velo.ModeBridge, IconData: appAssets.AppIcon, QuitOnLastWindowClosed: &quitOnLastWindowClosed}
+	// Closing every window keeps ThreadNote available from the system tray. The
+	// tray's Exit item remains the explicit way to terminate the application.
+	quit_on_last_window_closed := false
+	opt := velo.VeloAppOpt{Mode: velo.ModeBridge, IconData: appAssets.AppIcon, QuitOnLastWindowClosed: &quit_on_last_window_closed}
 	b := velo.NewApp(&opt)
 	initialPathname := "/vault-picker"
 	if startupVault, err := loadStartupVault(); err != nil {
@@ -201,6 +202,7 @@ func Run(assets Assets) {
 	_ = sm
 
 	b.NewWebview(mainWindowOptions(initialPathname, b, logger))
+	setup_tray(b, logger)
 	if initialPathname == "/desktop" {
 		go func() {
 			time.Sleep(1100 * time.Millisecond)

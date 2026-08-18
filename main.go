@@ -17,6 +17,9 @@ var appConfigData []byte
 //go:embed assets/threadnote-logo.png
 var appIcon []byte
 
+//go:embed assets/threadnote-tray.png
+var tray_icon []byte
+
 var Version = "1.0.0"
 var Mode = "dev"
 
@@ -35,6 +38,7 @@ func main() {
 		FrontendFS:    frontendFS,
 		Mode:          Mode,
 		ProjectDir:    projectDir(),
+		TrayIcon:      tray_icon,
 		Version:       Version,
 	})
 }

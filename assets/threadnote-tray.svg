@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" role="img" aria-labelledby="title desc">
+  <title id="title">ThreadNote tray icon</title>
+  <desc id="desc">A monochrome ThreadNote TN monogram with distinct letterforms for system tray template rendering.</desc>
+  <path d="M4 6.5h9.5M8.75 6.5v23"
+        fill="none" stroke="#000000" stroke-width="4.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M20.25 29.5v-23L30 29.5v-23"
+        fill="none" stroke="#000000" stroke-width="4.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
