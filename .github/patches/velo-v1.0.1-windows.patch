@@ -124,3 +124,16 @@ index 0000000..b5b8ff0
 +func terminate_process(cmd *exec.Cmd) error {
 +	return cmd.Process.Kill()
 +}
+diff --git a/webview/webview_windows.go b/webview/webview_windows.go
+index d9a3496..9a51d81 100644
+--- a/webview/webview_windows.go
++++ b/webview/webview_windows.go
+@@ -17,7 +17,7 @@ import (
+ )
+ 
+ /*
+-#cgo CXXFLAGS: -std=c++17 -IC:/Users/litao/.nuget/packages/microsoft.web.webview2/1.0.2792.45/build/native/include
++#cgo CXXFLAGS: -std=c++17
+ #cgo LDFLAGS: -lole32 -lshell32 -luser32 -lgdi32 -luuid -ldwmapi
+ #include <stdlib.h>
+ #include "webview_windows.h"

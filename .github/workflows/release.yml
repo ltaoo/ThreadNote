@@ -172,12 +172,15 @@ jobs:
           $sdk = Join-Path $env:RUNNER_TEMP "webview2-sdk"
           Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/${env:WEBVIEW2_VERSION}" -OutFile $archive
           Expand-Archive -Path $archive -DestinationPath $sdk -Force
-          Copy-Item -Path (Join-Path $sdk "build\native\include\*") -Destination "C:\msys64\mingw64\include" -Recurse -Force
 
       - name: Set application version and build
         shell: pwsh
         run: |
           $env:PATH = "$(go env GOPATH)\bin;C:\msys64\mingw64\bin;$env:PATH"
+          $velo_source = (Join-Path $env:RUNNER_TEMP "velo-${env:VELO_VERSION}").Replace('\', '/')
+          $webview2_include = (Join-Path $env:RUNNER_TEMP "webview2-sdk\build\native\include").Replace('\', '/')
+          $env:CGO_CXXFLAGS = "-I$webview2_include"
+          go mod edit "-replace=github.com/ltaoo/velo=$velo_source"
           $config = Get-Content velo.json -Raw | ConvertFrom-Json
           $config.app.version = $env:VERSION
           $config | ConvertTo-Json -Depth 20 | Set-Content velo.json -Encoding utf8
