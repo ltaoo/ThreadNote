@@ -146,10 +146,17 @@ git tag v1.0.1
 git push origin v1.0.1
 ```
 
-macOS 签名与公证是可选的。需要启用时，在仓库 Actions Secrets 中完整配置：
+macOS Developer ID 签名与公证是可选的。需要启用时，在仓库 Actions Secrets 中完整配置：
 `APPLE_ID`、`APPLE_TEAM_ID`、`MAC_CERT_IDENTITY`、`MAC_CERT_P12_BASE64`、`MAC_CERT_PASSWORD`、
 `APPLE_API_KEY_P8_BASE64`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER_ID`。
-未完整配置时仍会生成未签名的 DMG。
+未完整配置时仍会生成包含 ad-hoc 签名 `ThreadNote.app` 的 DMG，并在镜像内附带首次运行说明。
+这类构建未经 Apple 公证；安装到“应用程序”后，需要先执行以下命令移除 macOS 隔离属性，再打开应用：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/ThreadNote.app"
+```
+
+请只对从项目官方发布页下载的安装包执行此操作。
 
 工作流使用 Velo v1.0.1；应先发布 Velo v1.0.1，再为本项目推送应用版本标签。
 

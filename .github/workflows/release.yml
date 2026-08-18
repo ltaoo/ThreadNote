@@ -74,7 +74,13 @@ jobs:
         shell: bash
         run: |
           brew install create-dmg
-          go install "github.com/ltaoo/velo/cmd/velo@${VELO_VERSION}"
+          velo_source="${RUNNER_TEMP}/velo-${VELO_VERSION}"
+          git -c core.autocrlf=false clone --branch "${VELO_VERSION}" --depth 1 https://github.com/ltaoo/velo.git "${velo_source}"
+          git -C "${velo_source}" apply --whitespace=error-all "${GITHUB_WORKSPACE}/.github/patches/velo-v1.0.1-release.patch"
+          (
+            cd "${velo_source}"
+            go install -ldflags "-X main.version=${VELO_VERSION}" ./cmd/velo
+          )
           echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
 
       - name: Set application version
@@ -152,8 +158,8 @@ jobs:
           go install "github.com/tc-hib/go-winres@v0.3.3"
           # Apply velo v1.0.1 Windows process and resource-generation fixes.
           $velo_source = Join-Path $env:RUNNER_TEMP "velo-${env:VELO_VERSION}"
-          $velo_patch = Join-Path $env:RUNNER_TEMP "velo-v1.0.1-windows.patch"
-          $patch_source = Join-Path $PWD ".github/patches/velo-v1.0.1-windows.patch"
+          $velo_patch = Join-Path $env:RUNNER_TEMP "velo-v1.0.1-release.patch"
+          $patch_source = Join-Path $PWD ".github/patches/velo-v1.0.1-release.patch"
           $patch_content = [IO.File]::ReadAllText($patch_source).Replace("`r`n", "`n")
           [IO.File]::WriteAllText($velo_patch, $patch_content, [Text.UTF8Encoding]::new($false))
           git -c core.autocrlf=false clone --branch $env:VELO_VERSION --depth 1 https://github.com/ltaoo/velo.git $velo_source
