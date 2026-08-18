@@ -46,7 +46,7 @@ class TodoDetailView {
     ];
     if (state.comment) sections.push(this.commentSection(state.comment, render_context));
 
-    document.title = "代办详情";
+    document.title = "ThreadNote";
     this.root.innerHTML = this.shell(
       '<div class="todo-detail-content" data-todo-detail-content>' + sections.join("") + "</div>",
     );

@@ -81,7 +81,7 @@ func rememberMemoWindow(store *store.Store, memoID string, payload MemoWindowPay
 		Name:      name,
 		Pathname:  memoWindowPathname(memoID, payload.Fixed),
 		Payload:   &payload,
-		Title:     "Memo",
+		Title:     windowing.AppTitle,
 		Width:     460,
 	})
 }
@@ -116,7 +116,7 @@ func restorePersistedOpenWindows(b *velo.Box, logger *zerolog.Logger) {
 			}
 			b.OpenWindow(&velo.VeloWebviewOpt{
 				Name:       item.Name,
-				Title:      firstNonEmpty(item.Title, "Memo"),
+				Title:      windowing.AppTitle,
 				Pathname:   pathname,
 				Width:      positiveOr(item.Width, 460),
 				Height:     positiveOr(item.Height, 560),
@@ -129,7 +129,7 @@ func restorePersistedOpenWindows(b *velo.Box, logger *zerolog.Logger) {
 			pathname := pathnameWithFixed(item.Pathname, item.Fixed)
 			b.OpenWindow(&velo.VeloWebviewOpt{
 				Name:       item.Name,
-				Title:      firstNonEmpty(item.Title, "App"),
+				Title:      windowing.AppTitle,
 				Pathname:   pathname,
 				Width:      positiveOr(item.Width, 760),
 				Height:     positiveOr(item.Height, 640),

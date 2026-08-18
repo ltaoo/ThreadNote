@@ -17,7 +17,7 @@
         "info": {
           "0409": {
             "CompanyName": "ThreadNote",
-            "FileDescription": "ThreadNote Desktop",
+            "FileDescription": "ThreadNote",
             "FileVersion": "1.0.0",
             "InternalName": "ThreadNote",
             "LegalCopyright": "Copyright © 2024 ThreadNote",
@@ -32,7 +32,7 @@
   "RT_MANIFEST": {
     "#1": {
       "0409": {
-        "description": "ThreadNote Desktop",
+        "description": "ThreadNote",
         "dpi-awareness": "system",
         "execution-level": "as invoker",
         "identity": {

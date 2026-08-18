@@ -708,7 +708,7 @@ function runPreviewAction(action, root, els, state, ctx) {
 
 function loadPreviewImage(els, state, ctx) {
   showState(els, "正在载入图片...");
-  document.title = state.payload.title || "图片预览";
+  document.title = "ThreadNote";
   els.title.textContent = state.payload.title || "图片预览";
 
   const image = new Image();
@@ -1003,7 +1003,7 @@ function restoreImagePreviewSessionState(sessionState, root, els, state, ctx) {
     const nextPayload = normalizePreviewPayload(saved.payload);
     if (nextPayload.src && nextPayload.src !== state.payload.src) {
       state.payload = nextPayload;
-      document.title = nextPayload.title || "图片预览";
+      document.title = "ThreadNote";
       if (els.title) els.title.textContent = nextPayload.title || "图片预览";
       loadPreviewImage(els, state, ctx);
     }

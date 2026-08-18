@@ -9,6 +9,8 @@ import (
 	"time"
 	"unicode"
 
+	"example/simple/internal/desktopapp/windowing"
+
 	"github.com/ltaoo/velo"
 )
 
@@ -133,7 +135,7 @@ func registerSnippetRoutes(b *velo.Box) {
 func openSnippetLauncher(b *velo.Box) {
 	b.OpenWindow(&velo.VeloWebviewOpt{
 		Name:                 "snippet-launcher",
-		Title:                "Command",
+		Title:                windowing.AppTitle,
 		Pathname:             "/snippet-launcher",
 		Width:                720,
 		Height:               60,

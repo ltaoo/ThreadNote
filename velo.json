@@ -12,7 +12,7 @@
   },
   "platforms": {
     "macos": {
-      "bundle_id": "com.threadnote.desktop",
+      "bundle_id": "com.funzm.threadnote",
       "icon_file": "assets/threadnote-logo.png",
       "min_system_version": "10.13",
       "category": "public.app-category.productivity",
@@ -28,7 +28,7 @@
     "windows": {
       "company_name": "ThreadNote",
       "product_name": "ThreadNote",
-      "file_description": "ThreadNote Desktop",
+      "file_description": "ThreadNote",
       "internal_name": "ThreadNote",
       "original_filename": "ThreadNote.exe",
       "icon_files": {

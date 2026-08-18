@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+const AppTitle = "ThreadNote"
+
 type OpenWindowRequest struct {
 	ObjectPath       string
 	ObjectPathSuffix string
@@ -91,24 +93,24 @@ func BuildOpenWindowSpec(req OpenWindowRequest) WindowSpec {
 		Height:    640,
 		Name:      "app-window",
 		Pathname:  pathname,
-		Title:     "App",
+		Title:     AppTitle,
 		Width:     760,
 	}
 	switch pathBase {
 	case "/desktop":
 		spec.EntryPage = "index.html"
 		spec.Name = "desktop"
-		spec.Title = "App-Main"
+		spec.Title = AppTitle
 		spec.Width = 1024
 		spec.Height = 768
 	case "/settings":
 		spec.EntryPage = "settings.html"
 		spec.Name = "settings"
-		spec.Title = "App-Settings"
+		spec.Title = AppTitle
 	case "/oss-manager":
 		spec.EntryPage = "oss-manager.html"
 		spec.Name = "oss-manager"
-		spec.Title = "OSS 文件管理"
+		spec.Title = AppTitle
 		spec.Width = 1040
 		spec.Height = 720
 		if storageID != "" {
@@ -117,13 +119,13 @@ func BuildOpenWindowSpec(req OpenWindowRequest) WindowSpec {
 	case "/oss-storage-editor":
 		spec.EntryPage = "oss-storage-editor.html"
 		spec.Name = "oss-storage-editor"
-		spec.Title = "OSS 存储编辑"
+		spec.Title = AppTitle
 		spec.Width = 760
 		spec.Height = 720
 	case "/oss-preview":
 		spec.EntryPage = "oss-preview.html"
 		spec.Name = "oss-preview"
-		spec.Title = "OSS 文件预览"
+		spec.Title = AppTitle
 		spec.Width = 860
 		spec.Height = 680
 		if storageID != "" {
@@ -135,7 +137,7 @@ func BuildOpenWindowSpec(req OpenWindowRequest) WindowSpec {
 	case "/image-preview":
 		spec.EntryPage = "image-preview.html"
 		spec.Name = "image-preview"
-		spec.Title = "图片预览"
+		spec.Title = AppTitle
 		spec.Width = 980
 		spec.Height = 760
 		if previewID != "" {
@@ -144,19 +146,19 @@ func BuildOpenWindowSpec(req OpenWindowRequest) WindowSpec {
 	case "/memo-slim":
 		spec.EntryPage = "memo-slim.html"
 		spec.Name = "memo-slim"
-		spec.Title = "Memo"
+		spec.Title = AppTitle
 		spec.Width = 560
 		spec.Height = 680
 	case "/gtd-slim":
 		spec.EntryPage = "gtd-slim.html"
 		spec.Name = "gtd-slim"
-		spec.Title = "Todos"
+		spec.Title = AppTitle
 		spec.Width = 420
 		spec.Height = 640
 	case "/timeline":
 		spec.EntryPage = "timeline-window.html"
 		spec.Name = "timeline"
-		spec.Title = "时间线"
+		spec.Title = AppTitle
 		spec.Width = 420
 		spec.Height = 640
 	}

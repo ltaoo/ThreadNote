@@ -10,6 +10,7 @@ import (
 
 	"example/simple/internal/desktopapp/external"
 	"example/simple/internal/desktopapp/platform"
+	"example/simple/internal/desktopapp/windowing"
 
 	"github.com/ltaoo/velo"
 	"github.com/ltaoo/velo/file"
@@ -256,7 +257,7 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 		}
 		b.OpenWindow(&velo.VeloWebviewOpt{
 			Name:       windowName,
-			Title:      "Memo",
+			Title:      windowing.AppTitle,
 			Pathname:   memoWindowPathname(memoID, req.Fixed),
 			Width:      460,
 			Height:     560,
@@ -316,7 +317,7 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 		windowName := memoWindowName(memoID) + "-edit"
 		b.OpenWindow(&velo.VeloWebviewOpt{
 			Name:       windowName,
-			Title:      "编辑 Memo",
+			Title:      windowing.AppTitle,
 			Pathname:   "edit-memo-window.html?id=" + memoID,
 			Width:      520,
 			Height:     600,
@@ -417,7 +418,7 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 		window_name := "comment-replies-" + sanitizeStorageID(comment_id)
 		b.OpenWindow(&velo.VeloWebviewOpt{
 			Name:       window_name,
-			Title:      "评论详情",
+			Title:      windowing.AppTitle,
 			Pathname:   "comment-replies.html?id=" + comment_id,
 			Width:      460,
 			Height:     560,
@@ -470,7 +471,7 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 		window_name := "todo-window-" + sanitizeStorageID(todo_id)
 		b.OpenWindow(&velo.VeloWebviewOpt{
 			Name:       window_name,
-			Title:      "代办详情",
+			Title:      windowing.AppTitle,
 			Pathname:   "todo-window.html?id=" + url.QueryEscape(todo_id),
 			Width:      460,
 			Height:     560,

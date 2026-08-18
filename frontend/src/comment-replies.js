@@ -54,7 +54,7 @@ class CommentDetailView {
       sections.push(this.commentsSection("收到的回复", state.replies, render_context));
     }
 
-    document.title = "评论详情";
+    document.title = "ThreadNote";
     this.root.innerHTML = this.shell(
       '<div class="comment-detail-content" data-comment-detail-content>' + sections.join("") + "</div>",
     );

@@ -18,7 +18,7 @@ func TestPersistedOpenWindowRegistryLifecycle(t *testing.T) {
 		Height:    640,
 		Name:      "settings",
 		Pathname:  "/settings",
-		Title:     "App-Settings",
+		Title:     windowing.AppTitle,
 		Width:     760,
 	}); err != nil {
 		t.Fatalf("rememberWindowSpec failed: %v", err)
@@ -58,7 +58,7 @@ func TestPersistedWindowCloseHandlerForgetsSession(t *testing.T) {
 		Height:    640,
 		Name:      "settings",
 		Pathname:  "/settings",
-		Title:     "App-Settings",
+		Title:     windowing.AppTitle,
 		Width:     760,
 	}); err != nil {
 		t.Fatalf("rememberWindowSpec failed: %v", err)
@@ -85,7 +85,7 @@ func TestPersistedWindowSessionStoresURLFrameAndState(t *testing.T) {
 		Name:      "settings",
 		Pathname:  "/settings?panel=input-source",
 		State:     rawState,
-		Title:     "设置",
+		Title:     windowing.AppTitle,
 		Width:     800,
 		X:         11,
 		Y:         22,

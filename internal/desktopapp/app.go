@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"time"
 
+	"example/simple/internal/desktopapp/windowing"
+
 	"github.com/ltaoo/velo"
 	veloerr "github.com/ltaoo/velo/error"
 	"github.com/ltaoo/velo/shortcut"
@@ -127,7 +129,7 @@ func mainWindowOptions(pathname string, b *velo.Box, logger *zerolog.Logger) *ve
 	}
 	return &velo.VeloWebviewOpt{
 		Name:                 "desktop",
-		Title:                "App-Main",
+		Title:                windowing.AppTitle,
 		FrontendFS:           appAssets.FrontendFS,
 		Pathname:             pathname,
 		Width:                1024,

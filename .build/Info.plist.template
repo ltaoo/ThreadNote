@@ -5,7 +5,7 @@
   <key>CFBundleExecutable</key>
   <string>ThreadNote</string>
   <key>CFBundleIdentifier</key>
-  <string>com.threadnote.desktop</string>
+  <string>com.funzm.threadnote</string>
   <key>CFBundleName</key>
   <string>ThreadNote</string>
   <key>CFBundleDisplayName</key>

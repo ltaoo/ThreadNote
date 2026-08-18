@@ -419,7 +419,7 @@ function shellTemplate() {
         <div class="memo-brand">
           <div class="memo-brand-mark">M</div>
           <div>
-            <div class="memo-brand-title">Memos</div>
+            <div class="memo-brand-title">ThreadNote</div>
             <div class="memo-brand-subtitle">Local workspace</div>
           </div>
         </div>

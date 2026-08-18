@@ -9768,7 +9768,7 @@ export function mountDetachedMemoWindow(root, options = {}) {
 
     destroyDetachedCommentEditEditor();
     const context = detachedMemoRenderContext(state, memo.id, { readonly: true });
-    document.title = memoTitle(memo);
+    document.title = "ThreadNote";
     renderDetachedProject(memo);
     els.content.innerHTML = detachedMemoCardTemplate(memo, context, {
       comments: commentsForDetachedMemo(memo.id),
@@ -9787,7 +9787,7 @@ export function mountDetachedMemoWindow(root, options = {}) {
   }
 
   function renderDetachedState(message) {
-    document.title = "Memo";
+    document.title = "ThreadNote";
     renderDetachedProject(null);
     els.content.innerHTML = `<div class="memo-window-empty">${escapeHTML(message || "")}</div>`;
     state.commentDraft = "";

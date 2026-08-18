@@ -11,8 +11,8 @@ import (
 
 func SelectVaultDirectory() (string, error) {
 	commands := [][]string{
-		{"zenity", "--file-selection", "--directory", "--title=Select Velo vault"},
-		{"kdialog", "--getexistingdirectory", ".", "--title", "Select Velo vault"},
+		{"zenity", "--file-selection", "--directory", "--title=ThreadNote"},
+		{"kdialog", "--getexistingdirectory", ".", "--title", "ThreadNote"},
 	}
 	for _, candidate := range commands {
 		if _, err := exec.LookPath(candidate[0]); err != nil {

@@ -8,7 +8,7 @@ import (
 	"github.com/ltaoo/velo/autostart"
 )
 
-const defaultAutoStartAppName = "DemoDesktop"
+const default_auto_start_app_name = "ThreadNote"
 
 type autoStartSaveRequest struct {
 	Enabled bool `json:"enabled"`
@@ -63,7 +63,7 @@ func autoStartAppName() string {
 	if name := strings.TrimSpace(cfg.App.DisplayName); name != "" {
 		return name
 	}
-	return defaultAutoStartAppName
+	return default_auto_start_app_name
 }
 
 func autoStartSupported() bool {

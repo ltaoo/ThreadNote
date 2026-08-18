@@ -14,8 +14,28 @@ func TestBuildOpenWindowSpecDesktop(t *testing.T) {
 	if spec.Pathname != "/desktop" || spec.EntryPage != "index.html" || spec.Name != "desktop" {
 		t.Fatalf("spec = %#v, want desktop window", spec)
 	}
-	if spec.Title != "App-Main" || spec.Width != 1024 || spec.Height != 768 {
+	if spec.Title != AppTitle || spec.Width != 1024 || spec.Height != 768 {
 		t.Fatalf("spec = %#v, want main desktop dimensions", spec)
+	}
+}
+
+func TestBuildOpenWindowSpecUsesThreadNoteTitle(t *testing.T) {
+	pathnames := []string{
+		"/desktop",
+		"/settings",
+		"/oss-manager",
+		"/oss-storage-editor",
+		"/oss-preview",
+		"/image-preview",
+		"/memo-slim",
+		"/gtd-slim",
+		"/timeline",
+	}
+	for _, pathname := range pathnames {
+		spec := BuildOpenWindowSpec(OpenWindowRequest{Pathname: pathname})
+		if spec.Title != AppTitle {
+			t.Errorf("title for %s = %q, want %q", pathname, spec.Title, AppTitle)
+		}
 	}
 }
 
@@ -53,7 +73,7 @@ func TestBuildOpenWindowSpecGTDSlim(t *testing.T) {
 	if spec.Pathname != "/gtd-slim" {
 		t.Fatalf("pathname = %q, want /gtd-slim", spec.Pathname)
 	}
-	if spec.Name != "gtd-slim" || spec.EntryPage != "gtd-slim.html" || spec.Title != "Todos" || spec.Width != 420 || spec.Height != 640 {
+	if spec.Name != "gtd-slim" || spec.EntryPage != "gtd-slim.html" || spec.Title != AppTitle || spec.Width != 420 || spec.Height != 640 {
 		t.Fatalf("spec = %#v, want gtd slim window", spec)
 	}
 }
@@ -63,7 +83,7 @@ func TestBuildOpenWindowSpecMemoSlim(t *testing.T) {
 	if spec.Pathname != "/memo-slim" {
 		t.Fatalf("pathname = %q, want /memo-slim", spec.Pathname)
 	}
-	if spec.Name != "memo-slim" || spec.EntryPage != "memo-slim.html" || spec.Title != "Memo" || spec.Width != 560 || spec.Height != 680 {
+	if spec.Name != "memo-slim" || spec.EntryPage != "memo-slim.html" || spec.Title != AppTitle || spec.Width != 560 || spec.Height != 680 {
 		t.Fatalf("spec = %#v, want memo chat window", spec)
 	}
 }
