@@ -32,8 +32,8 @@
       "internal_name": "ThreadNote",
       "original_filename": "ThreadNote.exe",
       "icon_files": {
-        "png": "assets/threadnote-logo.png",
-        "png16": "assets/threadnote-logo.png"
+        "png": ".build/icons/icon_256.png",
+        "png16": ".build/icons/icon_16.png"
       }
     },
     "linux": {

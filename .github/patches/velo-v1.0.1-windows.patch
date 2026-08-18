@@ -36,6 +36,55 @@ index c945283..5f42467 100644
  					<-doneCh
  					break loop
  				}
+diff --git a/buildcfg/icons.go b/buildcfg/icons.go
+index 6b94123..3801071 100644
+--- a/buildcfg/icons.go
++++ b/buildcfg/icons.go
+@@ -7,7 +7,8 @@ import (
+ 	"image/png"
+ 	"os"
+ 	"os/exec"
+ 	"path/filepath"
++	"runtime"
+ 
+ 	"github.com/nfnt/resize"
+ )
+@@ -67,4 +68,6 @@ func GenerateIcons(cfg *Config, baseDir, outDir string) error {
+ 	// macOS iconset + icns (only works on macOS with iconutil)
+-	if err := generateIconset(src, resized, iconsDir); err != nil {
+-		fmt.Fprintf(os.Stderr, "warning: icns generation skipped: %v\n", err)
++	if runtime.GOOS == "darwin" {
++		if err := generateIconset(src, resized, iconsDir); err != nil {
++			fmt.Fprintf(os.Stderr, "warning: icns generation skipped: %v\n", err)
++		}
+ 	}
+diff --git a/buildcfg/windows.go b/buildcfg/windows.go
+index 54b12d6..62c6f3e 100644
+--- a/buildcfg/windows.go
++++ b/buildcfg/windows.go
+@@ -61,7 +61,7 @@ func GenerateWinres(cfg *Config, baseDir, outDir string) error {
+ 					"minimum-os":      "win7",
+-					"execution-level":  "as invoker",
++					"execution-level": "as invoker",
+ 					"dpi-awareness":   "system",
+-					"long-path-aware": "true",
++					"long-path-aware": true,
+ 				},
+ 			},
+ 		},
+diff --git a/cmd/velo/build.go b/cmd/velo/build.go
+index 1da3516..e81d6e6 100644
+--- a/cmd/velo/build.go
++++ b/cmd/velo/build.go
+@@ -223,7 +223,7 @@ func runBuild(projectPath, platform, outDir, versionOverride string) error {
+ 		if p == "windows" {
+ 			fmt.Println("running go-winres...")
+ 			winresDir := filepath.Join(buildDir, "winres")
+-			cmd := exec.Command("go-winres", "make", "--in", filepath.Join(winresDir, "winres.json"), "--out", projectPath)
++			cmd := exec.Command("go-winres", "make", "--in", filepath.Join(winresDir, "winres.json"), "--out", filepath.Join(projectPath, "rsrc"))
+ 			cmd.Dir = projectPath
+ 			cmd.Stdout = os.Stdout
+ 			cmd.Stderr = os.Stderr
 diff --git a/cmd/velo/process_unix.go b/cmd/velo/process_unix.go
 new file mode 100644
 index 0000000..9630844
