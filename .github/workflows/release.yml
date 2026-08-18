@@ -150,7 +150,16 @@ jobs:
         shell: pwsh
         run: |
           go install "github.com/tc-hib/go-winres@v0.3.3"
-          go install "github.com/ltaoo/velo/cmd/velo@${env:VELO_VERSION}"
+          # velo v1.0.1 imports Unix-only process APIs from an untagged Go file.
+          $velo_source = Join-Path $env:RUNNER_TEMP "velo-${env:VELO_VERSION}"
+          git -c core.autocrlf=false clone --branch $env:VELO_VERSION --depth 1 https://github.com/ltaoo/velo.git $velo_source
+          git -C $velo_source apply (Join-Path $PWD ".github/patches/velo-v1.0.1-windows.patch")
+          Push-Location $velo_source
+          try {
+            go install -ldflags "-X main.version=${env:VELO_VERSION}" ./cmd/velo
+          } finally {
+            Pop-Location
+          }
 
       - name: Install WebView2 SDK
         shell: pwsh
