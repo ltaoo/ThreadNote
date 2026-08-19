@@ -14,7 +14,7 @@
     "macos": {
       "bundle_id": "com.funzm.threadnote",
       "icon_file": "assets/threadnote-logo.png",
-      "min_system_version": "10.13",
+      "min_system_version": "11.0",
       "category": "public.app-category.productivity",
       "entitlements": {
         "network_client": true

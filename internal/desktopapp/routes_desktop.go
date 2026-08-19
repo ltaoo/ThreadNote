@@ -125,6 +125,19 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 		return c.Ok(velo.H{"success": true})
 	})
 
+	b.Get("/api/window/state/snapshot", func(c *velo.BoxContext) interface{} {
+		name := c.Query("name")
+		if name == "" {
+			name = "default"
+		}
+		x, y := b.Webview.GetPosition()
+		width, height := b.Webview.GetSize()
+		if err := b.Store.SaveWindow(name, &store.WindowState{X: x, Y: y, Width: width, Height: height}); err != nil {
+			return c.Error(err.Error())
+		}
+		return c.Ok(velo.H{"success": true, "x": x, "y": y, "width": width, "height": height})
+	})
+
 	b.Get("/api/window/state/restore", func(c *velo.BoxContext) interface{} {
 		name := c.Query("name")
 		if name == "" {

@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.16.16
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.11
 	github.com/ltaoo/clipboard-go v0.2.0
-	github.com/ltaoo/velo v1.1.0
+	github.com/ltaoo/velo v1.1.1
 	github.com/rs/zerolog v1.34.0
 	golang.org/x/crypto v0.20.0
 	golang.org/x/image v0.28.0
@@ -30,10 +30,14 @@ require (
 	github.com/aws/smithy-go v1.13.3 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cloudflare/circl v1.3.6 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
+	github.com/glebarez/go-sqlite v1.21.2 // indirect
+	github.com/glebarez/sqlite v1.11.0 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/golang-migrate/migrate/v4 v4.17.1 // indirect
+	github.com/google/uuid v1.4.0 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -51,6 +55,7 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/quic-go/quic-go v0.40.0 // indirect
 	github.com/refraction-networking/utls v1.5.4 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	golang.design/x/hotkey v0.4.1 // indirect
@@ -60,6 +65,10 @@ require (
 	gorm.io/driver/postgres v1.5.11 // indirect
 	gorm.io/driver/sqlite v1.5.7 // indirect
 	gorm.io/gorm v1.25.12 // indirect
+	modernc.org/libc v1.22.5 // indirect
+	modernc.org/mathutil v1.5.0 // indirect
+	modernc.org/memory v1.5.0 // indirect
+	modernc.org/sqlite v1.23.1 // indirect
 )
 
 // Pin x/net and x/text to versions compatible with Go 1.20 (like wx_channels_download)

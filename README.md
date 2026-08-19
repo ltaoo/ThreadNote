@@ -64,7 +64,7 @@ ThreadNote 是一个本地优先的桌面知识与任务工作台。它以 Markd
 主要技术：
 
 - Go 1.24
-- Velo 1.1.0，Bridge 模式桌面 WebView
+- Velo 1.1.1，Bridge 模式桌面 WebView
 - 原生 JavaScript ES Modules
 - ProseMirror 编辑器与可选 Vim 模式
 - AWS SDK for Go v2（S3 兼容存储）
@@ -77,6 +77,7 @@ ThreadNote 是一个本地优先的桌面知识与任务工作台。它以 Markd
 ### 环境要求
 
 - Go 1.24 或更高版本
+- macOS 11 或更高版本（macOS 构建与运行）
 - 当前平台可用的 C/C++ 编译工具链和 Velo 所需原生 WebView 环境
 - Node.js/npm（可选，仅用于前端 lint）
 - OpenCode（可选，仅在使用 ACP Chat 或 Memo Agent 时需要）
@@ -123,8 +124,8 @@ go build -ldflags "-X main.Version=1.0.0 -X main.Mode=release" -o ThreadNote .
 使用与项目依赖匹配的 Velo CLI 生成平台包：
 
 ```bash
-go install github.com/ltaoo/velo/cmd/velo@v1.1.0
-velo build
+go install github.com/ltaoo/velo/cmd/velo@v1.1.1
+MACOSX_DEPLOYMENT_TARGET=11.0 velo build
 ```
 
 `velo build` 会读取根目录的 `velo.json`，以 `assets/` 中的源素材生成平台配置和发布产物。其中 `.build/` 与 `dist/` 均为可再生目录，不纳入版本控制；`build/` 仅作为 Velo 1.0.0 及更早版本的遗留目录继续忽略。正式发布前请确认包名、签名、更新源和厂商信息符合实际发布环境。
@@ -158,7 +159,7 @@ xattr -dr com.apple.quarantine "/Applications/ThreadNote.app"
 
 请只对从项目官方发布页下载的安装包执行此操作。
 
-工作流使用 Velo v1.1.0，包含运行中应用更新、隔离属性清理和安全重启支持。
+工作流使用 Velo v1.1.1，包含运行中应用更新、隔离属性清理、安全重启，以及避免在应用包内写入运行时存储的支持。
 
 已安装的应用可在“设置 → 关于 → 更新”中手动检查版本。发现新版本后，点击“安装更新并重启”，ThreadNote 会按当前系统选择 GitHub Release 资产、校验 `checksums.txt` 中的 SHA-256、退出并释放本地资源，然后替换应用并重新启动。发布时必须同时上传平台安装包与 `checksums.txt`。
 

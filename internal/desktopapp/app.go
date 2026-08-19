@@ -183,7 +183,12 @@ func Run(assets Assets) {
 	// Closing every window keeps ThreadNote available from the system tray. The
 	// tray's Exit item remains the explicit way to terminate the application.
 	quit_on_last_window_closed := false
-	opt := velo.VeloAppOpt{Mode: velo.ModeBridge, IconData: appAssets.AppIcon, QuitOnLastWindowClosed: &quit_on_last_window_closed}
+	opt := velo.VeloAppOpt{
+		Mode:                   velo.ModeBridge,
+		IconData:               appAssets.AppIcon,
+		EnableLocalStorage:     false,
+		QuitOnLastWindowClosed: &quit_on_last_window_closed,
+	}
 	b := velo.NewApp(&opt)
 	initialPathname := "/vault-picker"
 	if startupVault, err := loadStartupVault(); err != nil {
