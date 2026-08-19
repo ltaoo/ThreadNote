@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"os"
 	"path/filepath"
 	"runtime"
 
@@ -32,6 +33,9 @@ func projectDir() string {
 }
 
 func main() {
+	if desktopapp.RunUpdateHelperIfRequested(os.Args[1:]) {
+		return
+	}
 	desktopapp.Run(desktopapp.Assets{
 		AppConfigData: appConfigData,
 		AppIcon:       appIcon,

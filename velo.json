@@ -60,10 +60,19 @@
     "sources": [
       {
         "type": "github",
-        "priority": 1,
+        "priority": 0,
+        "enabled": true,
+        "need_check_checksum": false,
+        "github_repo": "ltaoo/ThreadNote",
+        "self_url": "http://127.0.0.1:8080"
+      },
+      {
+        "type": "github",
+        "priority": 100,
         "enabled": true,
         "need_check_checksum": true,
-        "github_repo": "ltaoo/ThreadNote"
+        "github_repo": "ltaoo/ThreadNote",
+        "self_url": ""
       }
     ]
   }

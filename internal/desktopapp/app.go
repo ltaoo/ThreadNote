@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"example/simple/internal/desktopapp/windowing"
@@ -16,6 +17,7 @@ import (
 	"github.com/ltaoo/velo/shortcut"
 	"github.com/ltaoo/velo/store"
 	updater "github.com/ltaoo/velo/updater/api"
+	urestart "github.com/ltaoo/velo/updater/restart"
 	utypes "github.com/ltaoo/velo/updater/types"
 	uversion "github.com/ltaoo/velo/updater/version"
 
@@ -84,30 +86,50 @@ func projectDir() string {
 	return filepath.Dir(filename)
 }
 
-func initUpdater(logger *zerolog.Logger) (*updater.AppUpdater, error) {
-	appCfg := velo.LoadAppConfig(appAssets.AppConfigData)
-	updateConfig := appCfg.Update.ToUpdaterConfig()
-	versionInfo := uversion.ParseVersionInfo(appVersion(), updateConfig)
-	if !versionInfo.UpdateMode.IsEnabled() {
-		return nil, fmt.Errorf("auto-update is disabled (mode: %s)", versionInfo.UpdateMode)
+func init_updater(logger *zerolog.Logger, restart_coordinator utypes.RestartCoordinator, request_shutdown func()) (*application_updater, error) {
+	app_cfg := velo.LoadAppConfig(appAssets.AppConfigData)
+	update_config := app_cfg.Update.ToUpdaterConfig()
+	version_info := uversion.ParseVersionInfo(appVersion(), update_config)
+	if !version_info.UpdateMode.IsEnabled() {
+		return nil, fmt.Errorf("auto-update is disabled (mode: %s)", version_info.UpdateMode)
 	}
-	effectiveVersion := appVersion()
-	if versionInfo.IsDevelopment() && updateConfig.DevVersion != "" {
-		effectiveVersion = updateConfig.DevVersion
+	effective_version := appVersion()
+	if version_info.IsDevelopment() && update_config.DevVersion != "" {
+		effective_version = update_config.DevVersion
 	}
-	homeDir, _ := os.UserHomeDir()
-	statePath := filepath.Join(homeDir, ".myapp", "update_state.json")
+	home_dir, _ := os.UserHomeDir()
+	state_path := filepath.Join(home_dir, ".myapp", "update_state.json")
+	self_sources := make([]utypes.UpdateSource, 0)
+	fallback_sources := make([]utypes.UpdateSource, 0, len(update_config.Sources))
+	for _, source := range update_config.Sources {
+		if source.Enabled && strings.TrimSpace(source.SelfURL) != "" {
+			self_sources = append(self_sources, source)
+			continue
+		}
+		fallback_sources = append(fallback_sources, source)
+	}
+	fallback_config := *update_config
+	if len(fallback_sources) > 0 {
+		fallback_config.Sources = fallback_sources
+	}
 	opts := utypes.UpdaterOptions{
-		Config:         updateConfig,
-		CurrentVersion: effectiveVersion,
-		Logger:         logger,
-		StatePath:      statePath,
+		Config:             &fallback_config,
+		CurrentVersion:     effective_version,
+		Downloader:         new_update_downloader(logger),
+		Logger:             logger,
+		StatePath:          state_path,
+		RestartCoordinator: restart_coordinator,
+		RequestShutdown:    request_shutdown,
 	}
-	u, err := updater.NewUpdaterWithOptions(&opts, logger)
+	velo_updater, err := updater.NewUpdaterWithOptions(&opts, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create updater: %w", err)
 	}
-	return u, nil
+	return &application_updater{
+		current_version: effective_version,
+		self_sources:    self_sources,
+		velo_updater:    velo_updater,
+	}, nil
 }
 
 func setMainWindowPathname(pathname string) {
@@ -150,9 +172,10 @@ func Run(assets Assets) {
 	appAssets = assets
 
 	logger := setupLogger()
+	restart_manager := urestart.NewManager()
 	logger.Info().Msgf("Version: %s, Velo: %s, Mode: %s, OS: %s/%s", appVersion(), velo.GetVersion(), appMode(), runtime.GOOS, runtime.GOARCH)
 
-	app_updater, err := initUpdater(logger)
+	app_updater, err := init_updater(logger, restart_manager, quit_application)
 	if err != nil {
 		logger.Warn().Msgf("Updater init: %v", err)
 	}
@@ -185,18 +208,14 @@ func Run(assets Assets) {
 
 	inputSourceLock := NewInputSourceLockService(logger)
 	applyStoredInputSourceLockSettings(b.Store, inputSourceLock, logger)
-	defer inputSourceLock.Stop()
 	memoAgent := newMemoAgentService(logger)
-	defer memoAgent.Close()
 
 	registerRoutes(b, logger, app_updater, inputSourceLock, memoAgent)
 	initClipboardReader(logger)
 	externalAPIServer := startExternalAPIServer(logger)
-	defer shutdownExternalAPIServer(externalAPIServer, logger)
 
 	reminderScheduler := NewReminderScheduler(logger)
 	reminderScheduler.Start()
-	defer reminderScheduler.Stop()
 
 	fmt.Println("starting server...")
 
@@ -240,4 +259,13 @@ func Run(assets Assets) {
 		}
 	}()
 	b.Run()
+
+	reminderScheduler.Stop()
+	shutdownExternalAPIServer(externalAPIServer, logger)
+	memoAgent.Close()
+	inputSourceLock.Stop()
+
+	if _, err := restart_manager.ReplaceIfRequested(); err != nil {
+		logger.Error().Err(err).Msg("failed to restart after applying update")
+	}
 }

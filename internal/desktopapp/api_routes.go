@@ -2,11 +2,10 @@ package desktopapp
 
 import (
 	"github.com/ltaoo/velo"
-	updater "github.com/ltaoo/velo/updater/api"
 	"github.com/rs/zerolog"
 )
 
-func registerRoutes(b *velo.Box, logger *zerolog.Logger, appUpdater *updater.AppUpdater, inputSourceLock *InputSourceLockService, memoAgent *memoAgentService) {
+func registerRoutes(b *velo.Box, logger *zerolog.Logger, appUpdater *application_updater, inputSourceLock *InputSourceLockService, memoAgent *memoAgentService) {
 	registerVaultProjectMemoRoutes(b)
 	registerTaskRoutes(b)
 	registerGTDRoutes(b)
@@ -20,5 +19,5 @@ func registerRoutes(b *velo.Box, logger *zerolog.Logger, appUpdater *updater.App
 	registerInputSourceLockRoutes(b, inputSourceLock)
 	registerClipboardRoutes(b, logger)
 	registerMemoAgentRoutes(b, memoAgent)
-	registerUpdateAndWindowRoutes(b, appUpdater)
+	register_update_and_window_routes(b, appUpdater)
 }

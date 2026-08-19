@@ -930,7 +930,7 @@
     <aside class="settings-sidebar" aria-label="设置菜单">
       <div class="settings-brand">
         <div class="settings-title">设置</div>
-        <div class="settings-subtitle">Demo Desktop</div>
+        <div class="settings-subtitle">ThreadNote</div>
       </div>
       <nav class="settings-nav" aria-label="设置分类">
         <button class="settings-nav-button is-active" type="button" data-panel="cloud-storage">
@@ -1881,11 +1881,11 @@
         updateState.message = "正在下载更新... 0%";
         renderUpdate();
 
-        callStorage("/api/update/download", "GET").then(function (data) {
+        callStorage("/api/update/download", "POST", {}).then(function (data) {
           if (data && data.success) {
             updateState.progress = 100;
             updateState.status = "downloaded";
-            updateState.message = "下载完成，可以应用更新";
+            updateState.message = "下载并校验完成，可以安装更新";
           } else {
             updateState.status = "checked";
             updateState.message = "下载失败: " + ((data && data.error) || "未知错误");
@@ -1906,18 +1906,21 @@
           return;
         }
         updateState.status = "applying";
-        updateState.message = "正在应用更新并重启...";
+        updateState.message = "正在安装更新并重启...";
         renderUpdate();
 
-        callStorage("/api/update/restart", "GET").then(function (data) {
+        callStorage("/api/update/restart", "POST", {}).then(function (data) {
           if (!data || !data.success) {
             updateState.status = "downloaded";
-            updateState.message = "应用失败: " + ((data && data.error) || "未知错误");
+            updateState.message = "安装失败: " + ((data && data.error) || "未知错误");
             renderUpdate();
+            return;
           }
+          updateState.message = "更新已安装，正在重启 ThreadNote...";
+          renderUpdate();
         }, function (err) {
           updateState.status = "downloaded";
-          updateState.message = "应用失败: " + errorMessage(err);
+          updateState.message = "安装失败: " + errorMessage(err);
           renderUpdate();
         });
       }
@@ -2011,7 +2014,7 @@
         if (updateStatus === "downloaded") {
           return [
             '<button class="settings-button is-secondary" type="button" data-action="check-update">重新检查</button>',
-            '<button class="settings-button is-primary" type="button" data-action="apply-update">应用更新并重启</button>',
+            '<button class="settings-button is-primary" type="button" data-action="apply-update">安装更新并重启</button>',
           ].join("");
         }
         if (updateStatus === "applying") {
@@ -2021,11 +2024,24 @@
       }
 
       function updateReleaseTemplate(info) {
+        var asset = info.assetName
+          ? '<div class="settings-update-current">安装包 ' + escapeHTML(info.assetName) + formatUpdateAssetSize(info.assetSize) + '</div>'
+          : '';
         return [
           '<div class="settings-update-version">新版本 ' + escapeHTML(info.version || "") + '</div>',
           '<div class="settings-update-current">当前版本 ' + escapeHTML(info.currentVersion || "") + '</div>',
+          asset,
           '<div class="settings-update-notes">' + escapeHTML(info.releaseNotes || "暂无更新说明") + '</div>',
         ].join("");
+      }
+
+      function formatUpdateAssetSize(value) {
+        var size = Number(value || 0);
+        if (!(size > 0)) return "";
+        if (size >= 1073741824) return " · " + (size / 1073741824).toFixed(1) + " GB";
+        if (size >= 1048576) return " · " + (size / 1048576).toFixed(1) + " MB";
+        if (size >= 1024) return " · " + (size / 1024).toFixed(1) + " KB";
+        return " · " + size + " B";
       }
 
       function initialPanel() {

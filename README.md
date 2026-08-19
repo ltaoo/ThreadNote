@@ -6,9 +6,9 @@
 
 ThreadNote 是一个本地优先的桌面知识与任务工作台。它以 Markdown Memo 为核心，把随手记录、双向引用、项目归档、独立任务、GTD、看板、附件和自动化整合在同一个本地 Vault 中。
 
-应用使用 Go 与 [Velo](https://github.com/ltaoo/velo) 提供桌面壳和原生能力，前端由原生 ES Modules 驱动，并随 Go 二进制一同嵌入。日常使用不依赖数据库服务，主要数据直接保存在用户选择的目录中，便于备份、迁移和使用其他工具读取。
+用户可见的应用名、窗口标题、安装包名和平台元数据均使用 **ThreadNote**。已有的 `demo-desktop:*` 本地存储键和 `DEMO_DESKTOP_API_*` 环境变量仅为兼容旧数据与脚本而保留，不会作为界面标题显示。
 
-> 当前仓库仍保留少量早期 `demo-desktop`、`MyApp`、`Memos` 和 `.myapp` 内部标识。项目对外名称为 **ThreadNote**；发布前如需统一应用包名、日志目录和本地存储键，应同时考虑已有数据的兼容迁移。
+应用使用 Go 与 [Velo](https://github.com/ltaoo/velo) 提供桌面壳和原生能力，前端由原生 ES Modules 驱动，并随 Go 二进制一同嵌入。日常使用不依赖数据库服务，主要数据直接保存在用户选择的目录中，便于备份、迁移和使用其他工具读取。
 
 ## 功能概览
 
@@ -64,7 +64,7 @@ ThreadNote 是一个本地优先的桌面知识与任务工作台。它以 Markd
 主要技术：
 
 - Go 1.24
-- Velo 1.0.0，Bridge 模式桌面 WebView
+- Velo 1.1.0，Bridge 模式桌面 WebView
 - 原生 JavaScript ES Modules
 - ProseMirror 编辑器与可选 Vim 模式
 - AWS SDK for Go v2（S3 兼容存储）
@@ -123,7 +123,7 @@ go build -ldflags "-X main.Version=1.0.0 -X main.Mode=release" -o ThreadNote .
 使用与项目依赖匹配的 Velo CLI 生成平台包：
 
 ```bash
-go install github.com/ltaoo/velo/cmd/velo@v1.0.1
+go install github.com/ltaoo/velo/cmd/velo@v1.1.0
 velo build
 ```
 
@@ -142,8 +142,8 @@ Velo 当前的 Linux WebView 仍是占位实现，因此工作流暂不发布不
 上游补齐 Linux WebView 后再恢复 Linux 构建任务。
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 macOS Developer ID 签名与公证是可选的。需要启用时，在仓库 Actions Secrets 中完整配置：
@@ -158,7 +158,19 @@ xattr -dr com.apple.quarantine "/Applications/ThreadNote.app"
 
 请只对从项目官方发布页下载的安装包执行此操作。
 
-工作流使用 Velo v1.0.1；应先发布 Velo v1.0.1，再为本项目推送应用版本标签。
+工作流使用 Velo v1.1.0，包含运行中应用更新、隔离属性清理和安全重启支持。
+
+已安装的应用可在“设置 → 关于 → 更新”中手动检查版本。发现新版本后，点击“安装更新并重启”，ThreadNote 会按当前系统选择 GitHub Release 资产、校验 `checksums.txt` 中的 SHA-256、退出并释放本地资源，然后替换应用并重新启动。发布时必须同时上传平台安装包与 `checksums.txt`。
+
+更新源按 `velo.json` 中的优先级依次尝试：开发测试时先请求
+`http://127.0.0.1:8080/repos/ltaoo/ThreadNote/releases`，本地服务不可用或没有匹配平台的版本时自动回退到官方 GitHub Release。本地源仅允许 HTTPS，或用于开发测试的 `localhost` / 回环 HTTP；官方源仍强制校验 `checksums.txt`。
+
+使用 `fakegithubrelease` 上传一个高于当前应用版本、且文件名包含当前平台（例如 `ThreadNote_0.1.2_darwin_arm64.dmg`）的 Release 后，可运行真实下载验收测试：
+
+```bash
+THREADNOTE_SELF_UPDATE_TEST=1 go test ./internal/desktopapp \
+  -run '^TestConfiguredSelfHostedUpdateDownload$' -count=1 -v
+```
 
 ## Vault 数据结构
 

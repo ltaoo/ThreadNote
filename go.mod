@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.16.16
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.11
 	github.com/ltaoo/clipboard-go v0.2.0
-	github.com/ltaoo/velo v1.0.0
+	github.com/ltaoo/velo v1.1.0
 	github.com/rs/zerolog v1.34.0
 	golang.org/x/crypto v0.20.0
 	golang.org/x/image v0.28.0
