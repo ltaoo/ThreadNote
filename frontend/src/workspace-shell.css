@@ -379,7 +379,7 @@
 }
 
 .memo-feed-tools {
-  grid-template-columns: minmax(220px, 1fr) auto auto;
+  grid-template-columns: minmax(220px, 1fr) auto auto auto;
   margin: 18px auto 0;
   /* max-width: var(--tn-layout-content-max); */
   padding: 0 0 14px;

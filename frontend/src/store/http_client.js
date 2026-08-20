@@ -1,7 +1,7 @@
 /**
  * @file HTTP 客户端
  */
-export const client = new Timeless.HttpClientCore({
+export const client = new Timeless.kit.HttpClientCore({
   headers: {
     "Content-Type": "application/json",
   },
@@ -46,7 +46,7 @@ function provide_box() {
   };
 }
 function provide_http() {
-  TimelessWeb.provide_http_client(client);
+  Timeless.web.provide_http_client(client);
 }
 
 provide_http();

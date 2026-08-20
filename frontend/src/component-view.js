@@ -80,9 +80,6 @@ export function elementView(element, children = [], lifecycle = {}) {
       children.push(child);
       if (rendered) appendChild(element, child, childViews);
     },
-    setContent(html) {
-      element.innerHTML = html;
-    },
     render() {
       if (!rendered) {
         appendChild(element, children, childViews);

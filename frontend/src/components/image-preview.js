@@ -3,8 +3,12 @@ import {
   persistedWindowFixedFromURL,
   registerWindowSession,
   setPersistedWindowFixed,
-} from "../window-state.js";
-import { Timeless } from "../timeless-icons.js";
+} from "@/window-state.js";
+import {
+  Timeless,
+  TimelessPrimitive,
+} from "@/timeless-icons.js";
+import { renderTimelessView } from "@/timeless-view-mount.js";
 
 const PREVIEW_STORAGE_PREFIX = "demo-desktop:image-preview:";
 const PREVIEW_STORAGE_INDEX = "demo-desktop:image-preview:index";
@@ -415,7 +419,7 @@ function mountImagePreview(root) {
     windowSession: null,
   };
 
-  root.innerHTML = previewTemplate(payload);
+  renderTimelessView(root, ImagePreviewView(payload));
 
   const els = {
     canvas: root.querySelector("[data-preview-canvas]"),
@@ -475,60 +479,166 @@ function resolveWindowPreviewPayload() {
   });
 }
 
-function previewTemplate(payload) {
-  const title = escapeHTML((payload && payload.title) || "图片预览");
-  return `
-    <div class="image-preview-shell">
-      <header class="image-preview-toolbar velo-drag" data-velo-drag>
-        <div class="image-preview-native-controls" aria-hidden="true"></div>
-        <div class="image-preview-title" data-preview-title>${title}</div>
-        <div class="image-preview-tools velo-no-drag">
-          ${toolbarButton("toggleFixed", ICONS.pin, "固定在最上方")}
-          <span class="image-preview-divider" aria-hidden="true"></span>
-          ${toolbarButton("fit", ICONS.fit, "适应窗口")}
-          ${toolbarButton("actual", ICONS.actual, "实际大小")}
-          ${toolbarButton("zoomOut", ICONS.zoomOut, "缩小")}
-          <span class="image-preview-zoom-label" data-preview-zoom>100%</span>
-          ${toolbarButton("zoomIn", ICONS.zoomIn, "放大")}
-          <span class="image-preview-divider" aria-hidden="true"></span>
-          ${toolbarButton("rotateLeft", ICONS.rotateLeft, "向左旋转")}
-          ${toolbarButton("rotateRight", ICONS.rotateRight, "向右旋转")}
-          <span class="image-preview-divider" aria-hidden="true"></span>
-          ${toolbarButton("move", ICONS.hand, "移动")}
-          ${toolbarButton("draw", ICONS.brush, "标注")}
-          ${colorButton("#ff4d4f", "红色标注")}
-          ${colorButton("#f7b731", "黄色标注")}
-          ${colorButton("#40c057", "绿色标注")}
-          ${colorButton("#4dabf7", "蓝色标注")}
-          <input class="image-preview-size" type="range" min="2" max="18" value="5" data-preview-size title="画笔粗细" aria-label="画笔粗细" />
-          ${toolbarButton("clearAnnotations", ICONS.trash, "清除标注")}
-          <span class="image-preview-divider" aria-hidden="true"></span>
-          ${toolbarButton("copy", ICONS.copy, "复制当前图片")}
-          ${toolbarButton("download", ICONS.download, "下载当前图片")}
-          ${toolbarButton("close", ICONS.close, "关闭窗口")}
-        </div>
-      </header>
-      <main class="image-preview-stage" data-preview-stage>
-        <canvas data-preview-canvas></canvas>
-        <div class="image-preview-state" data-preview-state>正在载入图片...</div>
-        <div class="image-preview-toast" data-preview-toast role="status"></div>
-      </main>
-    </div>
-  `;
+function ImagePreviewView(payload) {
+  const { Input, View } = TimelessPrimitive;
+  const tools = [
+    PreviewToolbarButton("toggleFixed", ICONS.pin, "固定在最上方"),
+    PreviewDivider("image-preview-pin-divider"),
+    PreviewToolbarButton("fit", ICONS.fit, "适应窗口"),
+    PreviewToolbarButton("actual", ICONS.actual, "实际大小"),
+    PreviewToolbarButton("zoomOut", ICONS.zoomOut, "缩小"),
+    View(
+      {
+        as: "span",
+        class: "image-preview-zoom-label",
+        attributes: { "data-preview-zoom": "", n: "image-preview-zoom-label" },
+      },
+      ["100%"],
+    ),
+    PreviewToolbarButton("zoomIn", ICONS.zoomIn, "放大"),
+    PreviewDivider("image-preview-zoom-divider"),
+    PreviewToolbarButton("rotateLeft", ICONS.rotateLeft, "向左旋转"),
+    PreviewToolbarButton("rotateRight", ICONS.rotateRight, "向右旋转"),
+    PreviewDivider("image-preview-rotate-divider"),
+    PreviewToolbarButton("move", ICONS.hand, "移动"),
+    PreviewToolbarButton("draw", ICONS.brush, "标注"),
+    PreviewColorButton("#ff4d4f", "红色标注"),
+    PreviewColorButton("#f7b731", "黄色标注"),
+    PreviewColorButton("#40c057", "绿色标注"),
+    PreviewColorButton("#4dabf7", "蓝色标注"),
+    Input({
+      class: "image-preview-size",
+      max: 18,
+      min: 2,
+      type: "range",
+      value: 5,
+      attributes: {
+        "aria-label": "画笔粗细",
+        "data-preview-size": "",
+        n: "image-preview-brush-size",
+        title: "画笔粗细",
+        type: "range",
+      },
+    }),
+    PreviewToolbarButton("clearAnnotations", ICONS.trash, "清除标注"),
+    PreviewDivider("image-preview-action-divider"),
+    PreviewToolbarButton("copy", ICONS.copy, "复制当前图片"),
+    PreviewToolbarButton("download", ICONS.download, "下载当前图片"),
+    PreviewToolbarButton("close", ICONS.close, "关闭窗口"),
+  ];
+  return View(
+    {
+      class: "image-preview-shell",
+      attributes: { n: "image-preview-shell" },
+    },
+    [
+      View(
+        {
+          as: "header",
+          class: "image-preview-toolbar velo-drag",
+          attributes: { "data-velo-drag": "", n: "image-preview-toolbar" },
+        },
+        [
+          View(
+            {
+              class: "image-preview-native-controls",
+              attributes: { "aria-hidden": "true", n: "image-preview-native-controls" },
+            },
+            [],
+          ),
+          View(
+            {
+              class: "image-preview-title",
+              attributes: { "data-preview-title": "", n: "image-preview-title" },
+            },
+            [(payload && payload.title) || "图片预览"],
+          ),
+          View(
+            {
+              class: "image-preview-tools velo-no-drag",
+              attributes: { n: "image-preview-tools" },
+            },
+            tools,
+          ),
+        ],
+      ),
+      View(
+        {
+          as: "main",
+          class: "image-preview-stage",
+          attributes: { "data-preview-stage": "", n: "image-preview-stage" },
+        },
+        [
+          View({
+            as: "canvas",
+            attributes: { "data-preview-canvas": "", n: "image-preview-canvas" },
+          }),
+          View(
+            {
+              class: "image-preview-state",
+              attributes: { "data-preview-state": "", n: "image-preview-state" },
+            },
+            ["正在载入图片..."],
+          ),
+          View(
+            {
+              class: "image-preview-toast",
+              attributes: {
+                "data-preview-toast": "",
+                n: "image-preview-toast",
+                role: "status",
+              },
+            },
+            [],
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
-function toolbarButton(action, icon, label) {
-  return `
-    <button class="image-preview-button" type="button" data-preview-action="${escapeAttr(action)}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}">
-      ${icon}
-    </button>
-  `;
+function PreviewToolbarButton(action, icon, label) {
+  return TimelessPrimitive.Button(
+    {
+      class: "image-preview-button",
+      attributes: {
+        "aria-label": label,
+        "data-preview-action": action,
+        n: "image-preview-" + action + "-button",
+        title: label,
+        type: "button",
+      },
+    },
+    [icon],
+  );
 }
 
-function colorButton(color, label) {
-  return `
-    <button class="image-preview-swatch" type="button" data-preview-color="${escapeAttr(color)}" style="--preview-color: ${escapeAttr(color)}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"></button>
-  `;
+function PreviewDivider(meaning) {
+  return TimelessPrimitive.View(
+    {
+      as: "span",
+      class: "image-preview-divider",
+      attributes: { "aria-hidden": "true", n: meaning },
+    },
+    [],
+  );
+}
+
+function PreviewColorButton(color, label) {
+  return TimelessPrimitive.Button(
+    {
+      class: "image-preview-swatch",
+      style: "--preview-color: " + color,
+      attributes: {
+        "aria-label": label,
+        "data-preview-color": color,
+        n: "image-preview-color-" + color.slice(1),
+        title: label,
+        type: "button",
+      },
+    },
+    [],
+  );
 }
 
 function bindPreviewEvents(root, els, state, ctx) {

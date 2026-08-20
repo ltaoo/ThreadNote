@@ -1,4 +1,4 @@
-import { Timeless } from "../../timeless-icons.js";
+import { Timeless } from "@/timeless-icons.js";
 
 export const SVG = Object.freeze({
   archive: Timeless.Icon({ name: "archive" }),

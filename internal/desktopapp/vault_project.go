@@ -57,6 +57,8 @@ type VaultContext struct {
 	MemoDir         string     `json:"memoDir"`
 	MemoCommentDir  string     `json:"memoCommentDir"`
 	PrivateUnlocked bool       `json:"-"`
+	fs              vault_fs
+	sync_driver     sync_driver
 }
 
 type VaultOpenRequest struct {
@@ -204,23 +206,27 @@ func openVaultDirectory(value string, createIfMissing bool) (*VaultContext, bool
 	if !info.IsDir() {
 		return nil, false, fmt.Errorf("vault path is not a directory")
 	}
-	if err := ensureDirectoryWritable(rootDir); err != nil {
+	workspace_fs, err := new_local_vault_fs(rootDir)
+	if err != nil {
+		return nil, false, err
+	}
+	if err := ensure_vault_fs_writable(workspace_fs); err != nil {
 		return nil, false, err
 	}
 
 	veloDir := filepath.Join(rootDir, vaultConfigDirName)
-	veloInfo, err := os.Stat(veloDir)
+	veloInfo, err := workspace_fs.stat_file(vaultConfigDirName)
 	existingVault := false
 	if err == nil {
 		if !veloInfo.IsDir() {
 			return nil, false, fmt.Errorf(".velo exists but is not a directory")
 		}
 		existingVault = true
-	} else if os.IsNotExist(err) {
+	} else if is_vault_file_not_exist(err) {
 		if !createIfMissing {
 			return nil, false, fmt.Errorf("vault config directory does not exist")
 		}
-		if err := os.MkdirAll(veloDir, 0755); err != nil {
+		if err := workspace_fs.make_dir_all(vaultConfigDirName, 0755); err != nil {
 			return nil, false, fmt.Errorf("create .velo directory: %w", err)
 		}
 	} else {
@@ -228,15 +234,15 @@ func openVaultDirectory(value string, createIfMissing bool) (*VaultContext, bool
 	}
 
 	memoDir := filepath.Join(rootDir, vaultMemoDirName)
-	if err := os.MkdirAll(memoDir, 0755); err != nil {
+	if err := workspace_fs.make_dir_all(vaultMemoDirName, 0755); err != nil {
 		return nil, false, fmt.Errorf("create memo directory: %w", err)
 	}
 	memoCommentDir := filepath.Join(rootDir, vaultMemoCommentDirName)
-	if err := os.MkdirAll(memoCommentDir, 0755); err != nil {
+	if err := workspace_fs.make_dir_all(vaultMemoCommentDirName, 0755); err != nil {
 		return nil, false, fmt.Errorf("create memo comment directory: %w", err)
 	}
 
-	vaultFile, err := loadOrCreateVaultFile(rootDir, veloDir)
+	vaultFile, err := load_or_create_vault_file(rootDir, workspace_fs)
 	if err != nil {
 		return nil, false, err
 	}
@@ -247,13 +253,19 @@ func openVaultDirectory(value string, createIfMissing bool) (*VaultContext, bool
 		Name:         firstNonEmpty(vaultFile.Name, vaultDisplayName(rootDir)),
 		Path:         rootDir,
 	}
-	return &VaultContext{
+	vault_ctx := &VaultContext{
 		Entry:          entry,
 		RootDir:        rootDir,
 		VeloDir:        veloDir,
 		MemoDir:        memoDir,
 		MemoCommentDir: memoCommentDir,
-	}, existingVault, nil
+		fs:             workspace_fs,
+	}
+	vault_ctx.sync_driver, err = load_vault_sync_driver(vault_ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	return vault_ctx, existingVault, nil
 }
 
 func cleanVaultPath(value string) (string, error) {
@@ -279,18 +291,18 @@ func cleanVaultPath(value string) (string, error) {
 	return filepath.Clean(abs), nil
 }
 
-func ensureDirectoryWritable(dir string) error {
-	probe := filepath.Join(dir, ".velo-write-test-"+randomVaultSuffix())
-	if err := os.WriteFile(probe, []byte("ok"), 0600); err != nil {
+func ensure_vault_fs_writable(workspace_fs vault_fs) error {
+	probe := ".velo-write-test-" + randomVaultSuffix()
+	if err := workspace_fs.write_file(probe, []byte("ok"), 0600); err != nil {
 		return fmt.Errorf("vault directory is not writable: %w", err)
 	}
-	_ = os.Remove(probe)
+	_ = workspace_fs.remove_file(probe)
 	return nil
 }
 
-func loadOrCreateVaultFile(rootDir string, veloDir string) (VaultFile, error) {
-	path := filepath.Join(veloDir, "vault.json")
-	raw, err := os.ReadFile(path)
+func load_or_create_vault_file(rootDir string, workspace_fs vault_fs) (VaultFile, error) {
+	path := filepath.ToSlash(filepath.Join(vaultConfigDirName, "vault.json"))
+	raw, err := workspace_fs.read_file(path)
 	if err == nil && len(bytes.TrimSpace(raw)) > 0 {
 		var file VaultFile
 		if err := json.Unmarshal(raw, &file); err != nil {
@@ -315,13 +327,13 @@ func loadOrCreateVaultFile(rootDir string, veloDir string) (VaultFile, error) {
 		}
 		if changed {
 			file.UpdatedAt = time.Now().UTC().Format(time.RFC3339Nano)
-			if err := writeJSONFileAtomic(path, file); err != nil {
+			if err := write_vault_fs_json_file_atomic(workspace_fs, path, file); err != nil {
 				return VaultFile{}, err
 			}
 		}
 		return file, nil
 	}
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !is_vault_file_not_exist(err) {
 		return VaultFile{}, fmt.Errorf("read vault config: %w", err)
 	}
 
@@ -333,7 +345,7 @@ func loadOrCreateVaultFile(rootDir string, veloDir string) (VaultFile, error) {
 		SchemaVersion: vaultSchemaVersion,
 		UpdatedAt:     now,
 	}
-	if err := writeJSONFileAtomic(path, file); err != nil {
+	if err := write_vault_fs_json_file_atomic(workspace_fs, path, file); err != nil {
 		return VaultFile{}, fmt.Errorf("write vault config: %w", err)
 	}
 	return file, nil
@@ -370,6 +382,22 @@ func setActiveVault(ctx *VaultContext) {
 	vaultRuntime.Lock()
 	vaultRuntime.active = ctx
 	vaultRuntime.Unlock()
+}
+
+func set_active_vault_sync_driver(vault_ctx *VaultContext, driver sync_driver) error {
+	if vault_ctx == nil || driver == nil {
+		return fmt.Errorf("vault sync driver is required")
+	}
+	vaultRuntime.Lock()
+	defer vaultRuntime.Unlock()
+	if vaultRuntime.active == nil {
+		return fmt.Errorf("vault is not selected")
+	}
+	if vaultRuntime.active.Entry.ID != vault_ctx.Entry.ID || !samePath(vaultRuntime.active.RootDir, vault_ctx.RootDir) {
+		return fmt.Errorf("active vault changed while configuring sync")
+	}
+	vaultRuntime.active.sync_driver = driver
+	return nil
 }
 
 func activeVaultSnapshot() *VaultContext {

@@ -3,7 +3,6 @@ package desktopapp
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -43,7 +42,7 @@ type MemoDraftDeleteRequest struct {
 }
 
 func memoDraftsPath(ctx *VaultContext) string {
-	return filepath.Join(ctx.VeloDir, vaultMemoDraftsFileName)
+	return filepath.Join(vaultConfigDirName, vaultMemoDraftsFileName)
 }
 
 func listVaultMemoDrafts(ctx *VaultContext) ([]MemoDraftRecord, error) {
@@ -110,8 +109,12 @@ func deleteVaultMemoDraft(ctx *VaultContext, id string) error {
 
 func loadMemoDraftFile(ctx *VaultContext) (MemoDraftFile, error) {
 	path := memoDraftsPath(ctx)
-	raw, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return MemoDraftFile{}, err
+	}
+	raw, err := workspace_fs.read_file(path)
+	if is_vault_file_not_exist(err) {
 		return MemoDraftFile{SchemaVersion: vaultSchemaVersion, Drafts: []MemoDraftRecord{}}, nil
 	}
 	if err != nil {
@@ -133,7 +136,7 @@ func loadMemoDraftFile(ctx *VaultContext) (MemoDraftFile, error) {
 func writeMemoDraftFile(ctx *VaultContext, file MemoDraftFile) error {
 	file.SchemaVersion = vaultSchemaVersion
 	file.Drafts = normalizeMemoDrafts(file.Drafts)
-	return writeJSONFileAtomic(memoDraftsPath(ctx), file)
+	return write_vault_json_file_atomic(ctx, memoDraftsPath(ctx), file)
 }
 
 func normalizeMemoDraftRequest(ctx *VaultContext, req MemoDraftUpsertRequest) (MemoDraftRecord, error) {

@@ -5,6 +5,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ThreadNote</title>
+  <script type="importmap" data-n="module-import-map">
+    {
+      "imports": {
+        "@/": "./src/"
+      }
+    }
+  </script>
   <style>
     :root {
       --background: #ededed;
@@ -77,9 +84,8 @@
       } catch (_) { }
     }();
   </script>
-  <link rel="stylesheet" href="/src/style.css?v=20260820-component-foundations-v2" />
+  <link rel="stylesheet" href="/src/style.css" />
   <script src="/public/input-policy.js" defer></script>
-  <script>window.__tn_legacy_timeless = window.Timeless || {};</script>
   <script src="/public/timeless/0.31.4/timeless.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.dom.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.web.umd.min.js"></script>
@@ -88,7 +94,7 @@
 
 <body class="gtd-slim-page">
   <div id="root"></div>
-  <script type="module" src="/src/gtd-slim.js?v=20260820-component-foundations-v2"></script>
+  <script type="module" src="/src/gtd-slim.js"></script>
 </body>
 
 </html>

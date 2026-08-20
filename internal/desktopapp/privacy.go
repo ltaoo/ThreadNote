@@ -3,7 +3,6 @@ package desktopapp
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"golang.org/x/crypto/bcrypt"
@@ -16,13 +15,17 @@ type PrivacyPinFile struct {
 }
 
 func privacyPinPath(ctx *VaultContext) string {
-	return filepath.Join(ctx.VeloDir, privacyPinFileName)
+	return filepath.Join(vaultConfigDirName, privacyPinFileName)
 }
 
 func loadPrivacyPin(ctx *VaultContext) (PrivacyPinFile, error) {
 	path := privacyPinPath(ctx)
-	raw, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return PrivacyPinFile{}, err
+	}
+	raw, err := workspace_fs.read_file(path)
+	if is_vault_file_not_exist(err) {
 		return PrivacyPinFile{}, nil
 	}
 	if err != nil {
@@ -42,7 +45,11 @@ func savePrivacyPin(ctx *VaultContext, hash string) error {
 		return err
 	}
 	path := privacyPinPath(ctx)
-	return os.WriteFile(path, append(raw, '\n'), 0600)
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return err
+	}
+	return workspace_fs.write_file_atomic(path, append(raw, '\n'), 0600)
 }
 
 func setPrivacyPin(ctx *VaultContext, pin string) error {

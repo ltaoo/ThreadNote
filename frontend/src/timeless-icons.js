@@ -23,9 +23,13 @@ function fallback_icon(props = {}) {
     },
     render() {
       if (typeof document === "undefined") return null;
-      const template = document.createElement("template");
-      template.innerHTML = html;
-      return template.content.firstElementChild;
+      const icon = document.createElement("span");
+      if (props.class) icon.className = String(props.class);
+      icon.dataset.timelessIcon = String(icon_name);
+      icon.dataset.iconSize = String(size);
+      icon.dataset.n = String(meaning);
+      icon.setAttribute("aria-hidden", "true");
+      return icon;
     },
     toString() {
       return html;
@@ -36,3 +40,5 @@ function fallback_icon(props = {}) {
 export const Timeless = globalThis.Timeless?.Icon
   ? globalThis.Timeless
   : { Icon: fallback_icon };
+
+export const TimelessPrimitive = globalThis.Timeless;

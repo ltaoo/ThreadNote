@@ -1,28 +1,35 @@
 package desktopapp
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
 func readTaskFile(ctx *VaultContext, path string) (TaskRecord, error) {
-	raw, err := os.ReadFile(path)
+	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
 		return TaskRecord{}, err
 	}
-	info, _ := os.Stat(path)
+	relative_path, err := workspace_fs.relative_path(path)
+	if err != nil {
+		return TaskRecord{}, err
+	}
+	raw, err := workspace_fs.read_file(relative_path)
+	if err != nil {
+		return TaskRecord{}, err
+	}
+	info, _ := workspace_fs.stat_file(relative_path)
 	var task TaskRecord
 	if err := json.Unmarshal(raw, &task); err != nil {
 		return TaskRecord{}, fmt.Errorf("read task: %w", err)
 	}
 	task = normalizeTaskRecord(task)
 	if task.ID == "" {
-		task.ID = sanitizeTaskID(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)))
+		task.ID = sanitizeTaskID(strings.TrimSuffix(filepath.Base(relative_path), filepath.Ext(relative_path)))
 	}
 	if task.CreatedAt == "" && info != nil {
 		task.CreatedAt = info.ModTime().UTC().Format(time.RFC3339Nano)
@@ -30,7 +37,7 @@ func readTaskFile(ctx *VaultContext, path string) (TaskRecord, error) {
 	if task.UpdatedAt == "" {
 		task.UpdatedAt = task.CreatedAt
 	}
-	task.Path = relativeVaultPath(ctx, path)
+	task.Path = relative_path
 	return task, nil
 }
 
@@ -40,30 +47,19 @@ func writeTaskRecord(ctx *VaultContext, task TaskRecord) error {
 		return fmt.Errorf("task id is required")
 	}
 	task.Path = taskRelativePath(task)
-	target, err := safeVaultRelativePath(ctx.RootDir, task.Path)
+	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
 		return err
 	}
-	root := taskRootDir(ctx)
-	if !strings.HasPrefix(target, root+string(filepath.Separator)) && target != root {
+	target, err := workspace_fs.relative_path(task.Path)
+	if err != nil {
+		return err
+	}
+	root := task_root_dir()
+	if !strings.HasPrefix(target, root+"/") && target != root {
 		return fmt.Errorf("task path must be inside task directory")
 	}
-	return writeTaskJSONFileAtomic(target, task)
-}
-
-func writeTaskJSONFileAtomic(path string, task TaskRecord) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
-	}
-	raw, err := json.MarshalIndent(task, "", "  ")
-	if err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(bytes.TrimRight(raw, "\n"), '\n'), 0644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return write_vault_json_file_atomic(ctx, target, task)
 }
 
 func taskRelativePath(task TaskRecord) string {
@@ -106,14 +102,20 @@ func findTaskFilePath(ctx *VaultContext, id string) (string, error) {
 	if targetID == "" {
 		return "", fmt.Errorf("task id is required")
 	}
-	root := taskRootDir(ctx)
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return "", err
+	}
+	root := task_root_dir()
+	if _, err := workspace_fs.stat_file(root); is_vault_file_not_exist(err) {
+		return "", fmt.Errorf("task not found: %s", targetID)
+	} else if err != nil {
+		return "", err
+	}
 	var found string
-	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if os.IsNotExist(err) {
-			return filepath.SkipAll
-		}
-		if err != nil {
-			return err
+	err = workspace_fs.walk_dir(root, func(path string, entry fs.DirEntry, walk_err error) error {
+		if walk_err != nil {
+			return walk_err
 		}
 		if entry.IsDir() || strings.ToLower(filepath.Ext(entry.Name())) != ".json" {
 			return nil
@@ -124,7 +126,7 @@ func findTaskFilePath(ctx *VaultContext, id string) (string, error) {
 		}
 		if task.ID == targetID {
 			found = path
-			return filepath.SkipAll
+			return fs.SkipAll
 		}
 		return nil
 	})

@@ -1,50 +1,56 @@
 /**
  * @file 路由配置
  */
-const configure = {
-  root: {
-    title: "ROOT",
-    pathname: "/",
+import { HomePageView } from "@/pages/home/index.js";
+import { HomeLayoutView } from "@/pages/home/layout.js";
+import { UIExamplePageView } from "@/pages/home/example.js";
+import { LoginPageView } from "@/pages/login/index.js";
+import { NotFoundPageView } from "@/pages/notfound/index.js";
+import { VaultPickerPageView } from "@/pages/vault-picker/index.js";
+
+const routes_configure = {
+  home_layout: {
+    title: "首页",
+    pathname: "/home",
+    component: HomeLayoutView,
     children: {
-      home_layout: {
-        title: "首页",
-        pathname: "/home",
-        children: {
-          index: {
-            title: "工作台",
-            pathname: "/home/index",
-          },
-          example: {
-            title: "组件示例",
-            pathname: "/home/ui",
-          },
-        },
-        options: {
-          require: [],
-        },
+      index: {
+        is_default: true,
+        title: "工作台",
+        pathname: "/home/index",
+        component: HomePageView,
       },
-      login: {
-        title: "登录",
-        pathname: "/login",
-        options: {
-          require: [],
-        },
-      },
-      vault_picker: {
-        title: "选择 Vault",
-        pathname: "/vault-picker",
-        options: {
-          require: [],
-        },
-      },
-      notfound: {
-        title: "404",
-        pathname: "/notfound",
+      example: {
+        title: "组件示例",
+        pathname: "/home/ui",
+        component: UIExamplePageView,
       },
     },
+    options: {
+      require: [],
+    },
+  },
+  login: {
+    title: "登录",
+    pathname: "/login",
+    component: LoginPageView,
+    options: {
+      require: [],
+    },
+  },
+  vault_picker: {
+    title: "选择 Vault",
+    pathname: "/vault-picker",
+    component: VaultPickerPageView,
+    options: {
+      require: [],
+    },
+  },
+  notfound: {
+    title: "404",
+    pathname: "/notfound",
+    component: NotFoundPageView,
   },
 };
-const result = Timeless.build(configure);
-export const routes = result.routes;
-export const routesWithPathname = result.routesWithPathname;
-routesWithPathname["/desktop"] = routesWithPathname["/home/index"];
+
+export const router = Timeless.kit.buildRoutes(routes_configure);

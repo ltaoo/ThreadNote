@@ -332,11 +332,11 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 			return c.Error(err.Error())
 		}
 		hp := memoHistoryPath(mdPath)
-		content, err := rebuildHistoryVersion(hp, version)
+		content, err := rebuildHistoryVersion(ctx, hp, version)
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		hf, _ := loadHistoryFile(hp)
+		hf, _ := loadHistoryFile(ctx, hp)
 		return c.Ok(velo.H{"content": content, "version": version, "versions": hf.Versions})
 	})
 
@@ -353,7 +353,7 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		hf, err := loadHistoryFile(memoHistoryPath(mdPath))
+		hf, err := loadHistoryFile(ctx, memoHistoryPath(mdPath))
 		if err != nil {
 			return c.Error(err.Error())
 		}
@@ -379,7 +379,7 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		content, err := rebuildHistoryVersion(memoHistoryPath(mdPath), req.Version)
+		content, err := rebuildHistoryVersion(ctx, memoHistoryPath(mdPath), req.Version)
 		if err != nil {
 			return c.Error(err.Error())
 		}
@@ -414,7 +414,7 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		hf, err := loadHistoryFile(memoHistoryPath(mdPath))
+		hf, err := loadHistoryFile(ctx, memoHistoryPath(mdPath))
 		if err != nil {
 			return c.Error(err.Error())
 		}
@@ -449,11 +449,11 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 			return c.Error(err.Error())
 		}
 		hp := commentHistoryPath(cmPath)
-		content, err := rebuildHistoryVersion(hp, version)
+		content, err := rebuildHistoryVersion(ctx, hp, version)
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		hf, _ := loadHistoryFile(hp)
+		hf, _ := loadHistoryFile(ctx, hp)
 		return c.Ok(velo.H{"content": content, "version": version, "versions": hf.Versions})
 	})
 
@@ -470,7 +470,7 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		hf, err := loadHistoryFile(commentHistoryPath(cmPath))
+		hf, err := loadHistoryFile(ctx, commentHistoryPath(cmPath))
 		if err != nil {
 			return c.Error(err.Error())
 		}
@@ -496,7 +496,7 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		content, err := rebuildHistoryVersion(commentHistoryPath(cmPath), req.Version)
+		content, err := rebuildHistoryVersion(ctx, commentHistoryPath(cmPath), req.Version)
 		if err != nil {
 			return c.Error(err.Error())
 		}
@@ -531,7 +531,7 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		hf, err := loadHistoryFile(commentHistoryPath(cmPath))
+		hf, err := loadHistoryFile(ctx, commentHistoryPath(cmPath))
 		if err != nil {
 			return c.Error(err.Error())
 		}
@@ -670,9 +670,13 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		if err := showFileInExplorer(mdPath); err != nil {
+		local_path, err := vault_local_path(ctx, mdPath)
+		if err != nil {
 			return c.Error(err.Error())
 		}
-		return c.Ok(velo.H{"success": true, "file": mdPath})
+		if err := showFileInExplorer(local_path); err != nil {
+			return c.Error(err.Error())
+		}
+		return c.Ok(velo.H{"success": true, "file": local_path})
 	})
 }

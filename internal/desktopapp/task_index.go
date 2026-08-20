@@ -2,7 +2,6 @@ package desktopapp
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"sort"
 	"time"
@@ -59,15 +58,19 @@ func rebuildTaskIndex(ctx *VaultContext) (TaskIndexFile, error) {
 	for _, task := range tasks {
 		index.Tasks[task.ID] = taskIndexEntry(task)
 	}
-	if err := writeJSONFileAtomic(taskIndexPath(ctx), index); err != nil {
+	if err := write_vault_json_file_atomic(ctx, task_index_path(), index); err != nil {
 		return TaskIndexFile{}, err
 	}
 	return index, nil
 }
 
 func loadTaskIndex(ctx *VaultContext) (TaskIndexFile, error) {
-	raw, err := os.ReadFile(taskIndexPath(ctx))
-	if os.IsNotExist(err) {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return TaskIndexFile{}, err
+	}
+	raw, err := workspace_fs.read_file(task_index_path())
+	if is_vault_file_not_exist(err) {
 		return rebuildTaskIndex(ctx)
 	}
 	if err != nil {
@@ -174,17 +177,10 @@ func appendTaskEvent(ctx *VaultContext, taskID string, eventType string, data ma
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(taskEventsDir(ctx), 0755); err != nil {
-		return err
-	}
-	path := filepath.Join(taskEventsDir(ctx), now.Format("2006-01")+".jsonl")
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	if _, err := file.Write(append(raw, '\n')); err != nil {
-		return err
-	}
-	return nil
+	path := filepath.ToSlash(filepath.Join(task_events_dir(), now.Format("2006-01")+".jsonl"))
+	return workspace_fs.append_file(path, append(raw, '\n'), 0644)
 }

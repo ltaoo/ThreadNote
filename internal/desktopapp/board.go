@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -218,12 +217,16 @@ var boardPresets = []BoardRecord{
 }
 
 func boardsPath(ctx *VaultContext) string {
-	return filepath.Join(ctx.VeloDir, vaultBoardsFileName)
+	return filepath.Join(vaultConfigDirName, vaultBoardsFileName)
 }
 
 func loadBoards(ctx *VaultContext) (BoardFile, error) {
-	raw, err := os.ReadFile(boardsPath(ctx))
-	if os.IsNotExist(err) {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return BoardFile{}, err
+	}
+	raw, err := workspace_fs.read_file(boardsPath(ctx))
+	if is_vault_file_not_exist(err) {
 		return BoardFile{SchemaVersion: vaultSchemaVersion, Boards: []BoardRecord{}}, nil
 	}
 	if err != nil {
@@ -242,7 +245,7 @@ func loadBoards(ctx *VaultContext) (BoardFile, error) {
 func saveBoards(ctx *VaultContext, file BoardFile) error {
 	file = normalizeBoardFile(file)
 	file.SchemaVersion = vaultSchemaVersion
-	return writeJSONFileAtomic(boardsPath(ctx), file)
+	return write_vault_json_file_atomic(ctx, boardsPath(ctx), file)
 }
 
 func createVaultBoard(ctx *VaultContext, req BoardCreateRequest) (BoardRecord, error) {

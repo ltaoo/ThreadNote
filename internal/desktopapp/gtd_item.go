@@ -3,7 +3,7 @@ package desktopapp
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -74,21 +74,25 @@ type GTDIDRequest struct {
 	ID string `json:"id"`
 }
 
-func gtdItemRootDir(ctx *VaultContext) string {
-	return filepath.Join(ctx.RootDir, vaultGTDItemDirName)
+func gtd_item_root_dir() string {
+	return vaultGTDItemDirName
 }
 
 func listVaultGTDItems(ctx *VaultContext) ([]GTDItemRecord, error) {
 	items := []GTDItemRecord{}
-	root := gtdItemRootDir(ctx)
-	if _, err := os.Stat(root); os.IsNotExist(err) {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	root := gtd_item_root_dir()
+	if _, err := workspace_fs.stat_file(root); is_vault_file_not_exist(err) {
 		return items, nil
 	} else if err != nil {
 		return nil, err
 	}
-	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
+	if err := workspace_fs.walk_dir(root, func(path string, entry fs.DirEntry, walk_err error) error {
+		if walk_err != nil {
+			return walk_err
 		}
 		if entry.IsDir() || strings.ToLower(filepath.Ext(entry.Name())) != ".json" {
 			return nil
@@ -209,9 +213,13 @@ func updateVaultGTDItem(ctx *VaultContext, req GTDItemUpdateRequest) (GTDItemRec
 	if err := writeGTDItemRecord(ctx, item); err != nil {
 		return GTDItemRecord{}, err
 	}
-	nextPath, err := safeVaultRelativePath(ctx.RootDir, gtdItemRelativePath(item))
-	if err == nil && oldPath != nextPath {
-		_ = os.Remove(oldPath)
+	nextPath := gtdItemRelativePath(item)
+	if oldPath != nextPath {
+		workspace_fs, fs_err := require_vault_fs(ctx)
+		if fs_err != nil {
+			return GTDItemRecord{}, fs_err
+		}
+		_ = workspace_fs.remove_file(oldPath)
 	}
 	return item, nil
 }
@@ -221,22 +229,34 @@ func deleteVaultGTDItem(ctx *VaultContext, id string) error {
 	if err != nil {
 		return err
 	}
-	return os.Remove(path)
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return err
+	}
+	return workspace_fs.remove_file(path)
 }
 
 func readGTDItemFile(ctx *VaultContext, path string) (GTDItemRecord, error) {
-	raw, err := os.ReadFile(path)
+	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
 		return GTDItemRecord{}, err
 	}
-	info, _ := os.Stat(path)
+	relative_path, err := workspace_fs.relative_path(path)
+	if err != nil {
+		return GTDItemRecord{}, err
+	}
+	raw, err := workspace_fs.read_file(relative_path)
+	if err != nil {
+		return GTDItemRecord{}, err
+	}
+	info, _ := workspace_fs.stat_file(relative_path)
 	var item GTDItemRecord
 	if err := json.Unmarshal(raw, &item); err != nil {
 		return GTDItemRecord{}, fmt.Errorf("read item: %w", err)
 	}
 	item = normalizeGTDItemRecord(item)
 	if item.ID == "" {
-		item.ID = sanitizeGTDItemID(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)))
+		item.ID = sanitizeGTDItemID(strings.TrimSuffix(filepath.Base(relative_path), filepath.Ext(relative_path)))
 	}
 	if item.CreatedAt == "" && info != nil {
 		item.CreatedAt = info.ModTime().UTC().Format(time.RFC3339Nano)
@@ -252,15 +272,19 @@ func writeGTDItemRecord(ctx *VaultContext, item GTDItemRecord) error {
 	if item.ID == "" {
 		return fmt.Errorf("item id is required")
 	}
-	path, err := safeVaultRelativePath(ctx.RootDir, gtdItemRelativePath(item))
+	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
 		return err
 	}
-	root := gtdItemRootDir(ctx)
-	if !strings.HasPrefix(path, root+string(filepath.Separator)) && path != root {
+	path, err := workspace_fs.relative_path(gtdItemRelativePath(item))
+	if err != nil {
+		return err
+	}
+	root := gtd_item_root_dir()
+	if !strings.HasPrefix(path, root+"/") && path != root {
 		return fmt.Errorf("item path must be inside item directory")
 	}
-	return writeJSONFileAtomic(path, item)
+	return write_vault_json_file_atomic(ctx, path, item)
 }
 
 func findGTDItemFilePath(ctx *VaultContext, id string) (string, error) {
@@ -268,14 +292,20 @@ func findGTDItemFilePath(ctx *VaultContext, id string) (string, error) {
 	if targetID == "" {
 		return "", fmt.Errorf("item id is required")
 	}
-	root := gtdItemRootDir(ctx)
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return "", err
+	}
+	root := gtd_item_root_dir()
+	if _, err := workspace_fs.stat_file(root); is_vault_file_not_exist(err) {
+		return "", fmt.Errorf("item not found: %s", targetID)
+	} else if err != nil {
+		return "", err
+	}
 	var found string
-	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if os.IsNotExist(err) {
-			return filepath.SkipAll
-		}
-		if err != nil {
-			return err
+	err = workspace_fs.walk_dir(root, func(path string, entry fs.DirEntry, walk_err error) error {
+		if walk_err != nil {
+			return walk_err
 		}
 		if entry.IsDir() || strings.ToLower(filepath.Ext(entry.Name())) != ".json" {
 			return nil
@@ -286,7 +316,7 @@ func findGTDItemFilePath(ctx *VaultContext, id string) (string, error) {
 		}
 		if item.ID == targetID {
 			found = path
-			return filepath.SkipAll
+			return fs.SkipAll
 		}
 		return nil
 	})

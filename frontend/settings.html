@@ -5,6 +5,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ThreadNote</title>
+  <script type="importmap" data-n="module-import-map">
+    {
+      "imports": {
+        "@/": "./src/"
+      }
+    }
+  </script>
   <script>
     !function () {
       try {
@@ -24,12 +31,12 @@
   </script>
   <script src="/public/input-policy.js" defer></script>
   <script type="module" src="/src/window-state.js"></script>
-  <script>window.__tn_legacy_timeless = window.Timeless || {};</script>
   <script src="/public/timeless/0.31.4/timeless.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.dom.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.web.umd.min.js"></script>
   <script src="/public/timeless-icon-runtime.js"></script>
-  <script type="module" src="/src/components.js?v=20260820-component-foundations-v2"></script>
+  <script type="module" src="/src/components.js"></script>
+  <script type="module" src="/src/settings-sync-view.js?v=20260820-vault-sync-provider"></script>
   <style>
     :root {
       color-scheme: light;
@@ -928,7 +935,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="/src/style.css?v=20260820-component-foundations-v2" />
+  <link rel="stylesheet" href="/src/style.css" />
 </head>
 
 <body>
@@ -980,6 +987,25 @@
       </header>
 
       <div class="settings-form settings-panel" data-settings-panel="cloud-storage">
+        <section class="settings-section" data-n="settings-vault-sync-section">
+          <div class="settings-profile-head" data-n="settings-vault-sync-heading">
+            <div class="settings-profile-title" data-n="settings-vault-sync-title">Vault 数据</div>
+          </div>
+          <div class="settings-shortcut-card" data-n="settings-vault-sync-card">
+            <div data-n="settings-vault-provider-content">
+              <div class="settings-shortcut-title" data-n="settings-vault-provider-title">当前 Provider</div>
+              <div class="settings-shortcut-description" data-n="settings-vault-provider-description">正在读取当前 Vault 的存储方式。</div>
+            </div>
+            <div class="settings-storage-actions" data-n="settings-vault-provider-actions">
+              <span class="settings-storage-badge" data-n="settings-vault-provider-value">读取中</span>
+              <button class="settings-button is-secondary" type="button" data-n="settings-vault-open-directory" hidden>打开目录</button>
+            </div>
+          </div>
+          <div class="settings-actions" data-n="settings-vault-provider-message-row">
+            <div class="settings-message" data-n="settings-vault-provider-message"></div>
+          </div>
+        </section>
+
         <section class="settings-section">
           <div class="settings-profile-head">
             <div class="settings-profile-title">存储配置</div>

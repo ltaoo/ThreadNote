@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -29,12 +28,16 @@ type HookFile struct {
 }
 
 func hooksPath(ctx *VaultContext) string {
-	return filepath.Join(ctx.VeloDir, vaultHooksFileName)
+	return filepath.Join(vaultConfigDirName, vaultHooksFileName)
 }
 
 func loadHooks(ctx *VaultContext) (HookFile, error) {
-	raw, err := os.ReadFile(hooksPath(ctx))
-	if os.IsNotExist(err) {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return HookFile{}, err
+	}
+	raw, err := workspace_fs.read_file(hooksPath(ctx))
+	if is_vault_file_not_exist(err) {
 		return HookFile{SchemaVersion: vaultSchemaVersion, Hooks: []HookConfig{}}, nil
 	}
 	if err != nil {
@@ -53,7 +56,7 @@ func loadHooks(ctx *VaultContext) (HookFile, error) {
 func saveHooks(ctx *VaultContext, file HookFile) error {
 	file = normalizeHookFile(file)
 	file.SchemaVersion = vaultSchemaVersion
-	return writeJSONFileAtomic(hooksPath(ctx), file)
+	return write_vault_json_file_atomic(ctx, hooksPath(ctx), file)
 }
 
 func normalizeHookFile(file HookFile) HookFile {
@@ -165,11 +168,11 @@ func postHooks(hooksFile HookFile, eventType string, payload []byte) {
 
 // veloHookPayload builds the JSON payload sent to webhook URLs.
 type veloHookPayload struct {
-	Event   string              `json:"event"`
-	Memo    *MemoRecord         `json:"memo,omitempty"`
-	Task    *TaskRecord         `json:"task,omitempty"`
-	Comment *MemoCommentRecord  `json:"comment,omitempty"`
-	Asset   map[string]any      `json:"asset,omitempty"`
+	Event   string             `json:"event"`
+	Memo    *MemoRecord        `json:"memo,omitempty"`
+	Task    *TaskRecord        `json:"task,omitempty"`
+	Comment *MemoCommentRecord `json:"comment,omitempty"`
+	Asset   map[string]any     `json:"asset,omitempty"`
 }
 
 func hookEventMatches(events []string, eventType string) bool {

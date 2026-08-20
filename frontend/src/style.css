@@ -6,15 +6,15 @@
  * aliases remain available while components are migrated incrementally.
  */
 @import url("../public/index.css");
-@import url("./components.css?v=20260820-component-foundations-v2");
-@import url("./form-controls.css?v=20260820-component-foundations-v2");
-@import url("./memo-card.css?v=20260820-pin-state-clarity");
-@import url("./small-calendar.css?v=20260820-calendar-navigation");
+@import url("./components.css");
+@import url("./form-controls.css");
+@import url("./memo-card.css");
+@import url("./small-calendar.css?v=20260820-date-highlight-fill");
 @import url("./workspace-shell.css?v=20260820-fixed-settings-footer");
 @import url("./workspace-memos.css?v=20260820-project-tag-subtle");
 @import url("./memo-code.css?v=20260820-code-snippet-workbench");
-@import url("./workspace-collections.css?v=20260820-compact-finder-thumbnails");
-@import url("./workspace-windows.css?v=20260820-inline-task-detail-brand");
+@import url("./workspace-collections.css");
+@import url("./workspace-windows.css?v=20260820-fixed-comment-dialog-width");
 @import url("./workspace-timeline.css");
 @import url("./standalone-tools.css");
 @import url("./atomic.css");

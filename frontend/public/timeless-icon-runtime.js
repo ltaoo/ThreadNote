@@ -1,10 +1,9 @@
 (function install_timeless_icon_runtime(window_object) {
-  var primitive_runtime = window_object.Timeless || {};
-  var legacy_runtime = window_object.__tn_legacy_timeless || {};
-  var raw_icon_factory = primitive_runtime.Icon;
+  var runtime = window_object.Timeless || {};
+  var raw_icon_factory = runtime.Icon;
   var svg_namespace = "http://www.w3.org/2000/svg";
 
-  if (typeof raw_icon_factory !== "function" || typeof primitive_runtime.registerIcons !== "function") {
+  if (typeof raw_icon_factory !== "function" || typeof runtime.registerIcons !== "function") {
     throw new Error("Timeless icon runtime requires timeless.umd.min.js");
   }
 
@@ -332,7 +331,7 @@
   icon_registry["zoom-in"] = icon_registry.zoomIn;
   icon_registry["zoom-out"] = icon_registry.zoomOut;
 
-  var latest_registry = primitive_runtime.getIconRegistry();
+  var latest_registry = runtime.getIconRegistry();
   var latest_aliases = {
     actual: "square",
     attachment: "paperclip",
@@ -379,7 +378,7 @@
   Object.keys(latest_registry).forEach(function (latest_name) {
     icon_registry[latest_name] = latest_registry[latest_name];
   });
-  primitive_runtime.registerIcons(icon_registry);
+  runtime.registerIcons(icon_registry);
 
   function render_asn(asn_node) {
     var element = document.createElementNS(svg_namespace, asn_node.tag);
@@ -441,22 +440,13 @@
       return render_icon(icon);
     };
     icon.toString = function timeless_icon_to_string() {
-      return render_icon(icon).outerHTML;
+      return new XMLSerializer().serializeToString(render_icon(icon));
     };
     return icon;
   }
 
   icon_factory.register = raw_icon_factory.register;
-  primitive_runtime.Icon = icon_factory;
-
-  legacy_runtime.Icon = icon_factory;
-  legacy_runtime.DOM = primitive_runtime.DOM;
-  legacy_runtime.clearIcons = primitive_runtime.clearIcons;
-  legacy_runtime.getIconRegistry = primitive_runtime.getIconRegistry;
-  legacy_runtime.registerIcons = primitive_runtime.registerIcons;
-  legacy_runtime.shadcn = primitive_runtime.shadcn;
-  legacy_runtime.__icon_primitive_runtime = primitive_runtime;
-  window_object.Timeless = legacy_runtime;
+  runtime.Icon = icon_factory;
 
   function upgrade_declarative_icons(root) {
     var scope = root && root.querySelectorAll ? root : document;
@@ -464,7 +454,7 @@
       var icon_name = placeholder.getAttribute("data-timeless-icon");
       var size_value = Number(placeholder.getAttribute("data-icon-size"));
       var meaning = placeholder.getAttribute("data-n") || icon_name + "-icon";
-      var icon = window_object.Timeless.Icon({
+      var icon = runtime.Icon({
         name: icon_name,
         size: Number.isFinite(size_value) && size_value > 0 ? size_value : 24,
         class: placeholder.className,
@@ -474,7 +464,7 @@
     });
   }
 
-  window_object.Timeless.upgradeIcons = upgrade_declarative_icons;
+  runtime.upgradeIcons = upgrade_declarative_icons;
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
       upgrade_declarative_icons(document);

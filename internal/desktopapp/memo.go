@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -79,7 +79,11 @@ type MemoDeleteOptions struct {
 
 func listVaultMemos(ctx *VaultContext) ([]MemoRecord, error) {
 	memos := []MemoRecord{}
-	if err := filepath.WalkDir(ctx.MemoDir, func(path string, entry os.DirEntry, err error) error {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := workspace_fs.walk_dir(vaultMemoDirName, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -153,7 +157,7 @@ func createVaultMemo(ctx *VaultContext, req MemoCreateRequest) (MemoRecord, erro
 	if err := writeMemoRecord(ctx, memo); err != nil {
 		return MemoRecord{}, err
 	}
-	saveHistoryBase(memoHistoryPath(filepath.Join(ctx.RootDir, memo.Path)), renderMemoMarkdownFile(memo))
+	saveHistoryBase(ctx, memoHistoryPath(memo.Path), renderMemoMarkdownFile(memo))
 	fireMemoHooks(ctx, "memo.created", memo)
 	return memo, nil
 }
@@ -238,7 +242,7 @@ func updateVaultMemo(ctx *VaultContext, req MemoUpdateRequest) (MemoRecord, erro
 		return MemoRecord{}, err
 	}
 	changedFields := changedFieldsForMemoUpdate(req)
-	saveHistoryDiff(memoHistoryPath(path), oldMarkdown, renderMemoMarkdownFile(memo), changedFields)
+	saveHistoryDiff(ctx, memoHistoryPath(path), oldMarkdown, renderMemoMarkdownFile(memo), changedFields)
 	fireMemoHooks(ctx, "memo.updated", memo)
 	return memo, nil
 }
@@ -268,6 +272,10 @@ func deleteVaultMemoWithAssets(parent context.Context, ctx *VaultContext, id str
 
 func deleteVaultMemoWithOptions(ctx *VaultContext, id string, options MemoDeleteOptions) (MemoDeleteResult, error) {
 	result := MemoDeleteResult{}
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return result, err
+	}
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return result, fmt.Errorf("memo id is required")
@@ -320,23 +328,18 @@ func deleteVaultMemoWithOptions(ctx *VaultContext, id string, options MemoDelete
 
 	fireMemoHooks(ctx, "memo.deleted", memo)
 
-	if err := os.Remove(path); err != nil {
+	if err := workspace_fs.remove_file(path); err != nil {
 		return result, err
 	}
 	for _, comment := range comments {
-		commentPath, err := safeVaultRelativePath(ctx.RootDir, comment.Path)
-		if err != nil {
-			return result, err
-		}
-		if err := os.Remove(commentPath); err != nil && !os.IsNotExist(err) {
+		if err := workspace_fs.remove_file(comment.Path); err != nil && !is_vault_file_not_exist(err) {
 			return result, err
 		}
 	}
 
-	deleteHistoryFile(memoHistoryPath(path))
+	deleteHistoryFile(ctx, memoHistoryPath(path))
 	for _, comment := range comments {
-		cpath, _ := safeVaultRelativePath(ctx.RootDir, comment.Path)
-		deleteHistoryFile(commentHistoryPath(cpath))
+		deleteHistoryFile(ctx, commentHistoryPath(comment.Path))
 	}
 
 	if len(assetsToDelete) > 0 {

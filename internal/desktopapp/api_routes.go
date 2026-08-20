@@ -7,6 +7,7 @@ import (
 
 func registerRoutes(b *velo.Box, logger *zerolog.Logger, appUpdater *application_updater, inputSourceLock *InputSourceLockService, memoAgent *memoAgentService) {
 	registerVaultProjectMemoRoutes(b)
+	register_vault_sync_routes(b)
 	registerTaskRoutes(b)
 	registerGTDRoutes(b)
 	registerBoardRoutes(b)

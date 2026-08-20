@@ -1,4 +1,4 @@
-import { MemoCardModel } from "./memo-card-model.js?v=20260820-memo-expand-measured";
+import { MemoCardModel } from "./memo-card-model.js";
 import { Timeless } from "./timeless-icons.js";
 
 const visibilityLabels = Object.freeze({

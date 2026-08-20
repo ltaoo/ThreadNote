@@ -3,18 +3,26 @@ package desktopapp
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
 func readMemoFile(ctx *VaultContext, path string) (MemoRecord, error) {
-	raw, err := os.ReadFile(path)
+	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
 		return MemoRecord{}, err
 	}
-	info, _ := os.Stat(path)
+	relative_path, err := workspace_fs.relative_path(path)
+	if err != nil {
+		return MemoRecord{}, err
+	}
+	raw, err := workspace_fs.read_file(relative_path)
+	if err != nil {
+		return MemoRecord{}, err
+	}
+	info, _ := workspace_fs.stat_file(relative_path)
 	meta, content := parseMemoMarkdown(string(raw))
 	createdAt := firstNonEmpty(meta["createdAt"], meta["created_at"])
 	if createdAt == "" && info != nil {
@@ -22,7 +30,7 @@ func readMemoFile(ctx *VaultContext, path string) (MemoRecord, error) {
 	}
 	id := strings.TrimSpace(meta["id"])
 	if id == "" {
-		id = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		id = strings.TrimSuffix(filepath.Base(relative_path), filepath.Ext(relative_path))
 	}
 	memo := MemoRecord{
 		Archived:   parseMemoBool(meta["archived"]),
@@ -31,7 +39,7 @@ func readMemoFile(ctx *VaultContext, path string) (MemoRecord, error) {
 		ID:         id,
 		Kind:       strings.TrimSpace(meta["kind"]),
 		Locations:  parseMemoList(meta, "locations"),
-		Path:       relativeVaultPath(ctx, path),
+		Path:       relative_path,
 		Pinned:     parseMemoBool(meta["pinned"]),
 		Private:    parseMemoBool(meta["private"]),
 		ProjectID:  sanitizeProjectID(meta["projectId"]),
@@ -61,25 +69,18 @@ func writeMemoRecord(ctx *VaultContext, memo MemoRecord) error {
 	if memo.Path == "" {
 		memo.Path = memoRelativePath(memo)
 	}
-	target, err := safeVaultRelativePath(ctx.RootDir, memo.Path)
+	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
 		return err
 	}
-	if !strings.HasPrefix(target, ctx.MemoDir+string(filepath.Separator)) && target != ctx.MemoDir {
+	relative_path, err := workspace_fs.relative_path(memo.Path)
+	if err != nil {
+		return err
+	}
+	if relative_path != vaultMemoDirName && !strings.HasPrefix(relative_path, vaultMemoDirName+"/") {
 		return fmt.Errorf("memo path must be inside memo directory")
 	}
-	return writeTextFileAtomic(target, renderMemoMarkdownFile(memo))
-}
-
-func writeTextFileAtomic(path string, text string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(text), 0644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return workspace_fs.write_file_atomic(relative_path, []byte(renderMemoMarkdownFile(memo)), 0644)
 }
 
 func renderMemoMarkdownFile(memo MemoRecord) string {
@@ -244,7 +245,11 @@ func memoRelativePath(memo MemoRecord) string {
 func findMemoFilePath(ctx *VaultContext, id string) (string, error) {
 	targetID := strings.TrimSpace(id)
 	var found string
-	err := filepath.WalkDir(ctx.MemoDir, func(path string, entry os.DirEntry, err error) error {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return "", err
+	}
+	err = workspace_fs.walk_dir(vaultMemoDirName, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -270,26 +275,12 @@ func findMemoFilePath(ctx *VaultContext, id string) (string, error) {
 	return found, nil
 }
 
-func safeVaultRelativePath(rootDir string, relativePath string) (string, error) {
-	clean := filepath.Clean(strings.TrimSpace(relativePath))
-	if clean == "." || clean == "" {
-		return "", fmt.Errorf("relative path is required")
-	}
-	if filepath.IsAbs(clean) {
-		return "", fmt.Errorf("absolute path is not allowed")
-	}
-	target := filepath.Join(rootDir, clean)
-	rel, err := filepath.Rel(rootDir, target)
-	if err != nil {
-		return "", err
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("path escapes vault")
-	}
-	return target, nil
-}
-
 func relativeVaultPath(ctx *VaultContext, path string) string {
+	if workspace_fs, err := require_vault_fs(ctx); err == nil {
+		if relative_path, relative_err := workspace_fs.relative_path(path); relative_err == nil {
+			return relative_path
+		}
+	}
 	rel, err := filepath.Rel(ctx.RootDir, path)
 	if err != nil {
 		return filepath.ToSlash(path)

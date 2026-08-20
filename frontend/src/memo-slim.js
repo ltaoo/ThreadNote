@@ -7,9 +7,15 @@ import {
 } from "./domain/memo-repository.js";
 import { openImagePreviewFromElement } from "./components/image-preview.js";
 import { createMiniEditor, loadEditorSettings, loadEditorSettingsFromVault } from "./pages/home/memo-editor.js";
-import { SVG as MEMO_SVG } from "./pages/home/memo-icons.js";
 import { renderMemoMarkdown } from "./pages/home/memo-markdown.js?v=20260820-todo-checkbox-unify";
-import { Timeless } from "./timeless-icons.js";
+import {
+  Timeless,
+  TimelessPrimitive,
+} from "./timeless-icons.js";
+import {
+  renderTimelessView,
+  unmountTimelessView,
+} from "./timeless-view-mount.js";
 import { forgetPersistedWindow, registerWindowSession, setPersistedWindowFixed } from "./window-state.js";
 
 const COMPOSER_STORAGE_KEY = "demo-desktop:memo-slim:composer:v1";
@@ -19,14 +25,6 @@ const HISTORY_IMAGE_WAIT_MS = 3000;
 const HISTORY_INPUT_QUIET_MS = 140;
 const TIMELINE_GAP_MS = 5 * 60 * 1000;
 const EMOJIS = ["😀", "😄", "😂", "🥰", "😎", "🤔", "👍", "👏", "🎉", "✅", "💡", "❤️"];
-
-const SVG = Object.freeze({
-  check: Timeless.Icon({ name: "check" }),
-  chevron: Timeless.Icon({ name: "chevron-down" }),
-  more: Timeless.Icon({ name: "ellipsis" }),
-  note: Timeless.Icon({ name: "file-text" }),
-  smile: Timeless.Icon({ name: "smile" }),
-});
 
 document.addEventListener("DOMContentLoaded", function () {
   const root = document.querySelector("#root");
@@ -69,7 +67,11 @@ function mountMemoSlim(root) {
     title: "Memo",
   });
 
-  root.innerHTML = slimTemplate();
+  renderTimelessView(root, MemoSlimShellView({
+    onSubmit() {
+      createMemo();
+    },
+  }));
 
   let composerEditor = null;
   const els = {
@@ -150,10 +152,6 @@ function mountMemoSlim(root) {
 
     if (!closestElement(event.target, "[data-slim-menu-wrap]")) closeMenu();
     if (!closestElement(event.target, "[data-slim-emoji-wrap]")) closeEmojiPanel();
-  });
-  els.form.addEventListener("submit", function (event) {
-    event.preventDefault();
-    createMemo();
   });
   els.editorHost.addEventListener("keydown", handleEditorKeydown, true);
   els.list.addEventListener("scroll", handleListScroll, { passive: true });
@@ -241,8 +239,8 @@ function mountMemoSlim(root) {
   function mountComposerEditor(value) {
     if (composerEditor) composerEditor.destroy();
     composerEditor = null;
-    els.editorHost.innerHTML = "";
-    els.vimStatus.innerHTML = "";
+    unmountTimelessView(els.editorHost);
+    unmountTimelessView(els.vimStatus);
     composerEditor = createMiniEditor(els.editorHost, {
       memoItems() {
         return state.memos;
@@ -396,23 +394,18 @@ function mountMemoSlim(root) {
 
     const memoIndex = buildMemoReferenceIndex(allMemos);
     let previousTime = null;
-    els.list.innerHTML = memos.map(function (memo) {
+    const items = memos.map(function (memo) {
       const time = slimMemoTime(memo);
       const showTime = previousTime === null || shouldShowTimelineTime(previousTime, time);
       previousTime = time;
-      return memoItemTemplate(memo, showTime, memoMarkdownContext(memo, memoIndex));
-    }).join("");
+      return memoSlimItemPresentation(memo, showTime, memoIndex);
+    });
+    renderTimelessView(els.list, MemoSlimItemsView({ items }));
     restoreScrollState(options);
   }
 
   function renderState(message, kind, detail) {
-    els.list.innerHTML = `
-      <div class="memo-slim-state is-${escapeAttr(kind || "empty")}">
-        <span class="memo-slim-state-icon" aria-hidden="true">${SVG.note}</span>
-        <strong>${escapeHTML(message || "")}</strong>
-        ${detail ? `<small>${escapeHTML(detail)}</small>` : ""}
-      </div>
-    `;
+    renderTimelessView(els.list, MemoSlimStateView({ detail, kind, message }));
     updateBackToBottom();
   }
 
@@ -529,12 +522,16 @@ function mountMemoSlim(root) {
     stage.className = "memo-slim-history-stage";
     stage.style.width = Math.max(0, contentWidth) + "px";
     let previousTime = null;
-    stage.innerHTML = olderMemos.map(function (memo) {
+    const items = olderMemos.map(function (memo) {
       const time = slimMemoTime(memo);
       const showTime = previousTime === null || shouldShowTimelineTime(previousTime, time);
       previousTime = time;
-      return memoItemTemplate(memo, showTime, memoMarkdownContext(memo, memoIndex));
-    }).join("");
+      return memoSlimItemPresentation(memo, showTime, memoIndex);
+    });
+    renderTimelessView(stage, MemoSlimItemsView({
+      items,
+      meaning: "memo-slim-history-items",
+    }));
     stage.querySelectorAll("img").forEach(function (image) {
       image.loading = "eager";
     });
@@ -1344,89 +1341,452 @@ function shouldShowTimelineTime(previousTime, currentTime) {
   return previous.toDateString() !== current.toDateString();
 }
 
-function slimTemplate() {
-  return `
-    <div class="memo-window-shell memo-slim-shell velo-drag" data-velo-drag>
-      <header class="memo-window-titlebar memo-slim-titlebar velo-drag" data-velo-drag>
-        <div class="memo-window-native-controls" aria-hidden="true"></div>
-        <div class="memo-slim-heading velo-drag" data-velo-drag>
-          <strong>Memo</strong>
-          <span data-slim-count></span>
-        </div>
-        <div class="memo-slim-menu-wrap velo-no-drag" data-slim-menu-wrap>
-          <button class="memo-slim-menu-button" type="button" data-slim-action="toggleMenu" data-slim-menu-button aria-label="更多操作" aria-haspopup="menu" aria-expanded="false">
-            ${SVG.more}${SVG.chevron}
-          </button>
-          <div class="memo-slim-menu" data-slim-menu role="menu" hidden>
-            <button type="button" data-slim-action="openFull" role="menuitem">
-              <span>打开完整版</span>
-            </button>
-            <button type="button" data-slim-action="toggleFixed" role="menuitem" aria-pressed="false">
-              <span>置顶窗口</span>${SVG.check}
-            </button>
-          </div>
-        </div>
-      </header>
-      <main class="memo-window-body memo-slim-body velo-no-drag">
-        <section class="memo-slim-list" data-slim-list aria-label="Memo 对话记录" role="log" aria-live="polite"></section>
-        <div class="memo-slim-history-loading" data-slim-history-loading role="status" aria-live="polite" hidden>
-          <span aria-hidden="true"></span><small>正在加载</small>
-        </div>
-        <button class="memo-slim-back-bottom" type="button" data-slim-action="backToBottom" data-slim-back-to-bottom hidden>
-          ${SVG.chevron}<span>回到底部</span>
-        </button>
-        <form class="memo-slim-form" data-slim-form>
-          <div class="memo-slim-toolbar">
-            <div class="memo-slim-emoji-wrap" data-slim-emoji-wrap>
-              <button type="button" data-slim-action="toggleEmoji" title="表情" aria-label="选择表情">${SVG.smile}</button>
-              <div class="memo-slim-emoji-panel" data-slim-emoji-panel aria-label="常用表情" hidden>
-                ${EMOJIS.map(function (emoji) {
-                  return `<button type="button" data-slim-action="insertEmoji" data-emoji="${escapeAttr(emoji)}" aria-label="插入 ${escapeAttr(emoji)}">${escapeHTML(emoji)}</button>`;
-                }).join("")}
-              </div>
-            </div>
-            ${editorToolButton("bold", "粗体", MEMO_SVG.bold)}
-            ${editorToolButton("italic", "斜体", MEMO_SVG.italic)}
-            ${editorToolButton("code", "行内代码", MEMO_SVG.code)}
-            ${editorToolButton("list", "列表", MEMO_SVG.list)}
-            ${editorToolButton("checklist", "任务", MEMO_SVG.check)}
-            ${editorToolButton("tag", "标签", MEMO_SVG.hash)}
-            ${editorToolButton("link", "链接", MEMO_SVG.link)}
-            ${editorToolButton("image", "图片", MEMO_SVG.image)}
-            ${editorToolButton("attach", "附件", MEMO_SVG.paperclip)}
-            ${editorToolButton("date", "时间", MEMO_SVG.clock)}
-          </div>
-          <div class="memo-slim-editor-wrap">
-            <div class="memo-editor-host memo-slim-editor-host" data-slim-editor-host aria-label="输入 memo"></div>
-          </div>
-          <div class="memo-slim-form-footer">
-            <span class="memo-slim-vim-status" data-slim-vim-status></span>
-            <span data-slim-composer-status>Enter 发送，Shift+Enter 换行</span>
-            <button class="memo-slim-submit" type="submit" data-slim-submit accesskey="s">发送(S)</button>
-          </div>
-        </form>
-      </main>
-      <div class="memo-toast" data-toast role="status"></div>
-    </div>
-  `;
+const EDITOR_TOOLS = Object.freeze([
+  { command: "bold", icon: "bold", label: "粗体" },
+  { command: "italic", icon: "italic", label: "斜体" },
+  { command: "code", icon: "code", label: "行内代码" },
+  { command: "list", icon: "list", label: "列表" },
+  { command: "checklist", icon: "check", label: "任务" },
+  { command: "tag", icon: "hash", label: "标签" },
+  { command: "link", icon: "link", label: "链接" },
+  { command: "image", icon: "image", label: "图片" },
+  { command: "attach", icon: "paperclip", label: "附件" },
+  { command: "date", icon: "clock", label: "时间" },
+]);
+
+function icon(name, meaning) {
+  return Timeless.Icon({ name, attributes: { n: meaning } });
 }
 
-function editorToolButton(command, label, icon) {
-  return `<button type="button" data-slim-action="editorCommand" data-editor-command="${escapeAttr(command)}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}">${icon}</button>`;
+function actionButton(runtime, props) {
+  return runtime.Button(
+    {
+      class: props.class,
+      attributes: {
+        "aria-label": props.ariaLabel,
+        "aria-expanded": props.ariaExpanded,
+        "aria-haspopup": props.ariaHasPopup,
+        "aria-pressed": props.ariaPressed,
+        "data-editor-command": props.editorCommand,
+        "data-emoji": props.emoji,
+        "data-slim-action": props.action,
+        "data-slim-back-to-bottom": props.backToBottom,
+        "data-slim-menu-button": props.menuButton,
+        accesskey: props.accesskey,
+        n: props.meaning,
+        role: props.role,
+        title: props.title,
+        type: "button",
+      },
+      hidden: props.hidden,
+      onClick: props.onClick,
+    },
+    props.children || [],
+  );
 }
 
-function memoItemTemplate(memo, showTime, renderContext) {
+function MemoSlimShellView(props = {}) {
+  const runtime = props.runtime || TimelessPrimitive;
+  const { Button, For, View } = runtime;
+  return View(
+    {
+      class: "memo-window-shell memo-slim-shell velo-drag",
+      attributes: { "data-velo-drag": "true", n: "memo-slim-window" },
+    },
+    [
+      View(
+        {
+          as: "header",
+          class: "memo-window-titlebar memo-slim-titlebar velo-drag",
+          attributes: { "data-velo-drag": "true", n: "memo-slim-titlebar" },
+        },
+        [
+          View(
+            {
+              class: "memo-window-native-controls",
+              attributes: { "aria-hidden": "true", n: "memo-slim-native-controls" },
+            },
+            [],
+          ),
+          View(
+            {
+              class: "memo-slim-heading velo-drag",
+              attributes: { "data-velo-drag": "true", n: "memo-slim-heading" },
+            },
+            [
+              View({ as: "strong", attributes: { n: "memo-slim-title" } }, ["Memo"]),
+              View(
+                {
+                  as: "span",
+                  attributes: { "data-slim-count": "true", n: "memo-slim-count" },
+                },
+                [],
+              ),
+            ],
+          ),
+          View(
+            {
+              class: "memo-slim-menu-wrap velo-no-drag",
+              attributes: { "data-slim-menu-wrap": "true", n: "memo-slim-menu-region" },
+            },
+            [
+              actionButton(runtime, {
+                action: "toggleMenu",
+                ariaExpanded: "false",
+                ariaHasPopup: "menu",
+                ariaLabel: "更多操作",
+                children: [
+                  icon("ellipsis", "memo-slim-more-icon"),
+                  icon("chevron-down", "memo-slim-menu-chevron-icon"),
+                ],
+                class: "memo-slim-menu-button",
+                meaning: "memo-slim-menu-button",
+                menuButton: "true",
+              }),
+              View(
+                {
+                  class: "memo-slim-menu",
+                  attributes: {
+                    "data-slim-menu": "true",
+                    n: "memo-slim-menu",
+                    role: "menu",
+                  },
+                  hidden: true,
+                },
+                [
+                  actionButton(runtime, {
+                    action: "openFull",
+                    children: [
+                      View(
+                        { as: "span", attributes: { n: "memo-slim-open-full-label" } },
+                        ["打开完整版"],
+                      ),
+                    ],
+                    meaning: "memo-slim-open-full-button",
+                    role: "menuitem",
+                  }),
+                  actionButton(runtime, {
+                    action: "toggleFixed",
+                    ariaPressed: "false",
+                    children: [
+                      View(
+                        { as: "span", attributes: { n: "memo-slim-fixed-label" } },
+                        ["置顶窗口"],
+                      ),
+                      icon("check", "memo-slim-fixed-check-icon"),
+                    ],
+                    meaning: "memo-slim-fixed-button",
+                    role: "menuitem",
+                  }),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+      View(
+        {
+          as: "main",
+          class: "memo-window-body memo-slim-body velo-no-drag",
+          attributes: { n: "memo-slim-body" },
+        },
+        [
+          View(
+            {
+              as: "section",
+              class: "memo-slim-list",
+              attributes: {
+                "aria-label": "Memo 对话记录",
+                "aria-live": "polite",
+                "data-slim-list": "true",
+                n: "memo-slim-list",
+                role: "log",
+              },
+            },
+            [],
+          ),
+          View(
+            {
+              class: "memo-slim-history-loading",
+              attributes: {
+                "aria-live": "polite",
+                "data-slim-history-loading": "true",
+                n: "memo-slim-history-loading",
+                role: "status",
+              },
+              hidden: true,
+            },
+            [
+              View(
+                { as: "span", attributes: { "aria-hidden": "true", n: "memo-slim-loading-indicator" } },
+                [],
+              ),
+              View({ as: "small", attributes: { n: "memo-slim-loading-label" } }, ["正在加载"]),
+            ],
+          ),
+          actionButton(runtime, {
+            action: "backToBottom",
+            backToBottom: "true",
+            children: [
+              icon("chevron-down", "memo-slim-back-bottom-icon"),
+              View({ as: "span", attributes: { n: "memo-slim-back-bottom-label" } }, ["回到底部"]),
+            ],
+            class: "memo-slim-back-bottom",
+            hidden: true,
+            meaning: "memo-slim-back-bottom-button",
+          }),
+          View(
+            {
+              class: "memo-slim-form",
+              attributes: { "data-slim-form": "true", n: "memo-slim-composer" },
+            },
+            [
+              View(
+                { class: "memo-slim-toolbar", attributes: { n: "memo-slim-toolbar" } },
+                [
+                  View(
+                    {
+                      class: "memo-slim-emoji-wrap",
+                      attributes: { "data-slim-emoji-wrap": "true", n: "memo-slim-emoji-region" },
+                    },
+                    [
+                      actionButton(runtime, {
+                        action: "toggleEmoji",
+                        ariaLabel: "选择表情",
+                        children: [icon("smile", "memo-slim-emoji-icon")],
+                        meaning: "memo-slim-emoji-button",
+                        title: "表情",
+                      }),
+                      View(
+                        {
+                          class: "memo-slim-emoji-panel",
+                          attributes: {
+                            "aria-label": "常用表情",
+                            "data-slim-emoji-panel": "true",
+                            n: "memo-slim-emoji-panel",
+                          },
+                          hidden: true,
+                        },
+                        [
+                          For({
+                            each: EMOJIS,
+                            render(emoji) {
+                              return actionButton(runtime, {
+                                action: "insertEmoji",
+                                ariaLabel: "插入 " + emoji,
+                                children: [emoji],
+                                emoji,
+                                meaning: "memo-slim-emoji-option",
+                              });
+                            },
+                          }),
+                        ],
+                      ),
+                    ],
+                  ),
+                  For({
+                    each: EDITOR_TOOLS,
+                    render(tool) {
+                      return actionButton(runtime, {
+                        action: "editorCommand",
+                        ariaLabel: tool.label,
+                        children: [icon(tool.icon, "memo-slim-" + tool.command + "-icon")],
+                        editorCommand: tool.command,
+                        meaning: "memo-slim-" + tool.command + "-button",
+                        title: tool.label,
+                      });
+                    },
+                  }),
+                ],
+              ),
+              View(
+                { class: "memo-slim-editor-wrap", attributes: { n: "memo-slim-editor-region" } },
+                [
+                  View(
+                    {
+                      class: "memo-editor-host memo-slim-editor-host",
+                      attributes: {
+                        "aria-label": "输入 memo",
+                        "data-slim-editor-host": "true",
+                        n: "memo-slim-editor-host",
+                      },
+                    },
+                    [],
+                  ),
+                ],
+              ),
+              View(
+                { class: "memo-slim-form-footer", attributes: { n: "memo-slim-composer-footer" } },
+                [
+                  View(
+                    {
+                      as: "span",
+                      class: "memo-slim-vim-status",
+                      attributes: { "data-slim-vim-status": "true", n: "memo-slim-vim-status" },
+                    },
+                    [],
+                  ),
+                  View(
+                    {
+                      as: "span",
+                      attributes: {
+                        "data-slim-composer-status": "true",
+                        n: "memo-slim-composer-status",
+                      },
+                    },
+                    ["Enter 发送，Shift+Enter 换行"],
+                  ),
+                  Button(
+                    {
+                      class: "memo-slim-submit",
+                      attributes: {
+                        accesskey: "s",
+                        "data-slim-submit": "true",
+                        n: "memo-slim-submit-button",
+                        type: "button",
+                      },
+                      onClick: props.onSubmit,
+                    },
+                    ["发送(S)"],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+      View(
+        {
+          class: "memo-toast",
+          attributes: { "data-toast": "true", n: "memo-slim-toast", role: "status" },
+        },
+        [],
+      ),
+    ],
+  );
+}
+
+function memoSlimItemPresentation(memo, showTime, memoIndex) {
   const timestamp = memo.createdAt || memo.updatedAt;
-  return `
-    ${showTime ? `<time class="memo-slim-timeline-time" datetime="${escapeAttr(timestamp)}">${escapeHTML(formatTimelineDate(timestamp))}</time>` : ""}
-    <article class="memo-slim-item ${memo.pinned ? "is-pinned" : ""}" data-memo-id="${escapeAttr(memo.id)}">
-      <div class="memo-slim-message" title="${escapeAttr(formatExactDate(timestamp))}">
-        ${memo.pinned ? '<span class="memo-slim-pin">置顶</span>' : ""}
-        <div class="memo-slim-content memo-content">${renderMemoMarkdown(memo.content, renderContext)}</div>
-      </div>
-      <span class="memo-slim-avatar" aria-hidden="true">${SVG.note}</span>
-    </article>
-  `;
+  return {
+    exactTime: formatExactDate(timestamp),
+    html: renderMemoMarkdown(memo.content, memoMarkdownContext(memo, memoIndex)),
+    id: memo.id,
+    pinned: Boolean(memo.pinned),
+    showTime,
+    timeLabel: formatTimelineDate(timestamp),
+    timestamp,
+  };
+}
+
+function MemoSlimItemsView(props = {}) {
+  const runtime = props.runtime || TimelessPrimitive;
+  const { For, Fragment } = runtime;
+  return Fragment({}, [
+    For({
+      each: props.items || [],
+      render(item) {
+        return MemoSlimItemView({ item, runtime });
+      },
+    }),
+  ]);
+}
+
+function MemoSlimItemView(props) {
+  const { Fragment, RichText, View } = props.runtime;
+  const item = props.item;
+  return Fragment({}, [
+    item.showTime
+      ? View(
+          {
+            as: "time",
+            class: "memo-slim-timeline-time",
+            attributes: {
+              datetime: item.timestamp,
+              n: "memo-slim-timeline-time",
+            },
+          },
+          [item.timeLabel],
+        )
+      : null,
+    View(
+      {
+        as: "article",
+        class: "memo-slim-item" + (item.pinned ? " is-pinned" : ""),
+        attributes: {
+          "data-memo-id": item.id,
+          n: "memo-slim-item",
+        },
+      },
+      [
+        View(
+          {
+            class: "memo-slim-message",
+            attributes: { n: "memo-slim-message", title: item.exactTime },
+          },
+          [
+            item.pinned
+              ? View(
+                  { as: "span", class: "memo-slim-pin", attributes: { n: "memo-slim-pin" } },
+                  ["置顶"],
+                )
+              : null,
+            View(
+              {
+                class: "memo-slim-content memo-content",
+                attributes: { n: "memo-slim-content" },
+              },
+              [
+                RichText({
+                  attributes: { n: "memo-slim-rich-text" },
+                  content: item.html,
+                }),
+              ],
+            ),
+          ],
+        ),
+        View(
+          {
+            as: "span",
+            class: "memo-slim-avatar",
+            attributes: { "aria-hidden": "true", n: "memo-slim-avatar" },
+          },
+          [icon("file-text", "memo-slim-avatar-icon")],
+        ),
+      ],
+    ),
+  ]);
+}
+
+function MemoSlimStateView(props = {}) {
+  const runtime = props.runtime || TimelessPrimitive;
+  const { View } = runtime;
+  return View(
+    {
+      class: "memo-slim-state is-" + (props.kind || "empty"),
+      attributes: { n: "memo-slim-state" },
+    },
+    [
+      View(
+        {
+          as: "span",
+          class: "memo-slim-state-icon",
+          attributes: { "aria-hidden": "true", n: "memo-slim-state-icon" },
+        },
+        [icon("file-text", "memo-slim-state-symbol")],
+      ),
+      View(
+        { as: "strong", attributes: { n: "memo-slim-state-message" } },
+        [String(props.message || "")],
+      ),
+      props.detail
+        ? View(
+            { as: "small", attributes: { n: "memo-slim-state-detail" } },
+            [String(props.detail)],
+          )
+        : null,
+    ],
+  );
 }
 
 function memoMarkdownContext(memo, index) {
@@ -1530,19 +1890,6 @@ function writeComposerDraft(value) {
     if (value) localStorage.setItem(COMPOSER_STORAGE_KEY, value);
     else localStorage.removeItem(COMPOSER_STORAGE_KEY);
   } catch (_) {}
-}
-
-function escapeHTML(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeAttr(value) {
-  return escapeHTML(value);
 }
 
 function closestElement(target, selector) {

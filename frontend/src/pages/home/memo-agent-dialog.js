@@ -1,263 +1,480 @@
 import {
-  cancelMemoAgentRun,
-  closeMemoAgent,
-  createMemoAgentRun,
-  createMemoAgentSession,
-  loadMemoAgentRunEvents,
-  loadMemoAgents,
-} from "../../domain/memo-agent.js";
-import { Timeless } from "../../timeless-icons.js";
-import { escapeHTML } from "./memo-utils.js";
+  Timeless,
+  TimelessPrimitive,
+} from "@/timeless-icons.js";
+import { MemoAgentDialogModel } from "./memo-agent-dialog.model.js";
 
-let activeDialog = null;
+let active_dialog = null;
 
-export function openMemoAgentDialog(options) {
-  if (activeDialog) activeDialog.destroy();
-  activeDialog = createDialog(options || {});
-  activeDialog.open();
-  return activeDialog;
-}
-
-function createDialog(options) {
-  let element = null;
-  let sessionId = "";
-  let activeRunId = "";
-  let candidate = String(options.selection || "");
-  let hasCandidate = candidate.length > 0;
-  let busy = false;
-  let destroyed = false;
-  const messages = [];
-
-  function open() {
-    element = document.createElement("div");
-    element.className = "tn-overlay tn-dialog-layer is-open memo-agent-dialog";
-    element.innerHTML = dialogHTML(candidate);
-    document.body.appendChild(element);
-    element.addEventListener("click", handleClick);
-    element.addEventListener("keydown", handleKeydown);
-    render();
-    loadMemoAgents().then(renderAgents, showError);
-    const input = element.querySelector("[data-memo-agent-input]");
-    if (input) input.focus();
-  }
-
-  function destroy() {
-    if (destroyed) return;
-    destroyed = true;
-    if (activeRunId) cancelMemoAgentRun(activeRunId).catch(function () {});
-    if (sessionId) closeMemoAgent(sessionId).catch(function () {});
-    if (element) {
-      element.removeEventListener("click", handleClick);
-      element.removeEventListener("keydown", handleKeydown);
-      element.remove();
-    }
-    element = null;
-    if (activeDialog && activeDialog.destroy === destroy) activeDialog = null;
-  }
-
-  function handleClick(event) {
-    const action = event.target.closest("[data-memo-agent-action]");
-    if (!action || !element.contains(action)) {
-      if (event.target === element && !busy) destroy();
-      return;
-    }
-    event.preventDefault();
-    switch (action.dataset.memoAgentAction) {
-      case "close":
-        destroy();
-        break;
-      case "send":
-        send();
-        break;
-      case "apply":
-        if (hasCandidate && typeof options.replace === "function" && options.replace(candidate) !== false) {
-          destroy();
-        } else {
-          showError(new Error("原选区已经变化，请重新选择内容"));
-        }
-        break;
-    }
-  }
-
-  function handleKeydown(event) {
-    if (event.key === "Escape" && !busy) {
-      event.preventDefault();
-      destroy();
-      return;
-    }
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-      event.preventDefault();
-      send();
-    }
-  }
-
-  function send() {
-    if (busy || !element) return;
-    const input = element.querySelector("[data-memo-agent-input]");
-    const instruction = String((input && input.value) || "").trim();
-    if (!instruction) {
-      showError(new Error("请输入修改要求"));
-      if (input) input.focus();
-      return;
-    }
-    const agentSelect = element.querySelector("[data-memo-agent-select]");
-    const agentId = String((agentSelect && agentSelect.value) || "opencode");
-    const agentMessage = { role: "agent", text: "", streaming: true };
-    messages.push({ role: "user", text: instruction }, agentMessage);
-    if (input) input.value = "";
-    setBusy(true);
-    clearError();
-    renderMessages();
-
-    const ensureSession = sessionId
-      ? Promise.resolve({ sessionId })
-      : createMemoAgentSession({ agentId, mode: "memo-edit", selection: options.selection || "" });
-
-    ensureSession.then(function (data) {
-      if (destroyed) return;
-      sessionId = String(data.sessionId || sessionId);
-      return createMemoAgentRun({ sessionId, instruction });
-    }).then(function (data) {
-      if (destroyed || !data) return;
-      activeRunId = String(data.runId || "");
-      return followRun(activeRunId, agentMessage);
-    }).catch(function (err) {
-      if (destroyed) return;
-      agentMessage.streaming = false;
-      if (!agentMessage.text) messages.pop();
-      showError(err);
-      setBusy(false);
-    });
-  }
-
-  function followRun(runId, agentMessage) {
-    let afterId = 0;
-    let raw = "";
-
-    function poll() {
-      if (destroyed || activeRunId !== runId) return Promise.resolve();
-      return loadMemoAgentRunEvents(runId, afterId).then(function (data) {
-        if (destroyed || activeRunId !== runId) return;
-        const events = Array.isArray(data.events) ? data.events : [];
-        events.forEach(function (event) {
-          afterId = Math.max(afterId, Number(event.id || 0));
-          const payload = event.data && typeof event.data === "object" ? event.data : {};
-          if (event.type === "message.delta") {
-            raw += String(payload.text || "");
-            agentMessage.text = memoAgentStreamText(raw) || "正在生成…";
-            renderMessages();
-          } else if (event.type === "run.completed") {
-            if (payload.stopReason !== "cancelled" && payload.replacement != null) {
-              candidate = String(payload.replacement);
-              hasCandidate = true;
-              agentMessage.text = candidate;
-            }
-          } else if (event.type === "run.failed") {
-            throw new Error(payload.message || "Agent 对话失败");
-          }
-        });
-        if (data.done) {
-          agentMessage.streaming = false;
-          activeRunId = "";
-          render();
-          setBusy(false);
-          return;
-        }
-        return waitForMemoAgentEvents().then(poll);
-      });
-    }
-
-    return poll();
-  }
-
-  function renderAgents(agents) {
-    if (destroyed || !element) return;
-    const select = element.querySelector("[data-memo-agent-select]");
-    if (!select) return;
-    select.innerHTML = agents.map(function (agent) {
-      return '<option value="' + escapeHTML(agent.id) + '">' + escapeHTML(agent.label || agent.id) + "</option>";
-    }).join("");
-    if (Array.from(select.options).some(function (option) { return option.value === "opencode"; })) {
-      select.value = "opencode";
-    }
-  }
-
-  function render() {
-    if (!element) return;
-    const preview = element.querySelector("[data-memo-agent-preview]");
-    if (preview) preview.textContent = candidate;
-    const apply = element.querySelector('[data-memo-agent-action="apply"]');
-    if (apply) apply.disabled = busy || !hasCandidate;
-    renderMessages();
-  }
-
-  function renderMessages() {
-    if (!element) return;
-    const host = element.querySelector("[data-memo-agent-messages]");
-    if (!host) return;
-    host.innerHTML = messages.length ? messages.map(function (message) {
-      const label = message.role === "agent" ? "Agent" : "你";
-      return '<div class="memo-agent-message is-' + message.role + '"><strong>' + label + '</strong><div>' + escapeHTML(message.text) + "</div></div>";
-    }).join("") : '<div class="memo-agent-empty">描述你希望如何修改这段内容。</div>';
-    host.scrollTop = host.scrollHeight;
-  }
-
-  function setBusy(value) {
-    busy = Boolean(value);
-    if (!element) return;
-    element.classList.toggle("is-busy", busy);
-    element.querySelectorAll("button, tn-select, textarea").forEach(function (control) {
-      control.disabled = busy;
-    });
-    const closeButton = element.querySelector('[data-memo-agent-action="close"]');
-    if (closeButton) closeButton.disabled = false;
-    const sendButton = element.querySelector('[data-memo-agent-action="send"]');
-    if (sendButton) sendButton.textContent = busy ? "处理中…" : "发送";
-  }
-
-  function showError(err) {
-    if (!element) return;
-    const host = element.querySelector("[data-memo-agent-error]");
-    if (host) host.textContent = err && err.message ? err.message : String(err || "请求失败");
-  }
-
-  function clearError() {
-    const host = element && element.querySelector("[data-memo-agent-error]");
-    if (host) host.textContent = "";
-  }
-
-  return { destroy, open };
-}
-
-function waitForMemoAgentEvents() {
-  return new Promise(function (resolve) {
-    window.setTimeout(resolve, 120);
+function icon(name, meaning) {
+  return Timeless.Icon({
+    name,
+    attributes: { n: meaning },
   });
 }
 
-function memoAgentStreamText(value) {
-  const startMarker = "<<<VELO_REPLACEMENT>>>";
-  const endMarker = "<<<VELO_REPLACEMENT_END>>>";
-  let text = String(value || "");
-  const start = text.lastIndexOf(startMarker);
-  if (start >= 0) text = text.slice(start + startMarker.length).replace(/^\r?\n/, "");
-  const end = text.indexOf(endMarker);
-  if (end >= 0) text = text.slice(0, end);
-  return text;
+function dom_node(element$) {
+  return element$?.$elm?.get$elm?.() || null;
 }
 
-function dialogHTML(selection) {
-  return '<section class="tn-dialog tn-dialog--md memo-agent-panel" role="dialog" aria-modal="true" aria-labelledby="memo-agent-title">'
-    + '<header class="memo-agent-head"><div><h2 id="memo-agent-title">对话编辑</h2><p>Agent 会重写当前选区，确认后再替换到编辑器。</p></div>'
-    + '<button type="button" data-memo-agent-action="close" aria-label="关闭">'
-    + Timeless.Icon({ name: "x" })
-    + "</button></header>"
-    + '<div class="memo-agent-body">'
-    + '<label class="memo-agent-field"><span>Agent</span><tn-select data-memo-agent-select><option value="opencode">OpenCode</option></tn-select></label>'
-    + '<div class="memo-agent-section"><span>当前替换内容</span><pre data-memo-agent-preview>' + escapeHTML(selection) + '</pre></div>'
-    + '<div class="memo-agent-messages" data-memo-agent-messages></div>'
-    + '<label class="memo-agent-field"><span>修改要求</span><textarea rows="3" data-memo-agent-input placeholder="例如：改得更简洁，并保留 Markdown 格式"></textarea></label>'
-    + '<div class="memo-agent-error" data-memo-agent-error></div></div>'
-    + '<footer class="memo-agent-actions"><span>⌘/Ctrl + Enter 发送</span><div><button type="button" data-memo-agent-action="send">发送</button>'
-    + '<button class="is-primary" type="button" data-memo-agent-action="apply">替换选区</button></div></footer></section>';
+function MemoAgentMessageView(props) {
+  const role = props.message.role === "agent" ? "agent" : "user";
+  return props.runtime.View(
+    {
+      key: props.message.id,
+      class: "memo-agent-message is-" + role,
+      attributes: { n: "memo-agent-" + role + "-message" },
+    },
+    [
+      props.runtime.View(
+        {
+          class: "memo-agent-message-label",
+          attributes: { n: "memo-agent-message-author" },
+        },
+        [role === "agent" ? "Agent" : "你"],
+      ),
+      props.runtime.View(
+        {
+          class: "memo-agent-message-text",
+          attributes: { n: "memo-agent-message-text" },
+        },
+        [props.message.text],
+      ),
+    ],
+  );
+}
+
+export function MemoAgentDialogView(props) {
+  const runtime = props.runtime || TimelessPrimitive;
+  const vm$ = props.vm$;
+  if (!runtime?.Button || !runtime?.For || !runtime?.Select) {
+    throw new Error("MemoAgentDialogView requires the Timeless DOM runtime");
+  }
+  const { Button, For, Select, Show, Textarea, View, combine, computed } =
+    runtime;
+  const apply_disabled_ = combine(
+    { busy: vm$.state.busy, hasCandidate: vm$.state.hasCandidate },
+    function (state) {
+      return state.busy || !state.hasCandidate;
+    },
+  );
+  const dialog_class_ = computed(vm$.state.busy, function (busy) {
+    return [
+      "tn-overlay tn-dialog-layer is-open memo-agent-dialog",
+      busy ? "is-busy" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  });
+  const has_messages_ = computed(vm$.state.messages, function (messages) {
+    return messages.length > 0;
+  });
+  const send_text_ = computed(vm$.state.busy, function (busy) {
+    return busy ? "处理中…" : "发送";
+  });
+
+  let focus_unsubscribe_ = null;
+  const instruction_input$ = Textarea({
+    disabled: vm$.state.busy,
+    placeholder: "例如：改得更简洁，并保留 Markdown 格式",
+    value: vm$.state.instruction,
+    attributes: {
+      autofocus: true,
+      n: "memo-agent-instruction-input",
+      rows: 3,
+    },
+    onInput(event) {
+      vm$.methods.setInstruction(event.currentTarget.value);
+    },
+    onKeyDown(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        vm$.methods.send();
+      }
+    },
+    onMounted() {
+      // The bundled Textarea primitive subscribes to attributes before its DOM
+      // adapter exists, so re-apply the semantic/static attributes at mount.
+      instruction_input$.$elm?.setAttribute?.(
+        "n",
+        "memo-agent-instruction-input",
+      );
+      instruction_input$.$elm?.setAttribute?.(
+        "aria-labelledby",
+        "memo-agent-instruction-label",
+      );
+      instruction_input$.$elm?.setAttribute?.("rows", "3");
+      instruction_input$.$elm?.focus?.();
+      focus_unsubscribe_ = vm$.state.focusRequest.subscribe({
+        onChange() {
+          instruction_input$.$elm?.focus?.();
+        },
+      });
+    },
+    onUnmounted() {
+      focus_unsubscribe_?.();
+      focus_unsubscribe_ = null;
+    },
+  });
+
+  let messages_unsubscribe_ = null;
+  function scroll_messages_to_bottom() {
+    globalThis.queueMicrotask(function () {
+      const node = dom_node(messages_host$);
+      if (node) node.scrollTop = node.scrollHeight;
+    });
+  }
+  const messages_host$ = View(
+    {
+      class: "memo-agent-messages",
+      attributes: {
+        "aria-live": "polite",
+        n: "memo-agent-message-list",
+      },
+      onMounted() {
+        scroll_messages_to_bottom();
+        messages_unsubscribe_ = vm$.state.messages.subscribe({
+          onChange() {
+            scroll_messages_to_bottom();
+          },
+        });
+      },
+      onUnmounted() {
+        messages_unsubscribe_?.();
+        messages_unsubscribe_ = null;
+      },
+    },
+    [
+      Show({
+        when: has_messages_,
+        ok() {
+          return [
+            For({
+              each: vm$.state.messages,
+              render(message) {
+                return MemoAgentMessageView({ message, runtime });
+              },
+            }),
+          ];
+        },
+        else() {
+          return [
+            View(
+              {
+                class: "memo-agent-empty",
+                attributes: { n: "memo-agent-empty-message" },
+              },
+              ["描述你希望如何修改这段内容。"],
+            ),
+          ];
+        },
+      }),
+    ],
+  );
+
+  return View(
+    {
+      class: dialog_class_,
+      attributes: { n: "memo-agent-dialog-overlay" },
+      onClick(event) {
+        if (event.target === event.currentTarget) {
+          vm$.methods.requestClose("backdrop");
+        }
+      },
+      onKeyDown(event) {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        vm$.methods.requestClose("escape");
+      },
+      onMounted() {
+        vm$.methods.init();
+      },
+      onUnmounted() {
+        vm$.destroy();
+      },
+    },
+    [
+      View(
+        {
+          class: "tn-dialog tn-dialog--md memo-agent-panel",
+          attributes: {
+            "aria-labelledby": "memo-agent-title",
+            "aria-modal": "true",
+            n: "memo-agent-dialog-panel",
+            role: "dialog",
+          },
+        },
+        [
+          View(
+            {
+              class: "memo-agent-head",
+              attributes: { n: "memo-agent-dialog-header" },
+            },
+            [
+              View(
+                {
+                  class: "memo-agent-heading-copy",
+                  attributes: { n: "memo-agent-heading-copy" },
+                },
+                [
+                  View(
+                    {
+                      class: "memo-agent-title",
+                      attributes: {
+                        "aria-level": "2",
+                        id: "memo-agent-title",
+                        n: "memo-agent-title",
+                        role: "heading",
+                      },
+                    },
+                    ["对话编辑"],
+                  ),
+                  View(
+                    {
+                      class: "memo-agent-description",
+                      attributes: { n: "memo-agent-description" },
+                    },
+                    ["Agent 会重写当前选区，确认后再替换到编辑器。"],
+                  ),
+                ],
+              ),
+              Button(
+                {
+                  attributes: {
+                    "aria-label": "关闭",
+                    n: "memo-agent-close-button",
+                    type: "button",
+                  },
+                  onClick() {
+                    vm$.methods.requestClose("close-button");
+                  },
+                },
+                [icon("x", "memo-agent-close-icon")],
+              ),
+            ],
+          ),
+          View(
+            {
+              class: "memo-agent-body",
+              attributes: { n: "memo-agent-dialog-body" },
+            },
+            [
+              View(
+                {
+                  class: "memo-agent-field",
+                  attributes: {
+                    "aria-labelledby": "memo-agent-agent-label",
+                    n: "memo-agent-agent-field",
+                    role: "group",
+                  },
+                },
+                [
+                  View(
+                    {
+                      class: "memo-agent-field-label",
+                      attributes: {
+                        id: "memo-agent-agent-label",
+                        n: "memo-agent-agent-label",
+                      },
+                    },
+                    ["Agent"],
+                  ),
+                  Show({
+                    when: vm$.state.agentsReady,
+                    ok() {
+                      return [
+                        Select({
+                          disabled: vm$.state.busy,
+                          options: vm$.state.agents.value,
+                          placeholder: "选择 Agent",
+                          value: vm$.state.agentId.value,
+                          attributes: {
+                            "aria-labelledby": "memo-agent-agent-label",
+                            n: "memo-agent-agent-select",
+                          },
+                          onChange(event) {
+                            vm$.methods.setAgent(event.currentTarget.value);
+                          },
+                        }),
+                      ];
+                    },
+                    else() {
+                      return [
+                        View(
+                          {
+                            class: "memo-agent-agent-loading",
+                            attributes: {
+                              n: "memo-agent-agent-loading",
+                              role: "status",
+                            },
+                          },
+                          ["正在加载 Agent…"],
+                        ),
+                      ];
+                    },
+                  }),
+                ],
+              ),
+              View(
+                {
+                  class: "memo-agent-section",
+                  attributes: { n: "memo-agent-candidate-section" },
+                },
+                [
+                  View(
+                    {
+                      class: "memo-agent-field-label",
+                      attributes: { n: "memo-agent-candidate-label" },
+                    },
+                    ["当前替换内容"],
+                  ),
+                  View(
+                    {
+                      class: "memo-agent-preview",
+                      attributes: { n: "memo-agent-candidate-preview" },
+                    },
+                    [vm$.state.candidate],
+                  ),
+                ],
+              ),
+              messages_host$,
+              View(
+                {
+                  class: "memo-agent-field",
+                  attributes: {
+                    "aria-labelledby": "memo-agent-instruction-label",
+                    n: "memo-agent-instruction-field",
+                    role: "group",
+                  },
+                },
+                [
+                  View(
+                    {
+                      class: "memo-agent-field-label",
+                      attributes: {
+                        id: "memo-agent-instruction-label",
+                        n: "memo-agent-instruction-label",
+                      },
+                    },
+                    ["修改要求"],
+                  ),
+                  instruction_input$,
+                ],
+              ),
+              View(
+                {
+                  class: "memo-agent-error",
+                  attributes: {
+                    "aria-live": "assertive",
+                    n: "memo-agent-error-message",
+                    role: "status",
+                  },
+                },
+                [vm$.state.error],
+              ),
+            ],
+          ),
+          View(
+            {
+              class: "memo-agent-actions",
+              attributes: { n: "memo-agent-dialog-footer" },
+            },
+            [
+              View(
+                {
+                  class: "memo-agent-shortcut",
+                  attributes: { n: "memo-agent-send-shortcut" },
+                },
+                ["⌘/Ctrl + Enter 发送"],
+              ),
+              View(
+                {
+                  class: "memo-agent-action-buttons",
+                  attributes: { n: "memo-agent-action-buttons" },
+                },
+                [
+                  Button(
+                    {
+                      disabled: vm$.state.busy,
+                      attributes: {
+                        n: "memo-agent-send-button",
+                        type: "button",
+                      },
+                      onClick() {
+                        vm$.methods.send();
+                      },
+                    },
+                    [send_text_],
+                  ),
+                  Button(
+                    {
+                      class: "is-primary",
+                      disabled: apply_disabled_,
+                      attributes: {
+                        n: "memo-agent-apply-button",
+                        type: "button",
+                      },
+                      onClick() {
+                        vm$.methods.applyCandidate();
+                      },
+                    },
+                    ["替换选区"],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+function create_dialog(options) {
+  const runtime = options.runtime || TimelessPrimitive;
+  let mounted_ = null;
+  let destroyed_ = false;
+  let dialog = null;
+  const vm$ = MemoAgentDialogModel({
+    ...options,
+    runtime,
+    onRequestClose() {
+      dialog?.destroy();
+    },
+  });
+
+  dialog = {
+    destroy() {
+      if (destroyed_) return;
+      destroyed_ = true;
+      if (mounted_) {
+        mounted_.view.beforeUnmounted?.();
+        mounted_.view.destroy?.();
+        mounted_.dom.remove();
+        mounted_ = null;
+      } else {
+        vm$.destroy();
+      }
+      if (active_dialog === dialog) active_dialog = null;
+    },
+
+    open() {
+      if (destroyed_ || mounted_) return;
+      const view = MemoAgentDialogView({ runtime, vm$ });
+      const rendered = runtime.DOM.buildAndRender(view);
+      mounted_ = { dom: rendered.dom, view };
+      document.body.appendChild(rendered.dom);
+      globalThis.queueMicrotask(function () {
+        if (!destroyed_) view.onMounted?.({ target: rendered.vnode });
+      });
+    },
+  };
+  return dialog;
+}
+
+export function openMemoAgentDialog(options = {}) {
+  active_dialog?.destroy();
+  active_dialog = create_dialog(options);
+  active_dialog.open();
+  return active_dialog;
 }

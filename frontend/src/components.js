@@ -26,21 +26,21 @@ import {
   setAttribute,
   simpleView,
   subscribeModel,
-} from "./component-view.js?v=20260820-pin-state-clarity";
-import { createMemoCardComponent } from "./memo-card.js?v=20260820-memo-expand-measured";
-import { createSmallCalendarComponent } from "./small-calendar.js?v=20260820-calendar-navigation";
-import { createDatePickerComponent } from "./date-picker.js?v=20260820-component-foundations-v2";
+} from "./component-view.js";
+import { createMemoCardComponent } from "./memo-card.js";
+import { createSmallCalendarComponent } from "./small-calendar.js";
+import { createDatePickerComponent } from "./date-picker.js";
 import { registerFormComponentElements } from "./form-component-elements.js";
 import { createProjectSelectComponent } from "./project-select.js";
-import { createSelectComponent } from "./select.js?v=20260820-component-foundations-v2";
+import { createSelectComponent } from "./select.js";
 import { Timeless } from "./timeless-icons.js";
 
 export * from "./component-models.js";
 export * from "./date-picker-model.js";
 export * from "./floating-control-model.js";
-export * from "./memo-card-model.js?v=20260820-memo-expand-measured";
-export * from "./small-calendar-model.js?v=20260820-calendar-navigation";
-export { Icon } from "./component-view.js?v=20260820-pin-state-clarity";
+export * from "./memo-card-model.js";
+export * from "./small-calendar-model.js";
+export { Icon } from "./component-view.js";
 
 function buttonVariant(props) {
   const legacyVariant = [
@@ -193,8 +193,10 @@ function createInputControl(props, multiline) {
     if (input.value !== String(value)) input.value = String(value);
     input.disabled = Boolean(state.disabled ?? model.disabled);
     input.readOnly = Boolean(state.readOnly ?? props.readOnly);
-    input.placeholder = state.placeholder ?? model.placeholder ?? props.placeholder ?? "";
-    if (!multiline) input.type = state.type || model.type || props.type || "text";
+    input.placeholder =
+      state.placeholder ?? model.placeholder ?? props.placeholder ?? "";
+    if (!multiline)
+      input.type = state.type || model.type || props.type || "text";
     const invalid = Boolean(state.invalid || props.invalid);
     setAttribute(input, "aria-invalid", invalid ? "true" : null);
     root.className = classNames(
@@ -235,8 +237,12 @@ function createInputControl(props, multiline) {
       inputModelAction(model, "enter", event);
     }
   });
-  input.addEventListener("focus", (event) => inputModelAction(model, "focus", event));
-  input.addEventListener("blur", (event) => inputModelAction(model, "blur", event));
+  input.addEventListener("focus", (event) =>
+    inputModelAction(model, "focus", event),
+  );
+  input.addEventListener("blur", (event) =>
+    inputModelAction(model, "blur", event),
+  );
   clear.addEventListener("click", (event) => {
     callModel(model, ["clear"], event);
     input.focus();
@@ -283,10 +289,13 @@ export function Checkbox(props = {}, children = []) {
   const labelChildren = children.length
     ? children
     : [props.label || modelState(model).label];
-  const hasLabel = children.length > 0 || Boolean(props.label || modelState(model).label);
+  const hasLabel =
+    children.length > 0 || Boolean(props.label || modelState(model).label);
   const view = elementView(
     label,
-    [input, boxView, hasLabel ? elementView(text, labelChildren) : null].filter(Boolean),
+    [input, boxView, hasLabel ? elementView(text, labelChildren) : null].filter(
+      Boolean,
+    ),
     props,
   );
   view.control = input;
@@ -298,8 +307,16 @@ export function Checkbox(props = {}, children = []) {
     input.checked = checked;
     input.indeterminate = indeterminate;
     input.disabled = Boolean(state.disabled ?? model.disabled);
-    setAttribute(input, "aria-checked", indeterminate ? "mixed" : String(checked));
-    setAttribute(label, "data-state", indeterminate ? "indeterminate" : checked ? "checked" : "unchecked");
+    setAttribute(
+      input,
+      "aria-checked",
+      indeterminate ? "mixed" : String(checked),
+    );
+    setAttribute(
+      label,
+      "data-state",
+      indeterminate ? "indeterminate" : checked ? "checked" : "unchecked",
+    );
     label.className = classNames(
       "tn-checkbox",
       `tn-checkbox--${props.size || "md"}`,
@@ -399,7 +416,8 @@ export function registerCheckboxElement(tagName = "tn-checkbox") {
           model.setValue?.(checked, { silent: true });
         }
       }
-      if (name === "disabled") model.setDisabled?.(this.hasAttribute("disabled"));
+      if (name === "disabled")
+        model.setDisabled?.(this.hasAttribute("disabled"));
       if (name === "indeterminate") {
         model.setIndeterminate?.(this.hasAttribute("indeterminate"));
       }
@@ -427,7 +445,11 @@ export function Switch(props = {}, children = []) {
   applyElementProps(input, { attributes: props.inputAttributes, id: props.id });
   input.setAttribute("role", "switch");
   const labelChildren = children.length ? children : [props.label || ""];
-  const view = elementView(label, [input, track, elementView(text, labelChildren)], props);
+  const view = elementView(
+    label,
+    [input, track, elementView(text, labelChildren)],
+    props,
+  );
   view.control = input;
 
   function sync() {
@@ -541,10 +563,18 @@ export function Dialog(props = {}, children = []) {
   const body = document.createElement("div");
   const error = document.createElement("div");
   const footer = document.createElement("footer");
-  const closeModel = new ButtonModel({ onPress: (event) => callModel(model, ["cancel", "hide"], event) });
-  const cancelModel = new ButtonModel({ onPress: (event) => callModel(model, ["cancel", "hide"], event) });
-  const confirmModel = new ButtonModel({ onPress: (event) => callModel(model, ["confirm", "ok"], event) });
-  const size = ["sm", "md", "lg", "full"].includes(props.size) ? props.size : "md";
+  const closeModel = new ButtonModel({
+    onPress: (event) => callModel(model, ["cancel", "hide"], event),
+  });
+  const cancelModel = new ButtonModel({
+    onPress: (event) => callModel(model, ["cancel", "hide"], event),
+  });
+  const confirmModel = new ButtonModel({
+    onPress: (event) => callModel(model, ["confirm", "ok"], event),
+  });
+  const size = ["sm", "md", "lg", "full"].includes(props.size)
+    ? props.size
+    : "md";
   layer.className = "tn-overlay tn-dialog-layer";
   overlay.className = "tn-dialog-overlay";
   panel.className = classNames("tn-dialog", `tn-dialog--${size}`, props.class);
@@ -572,10 +602,9 @@ export function Dialog(props = {}, children = []) {
     },
     [Timeless.Icon({ name: "x" })],
   );
-  const cancelButton = Button(
-    { model: cancelModel, variant: "secondary" },
-    [props.cancelText || "取消"],
-  );
+  const cancelButton = Button({ model: cancelModel, variant: "secondary" }, [
+    props.cancelText || "取消",
+  ]);
   const confirmButton = Button(
     { model: confirmModel, variant: props.confirmVariant || "primary" },
     [props.confirmText || props.okText || "确认"],
@@ -585,20 +614,28 @@ export function Dialog(props = {}, children = []) {
   const hasDialogBody = contentItems.some((item) =>
     item?.$elm?.classList?.contains("tn-dialog__body"),
   );
-  const headerView = elementView(header, [elementView(title), props.description ? elementView(description, [props.description]) : null, props.showClose === false ? null : closeButton]);
-  const bodyView = hasDialogBody ? contentItems : [elementView(body, contentItems)];
+  const headerView = elementView(header, [
+    elementView(title),
+    props.description ? elementView(description, [props.description]) : null,
+    props.showClose === false ? null : closeButton,
+  ]);
+  const bodyView = hasDialogBody
+    ? contentItems
+    : [elementView(body, contentItems)];
   const errorView = elementView(error);
   const footerDisabled = props.showFooter === false || props.footer === false;
-  const footerContent = props.footerContent ?? (
-    props.footer && props.footer !== true
+  const footerContent =
+    props.footerContent ??
+    (props.footer && props.footer !== true
       ? props.footer
-      : [cancelButton, confirmButton]
-  );
+      : [cancelButton, confirmButton]);
   const footerView = elementView(footer, footerContent);
-  const panelView = elementView(
-    panel,
-    [headerView, bodyView, errorView, footerDisabled ? null : footerView],
-  );
+  const panelView = elementView(panel, [
+    headerView,
+    bodyView,
+    errorView,
+    footerDisabled ? null : footerView,
+  ]);
   const rootView = elementView(layer, [overlay, panelView]);
   const previousFocus = { value: null };
   let wasOpen = false;
@@ -608,7 +645,11 @@ export function Dialog(props = {}, children = []) {
     const open = dialogIsOpen(state, model);
     const busy = dialogIsBusy(state, model);
     const titleText = state.title || props.title || "";
-    layer.className = classNames("tn-overlay", "tn-dialog-layer", open && "is-open");
+    layer.className = classNames(
+      "tn-overlay",
+      "tn-dialog-layer",
+      open && "is-open",
+    );
     layer.hidden = !open;
     setAttribute(layer, "aria-hidden", open ? null : "true");
     setAttribute(panel, "aria-busy", busy ? "true" : null);
@@ -619,11 +660,14 @@ export function Dialog(props = {}, children = []) {
       props.description ? descriptionId : null,
     );
     title.textContent = titleText;
-    header.hidden = !title.textContent && props.showClose === false && !props.description;
+    header.hidden =
+      !title.textContent && props.showClose === false && !props.description;
     description.textContent = props.description || "";
     overlay.hidden = state.mask === false;
     footer.hidden = footerDisabled || state.footer === false;
-    error.textContent = state.error ? String(state.error.message || state.error) : "";
+    error.textContent = state.error
+      ? String(state.error.message || state.error)
+      : "";
     error.hidden = !state.error;
     closeModel.setDisabled(busy || state.closeable === false);
     cancelModel.setDisabled(busy || state.closeable === false);
@@ -723,20 +767,26 @@ export function Popover(props = {}, children = []) {
   const title = document.createElement("div");
   const body = document.createElement("div");
   trigger.className = classNames("tn-popover__trigger", props.triggerClass);
-  content.className = classNames("tn-popup", "tn-popup--popover", "tn-popover", props.class);
+  content.className = classNames(
+    "tn-popup",
+    "tn-popup--popover",
+    "tn-popover",
+    props.class,
+  );
   title.className = "tn-popover__title";
   body.className = "tn-popover__body";
   content.setAttribute("role", props.role || "dialog");
   content.id = props.contentId || nextId("tn-popover-content");
   applyElementProps(content, props.contentProps || {});
-  const contentChildren = typeof props.content === "function"
-    ? props.content(model)
-    : props.content || [];
+  const contentChildren =
+    typeof props.content === "function"
+      ? props.content(model)
+      : props.content || [];
   const triggerView = elementView(trigger, children);
-  const contentView = elementView(
-    content,
-    [props.title ? elementView(title, [props.title]) : null, elementView(body, contentChildren)],
-  );
+  const contentView = elementView(content, [
+    props.title ? elementView(title, [props.title]) : null,
+    elementView(body, contentChildren),
+  ]);
   let rendered = false;
   let hoverTimer = null;
   let triggerControl = trigger;
@@ -902,33 +952,53 @@ export function FormField(props = {}, children = []) {
   const controlElement = control?.control || control?.$elm;
   if (controlElement) {
     if (!controlElement.id) controlElement.id = id;
-    const describedBy = [props.description && descriptionId, props.error && errorId]
+    const describedBy = [
+      props.description && descriptionId,
+      props.error && errorId,
+    ]
       .filter(Boolean)
       .join(" ");
-    if (describedBy) controlElement.setAttribute("aria-describedby", describedBy);
+    if (describedBy)
+      controlElement.setAttribute("aria-describedby", describedBy);
     if (props.error) controlElement.setAttribute("aria-invalid", "true");
   }
   return simpleView("div", "tn-form-field", props, [
     props.label ? Label({ htmlFor: id }, [props.label]) : null,
     control,
     props.description
-      ? simpleView("div", "tn-form-field__description", { id: descriptionId }, [props.description])
+      ? simpleView("div", "tn-form-field__description", { id: descriptionId }, [
+          props.description,
+        ])
       : null,
     props.error
-      ? simpleView("div", "tn-form-field__error", { id: errorId, role: "alert" }, [props.error])
+      ? simpleView(
+          "div",
+          "tn-form-field__error",
+          { id: errorId, role: "alert" },
+          [props.error],
+        )
       : null,
   ]);
 }
 
 export function Badge(props = {}, children = []) {
   const variant = props.variant || "default";
-  return simpleView("span", classNames("tn-badge", `tn-badge--${variant}`), props, children);
+  return simpleView(
+    "span",
+    classNames("tn-badge", `tn-badge--${variant}`),
+    props,
+    children,
+  );
 }
 
 export function Avatar(props = {}) {
   const root = document.createElement("span");
   const fallback = document.createElement("span");
-  root.className = classNames("tn-avatar", `tn-avatar--${props.size || "md"}`, props.class);
+  root.className = classNames(
+    "tn-avatar",
+    `tn-avatar--${props.size || "md"}`,
+    props.class,
+  );
   applyElementProps(root, props);
   fallback.className = "tn-avatar__fallback";
   fallback.textContent = props.fallback || props.alt?.slice(0, 1) || "";
@@ -1021,7 +1091,11 @@ export function Spinner(props = {}) {
 }
 
 export function Skeleton(props = {}) {
-  return simpleView("div", "tn-skeleton", { ...props, ariaLabel: props.label || "内容加载中", role: "status" });
+  return simpleView("div", "tn-skeleton", {
+    ...props,
+    ariaLabel: props.label || "内容加载中",
+    role: "status",
+  });
 }
 
 export function Progress(props = {}) {
@@ -1039,11 +1113,17 @@ export function Progress(props = {}) {
     const max = Number(state.max || 100);
     const value = Number(state.value || 0);
     const indeterminate = Boolean(state.indeterminate);
-    root.className = classNames("tn-progress", indeterminate && "is-indeterminate", props.class);
+    root.className = classNames(
+      "tn-progress",
+      indeterminate && "is-indeterminate",
+      props.class,
+    );
     setAttribute(root, "aria-valuemin", indeterminate ? null : 0);
     setAttribute(root, "aria-valuemax", indeterminate ? null : max);
     setAttribute(root, "aria-valuenow", indeterminate ? null : value);
-    indicator.style.width = indeterminate ? "40%" : `${Math.min(100, Math.max(0, (value / max) * 100))}%`;
+    indicator.style.width = indeterminate
+      ? "40%"
+      : `${Math.min(100, Math.max(0, (value / max) * 100))}%`;
   }
 
   const unsubscribe = subscribeModel(model, sync);
@@ -1053,16 +1133,16 @@ export function Progress(props = {}) {
 
 export function Alert(props = {}, children = []) {
   const variant = props.variant || "info";
-  const iconName = variant === "info"
-    ? "info"
-    : variant === "success"
-      ? "check"
-      : "warning";
+  const iconName =
+    variant === "info" ? "info" : variant === "success" ? "check" : "warning";
   return simpleView(
     "div",
     classNames("tn-alert", `tn-alert--${variant}`),
     { ...props, role: props.role || "status" },
-    [Timeless.Icon({ name: iconName, class: "tn-alert__icon" }), simpleView("div", "tn-alert__content", {}, children)],
+    [
+      Timeless.Icon({ name: iconName, class: "tn-alert__icon" }),
+      simpleView("div", "tn-alert__content", {}, children),
+    ],
   );
 }
 
@@ -1076,20 +1156,46 @@ export function AlertDescription(props = {}, children = []) {
 
 export function EmptyState(props = {}, children = []) {
   return simpleView("div", "tn-empty-state", props, [
-    props.icon ? simpleView("div", "tn-empty-state__icon", {}, [props.icon]) : null,
-    props.title ? simpleView("h3", "tn-empty-state__title", {}, [props.title]) : null,
-    props.description ? simpleView("p", "tn-empty-state__description", {}, [props.description]) : null,
-    children.length ? simpleView("div", "tn-empty-state__actions", {}, children) : null,
+    props.icon
+      ? simpleView("div", "tn-empty-state__icon", {}, [props.icon])
+      : null,
+    props.title
+      ? simpleView("h3", "tn-empty-state__title", {}, [props.title])
+      : null,
+    props.description
+      ? simpleView("p", "tn-empty-state__description", {}, [props.description])
+      : null,
+    children.length
+      ? simpleView("div", "tn-empty-state__actions", {}, children)
+      : null,
   ]);
 }
 
 export const MemoCard = createMemoCardComponent({
-  Avatar, Badge, Button, Icon, IconButton, Popover, applyElementProps, classNames,
-  modelState, resolveModel, setAttribute, subscribeModel,
+  Avatar,
+  Badge,
+  Button,
+  Icon,
+  IconButton,
+  Popover,
+  applyElementProps,
+  classNames,
+  modelState,
+  resolveModel,
+  setAttribute,
+  subscribeModel,
 });
 export const SmallCalendar = createSmallCalendarComponent({
-  Button, Icon, IconButton, applyElementProps, attachModel, classNames,
-  elementView, resolveModel, setAttribute, subscribeModel,
+  Button,
+  Icon,
+  IconButton,
+  applyElementProps,
+  attachModel,
+  classNames,
+  elementView,
+  resolveModel,
+  setAttribute,
+  subscribeModel,
 });
 
 registerFormComponents();

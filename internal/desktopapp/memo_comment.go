@@ -2,7 +2,7 @@ package desktopapp
 
 import (
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -52,8 +52,11 @@ func listVaultMemoComments(ctx *VaultContext, memoID string) ([]MemoCommentRecor
 	}
 
 	comments := []MemoCommentRecord{}
-	root := memoCommentDir(ctx)
-	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := workspace_fs.walk_dir(vaultMemoCommentDirName, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -76,7 +79,7 @@ func listVaultMemoComments(ctx *VaultContext, memoID string) ([]MemoCommentRecor
 		comments = append(comments, comment)
 		return nil
 	}); err != nil {
-		if os.IsNotExist(err) {
+		if is_vault_file_not_exist(err) {
 			return []MemoCommentRecord{}, nil
 		}
 		return nil, err
@@ -139,7 +142,7 @@ func createVaultMemoComment(ctx *VaultContext, req MemoCommentCreateRequest) (Me
 	if err := writeMemoCommentRecord(ctx, comment); err != nil {
 		return MemoCommentRecord{}, err
 	}
-	saveHistoryBase(commentHistoryPath(filepath.Join(ctx.RootDir, comment.Path)), renderMemoCommentMarkdownFile(comment))
+	saveHistoryBase(ctx, commentHistoryPath(comment.Path), renderMemoCommentMarkdownFile(comment))
 	return comment, nil
 }
 
@@ -190,12 +193,16 @@ func updateVaultMemoComment(ctx *VaultContext, req MemoCommentUpdateRequest) (Me
 		return MemoCommentRecord{}, err
 	}
 	changedFields := changedFieldsForCommentUpdate(req)
-	saveHistoryDiff(commentHistoryPath(path), oldMarkdown, renderMemoCommentMarkdownFile(comment), changedFields)
+	saveHistoryDiff(ctx, commentHistoryPath(path), oldMarkdown, renderMemoCommentMarkdownFile(comment), changedFields)
 	return comment, nil
 }
 
 func deleteVaultMemoCommentWithOptions(ctx *VaultContext, id string, options MemoDeleteOptions) (MemoDeleteResult, error) {
 	result := MemoDeleteResult{}
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return result, err
+	}
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return result, fmt.Errorf("comment id is required")
@@ -227,10 +234,10 @@ func deleteVaultMemoCommentWithOptions(ctx *VaultContext, id string, options Mem
 		}
 	}
 
-	if err := os.Remove(path); err != nil {
+	if err := workspace_fs.remove_file(path); err != nil {
 		return result, err
 	}
-	deleteHistoryFile(commentHistoryPath(path))
+	deleteHistoryFile(ctx, commentHistoryPath(path))
 	if len(assetsToDelete) > 0 {
 		cleanup := deleteMemoAssetReferences(options.Parent, options.StorageSettings, options.StorePath, assetsToDelete)
 		result.AssetsDeleted += cleanup.AssetsDeleted
@@ -241,11 +248,19 @@ func deleteVaultMemoCommentWithOptions(ctx *VaultContext, id string, options Mem
 }
 
 func readMemoCommentFile(ctx *VaultContext, path string) (MemoCommentRecord, error) {
-	raw, err := os.ReadFile(path)
+	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
 		return MemoCommentRecord{}, err
 	}
-	info, _ := os.Stat(path)
+	relative_path, err := workspace_fs.relative_path(path)
+	if err != nil {
+		return MemoCommentRecord{}, err
+	}
+	raw, err := workspace_fs.read_file(relative_path)
+	if err != nil {
+		return MemoCommentRecord{}, err
+	}
+	info, _ := workspace_fs.stat_file(relative_path)
 	meta, content := parseMemoMarkdown(string(raw))
 	createdAt := firstNonEmpty(meta["createdAt"], meta["created_at"])
 	if createdAt == "" && info != nil {
@@ -253,14 +268,14 @@ func readMemoCommentFile(ctx *VaultContext, path string) (MemoCommentRecord, err
 	}
 	id := strings.TrimSpace(meta["id"])
 	if id == "" {
-		id = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		id = strings.TrimSuffix(filepath.Base(relative_path), filepath.Ext(relative_path))
 	}
 	comment := MemoCommentRecord{
 		Content:    normalizeStoredMemoContent(content, meta),
 		CreatedAt:  createdAt,
 		ID:         id,
 		MemoID:     strings.TrimSpace(meta["memoId"]),
-		Path:       relativeVaultPath(ctx, path),
+		Path:       relative_path,
 		Private:    parseMemoBool(meta["private"]),
 		References: parseMemoList(meta, "references"),
 		ReplyTo:    strings.TrimSpace(firstNonEmpty(meta["replyTo"], meta["reply_to"])),
@@ -269,7 +284,7 @@ func readMemoCommentFile(ctx *VaultContext, path string) (MemoCommentRecord, err
 		Visibility: normalizeMemoVisibility(firstNonEmpty(meta["visibility"])),
 	}
 	if comment.MemoID == "" {
-		comment.MemoID = memoIDFromCommentPath(ctx, path)
+		comment.MemoID = memoIDFromCommentPath(ctx, relative_path)
 	}
 	if len(comment.Tags) == 0 {
 		comment.Tags = extractMemoTags(comment.Content)
@@ -290,15 +305,18 @@ func writeMemoCommentRecord(ctx *VaultContext, comment MemoCommentRecord) error 
 	if comment.Path == "" {
 		comment.Path = memoCommentRelativePath(comment)
 	}
-	target, err := safeVaultRelativePath(ctx.RootDir, comment.Path)
+	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
 		return err
 	}
-	root := memoCommentDir(ctx)
-	if !strings.HasPrefix(target, root+string(filepath.Separator)) && target != root {
+	relative_path, err := workspace_fs.relative_path(comment.Path)
+	if err != nil {
+		return err
+	}
+	if relative_path != vaultMemoCommentDirName && !strings.HasPrefix(relative_path, vaultMemoCommentDirName+"/") {
 		return fmt.Errorf("comment path must be inside memo comment directory")
 	}
-	return writeTextFileAtomic(target, renderMemoCommentMarkdownFile(comment))
+	return workspace_fs.write_file_atomic(relative_path, []byte(renderMemoCommentMarkdownFile(comment)), 0644)
 }
 
 func renderMemoCommentMarkdownFile(comment MemoCommentRecord) string {
@@ -354,7 +372,11 @@ func memoCommentRelativePath(comment MemoCommentRecord) string {
 func findMemoCommentFilePath(ctx *VaultContext, id string) (string, error) {
 	targetID := strings.TrimSpace(id)
 	var found string
-	err := filepath.WalkDir(memoCommentDir(ctx), func(path string, entry os.DirEntry, err error) error {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return "", err
+	}
+	err = workspace_fs.walk_dir(vaultMemoCommentDirName, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -380,18 +402,9 @@ func findMemoCommentFilePath(ctx *VaultContext, id string) (string, error) {
 	return found, nil
 }
 
-func memoCommentDir(ctx *VaultContext) string {
-	if ctx != nil && strings.TrimSpace(ctx.MemoCommentDir) != "" {
-		return ctx.MemoCommentDir
-	}
-	if ctx == nil {
-		return ""
-	}
-	return filepath.Join(ctx.RootDir, vaultMemoCommentDirName)
-}
-
 func memoIDFromCommentPath(ctx *VaultContext, path string) string {
-	rel, err := filepath.Rel(memoCommentDir(ctx), path)
+	relative_path := relativeVaultPath(ctx, path)
+	rel, err := filepath.Rel(vaultMemoCommentDirName, filepath.FromSlash(relative_path))
 	if err != nil {
 		return ""
 	}

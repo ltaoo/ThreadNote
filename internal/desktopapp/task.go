@@ -2,7 +2,7 @@ package desktopapp
 
 import (
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -157,29 +157,33 @@ type TaskIDRequest struct {
 	ID string `json:"id"`
 }
 
-func taskRootDir(ctx *VaultContext) string {
-	return filepath.Join(ctx.RootDir, vaultTaskDirName)
+func task_root_dir() string {
+	return vaultTaskDirName
 }
 
-func taskIndexPath(ctx *VaultContext) string {
-	return filepath.Join(ctx.VeloDir, vaultTaskIndexFileName)
+func task_index_path() string {
+	return filepath.ToSlash(filepath.Join(vaultConfigDirName, vaultTaskIndexFileName))
 }
 
-func taskEventsDir(ctx *VaultContext) string {
-	return filepath.Join(ctx.VeloDir, vaultTaskEventsDirName)
+func task_events_dir() string {
+	return filepath.ToSlash(filepath.Join(vaultConfigDirName, vaultTaskEventsDirName))
 }
 
 func listVaultTasks(ctx *VaultContext) ([]TaskRecord, error) {
 	tasks := []TaskRecord{}
-	root := taskRootDir(ctx)
-	if _, err := os.Stat(root); os.IsNotExist(err) {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	root := task_root_dir()
+	if _, err := workspace_fs.stat_file(root); is_vault_file_not_exist(err) {
 		return tasks, nil
 	} else if err != nil {
 		return nil, err
 	}
-	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
+	if err := workspace_fs.walk_dir(root, func(path string, entry fs.DirEntry, walk_err error) error {
+		if walk_err != nil {
+			return walk_err
 		}
 		if entry.IsDir() || strings.ToLower(filepath.Ext(entry.Name())) != ".json" {
 			return nil
@@ -364,8 +368,12 @@ func updateVaultTask(ctx *VaultContext, req TaskUpdateRequest) (TaskRecord, erro
 	if err := writeTaskRecord(ctx, task); err != nil {
 		return TaskRecord{}, err
 	}
-	if oldPath != filepath.Join(ctx.RootDir, filepath.FromSlash(task.Path)) {
-		_ = os.Remove(oldPath)
+	if oldPath != task.Path {
+		workspace_fs, fs_err := require_vault_fs(ctx)
+		if fs_err != nil {
+			return TaskRecord{}, fs_err
+		}
+		_ = workspace_fs.remove_file(oldPath)
 	}
 	_ = appendTaskEvent(ctx, task.ID, "updated", nil)
 	_, _ = rebuildTaskIndex(ctx)
@@ -397,7 +405,11 @@ func deleteVaultTask(ctx *VaultContext, id string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(path); err != nil {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return err
+	}
+	if err := workspace_fs.remove_file(path); err != nil {
 		return err
 	}
 	_ = appendTaskEvent(ctx, id, "deleted", nil)

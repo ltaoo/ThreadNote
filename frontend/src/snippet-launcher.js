@@ -1,5 +1,9 @@
 import { SnippetLauncherModel } from "./snippet-launcher-model.js";
-import { Timeless } from "./timeless-icons.js";
+import {
+  Timeless,
+  TimelessPrimitive,
+} from "./timeless-icons.js";
+import { renderTimelessView } from "./timeless-view-mount.js";
 
 const WINDOW_WIDTH = 720;
 const COLLAPSED_HEIGHT = 60;
@@ -116,11 +120,14 @@ class SnippetLauncherView {
     if (!this.els.inputGhost) return;
     if (!suggestion) {
       this.els.inputGhost.hidden = true;
-      this.els.inputGhost.innerHTML = "";
+      renderTimelessView(this.els.inputGhost, null);
       return;
     }
     this.els.inputGhost.hidden = false;
-    this.els.inputGhost.innerHTML = '<span class="snippet-input-ghost-prefix">' + escapeHTML(suggestion.prefix) + "</span>" + escapeHTML(suggestion.suffix);
+    renderTimelessView(
+      this.els.inputGhost,
+      SnippetSuggestionView(suggestion),
+    );
   }
 
   renderResults(state) {
@@ -128,7 +135,7 @@ class SnippetLauncherView {
     if (!state.command) {
       this.els.results.hidden = true;
       if (this.els.status) this.els.status.hidden = true;
-      this.els.results.innerHTML = "";
+      renderTimelessView(this.els.results, null);
       this.resizeWindowTo(COLLAPSED_HEIGHT, false).catch(function () {});
       return;
     }
@@ -138,14 +145,17 @@ class SnippetLauncherView {
     if (this.els.status) this.els.status.hidden = false;
 
     if (state.loading && !state.items.length) {
-      this.els.results.innerHTML = '<div class="snippet-empty">搜索中</div>';
+      renderTimelessView(this.els.results, SnippetEmptyView("搜索中"));
     } else if (!state.items.length) {
-      this.els.results.innerHTML = '<div class="snippet-empty">没有匹配的 ' + escapeHTML(state.command.emptyLabel || "结果") + "</div>";
+      renderTimelessView(
+        this.els.results,
+        SnippetEmptyView("没有匹配的 " + (state.command.emptyLabel || "结果")),
+      );
     } else {
-      this.els.results.innerHTML = state.items.map(function (item, index) {
-        if (item.url) return renderLinkResult(item, index, state.activeIndex);
-        return renderSnippetResult(item, index, state.activeIndex);
-      }).join("");
+      renderTimelessView(
+        this.els.results,
+        SnippetResultsView(state.items, state.activeIndex),
+      );
     }
 
     const desiredHeight = this.desiredExpandedWindowHeight();
@@ -190,7 +200,7 @@ class SnippetLauncherView {
     const padding = styles
       ? (Number.parseFloat(styles.paddingTop) || 0) + (Number.parseFloat(styles.paddingBottom) || 0)
       : 0;
-    const children = Array.prototype.slice.call(this.els.results.children || []);
+    const children = Array.from(this.els.results.children || []);
     if (!children.length) return Math.max(this.els.results.scrollHeight || 0, 88);
     const contentHeight = children.reduce(function (total, child) {
       const childStyles = window.getComputedStyle ? window.getComputedStyle(child) : null;
@@ -245,7 +255,44 @@ class SnippetLauncherView {
   }
 }
 
-function renderSnippetResult(item, index, activeIndex) {
+function SnippetSuggestionView(suggestion) {
+  const { Fragment, View } = TimelessPrimitive;
+  return Fragment({}, [
+    View(
+      {
+        as: "span",
+        class: "snippet-input-ghost-prefix",
+        attributes: { n: "snippet-command-suggestion-prefix" },
+      },
+      [suggestion.prefix],
+    ),
+    suggestion.suffix,
+  ]);
+}
+
+function SnippetEmptyView(message) {
+  return TimelessPrimitive.View(
+    {
+      class: "snippet-empty",
+      attributes: { n: "snippet-search-empty", role: "status" },
+    },
+    [message],
+  );
+}
+
+function SnippetResultsView(items, active_index) {
+  const { Fragment } = TimelessPrimitive;
+  return Fragment(
+    {},
+    items.map(function (item, index) {
+      return item.url
+        ? SnippetLinkResultView(item, index, active_index)
+        : SnippetCodeResultView(item, index, active_index);
+    }),
+  );
+}
+
+function SnippetCodeResultView(item, index, active_index) {
   const line = item.endLine && item.endLine !== item.startLine
     ? "L" + item.startLine + "-L" + item.endLine
     : "L" + item.startLine;
@@ -255,38 +302,102 @@ function renderSnippetResult(item, index, activeIndex) {
     item.memoTitle || item.memoId || "",
     line,
   ].filter(Boolean).join(" · ");
-  return [
-    '<button id="snippet-result-' + index + '" class="snippet-result ' + (index === activeIndex ? "is-active" : "") + '" type="button" role="option" aria-selected="' + (index === activeIndex ? "true" : "false") + '" data-snippet-index="' + index + '">',
-    '<span class="snippet-result-main">',
-    '<span class="snippet-result-title">',
-    '<span class="snippet-kind ' + (item.marked ? "is-snippet" : "is-code") + '">' + (item.marked ? "SNIP" : "CODE") + "</span>",
-    '<span class="snippet-name">' + escapeHTML(item.title || item.command || "代码片段") + "</span>",
-    "</span>",
-    '<span class="snippet-meta">' + escapeHTML(meta) + "</span>",
-    "</span>",
-    '<pre class="snippet-code"><code>' + escapeHTML(compactCode(item.code || "")) + "</code></pre>",
-    "</button>",
-  ].join("");
+  return SnippetResultView({
+    active: index === active_index,
+    code: compactCode(item.code || ""),
+    index,
+    kind: item.marked ? "SNIP" : "CODE",
+    kindClass: item.marked ? "is-snippet" : "is-code",
+    meta,
+    title: item.title || item.command || "代码片段",
+  });
 }
 
-function renderLinkResult(item, index, activeIndex) {
+function SnippetLinkResultView(item, index, active_index) {
   const meta = [
     item.memoTitle || item.memoId || "",
     item.line ? "L" + item.line : "",
     item.syntax || "",
   ].filter(Boolean).join(" · ");
-  return [
-    '<button id="snippet-result-' + index + '" class="snippet-result ' + (index === activeIndex ? "is-active" : "") + '" type="button" role="option" aria-selected="' + (index === activeIndex ? "true" : "false") + '" data-snippet-index="' + index + '">',
-    '<span class="snippet-result-main">',
-    '<span class="snippet-result-title">',
-    '<span class="snippet-kind is-link">LINK</span>',
-    '<span class="snippet-name">' + escapeHTML(item.label || item.url || "超链接") + "</span>",
-    "</span>",
-    '<span class="snippet-meta">' + escapeHTML(meta) + "</span>",
-    "</span>",
-    '<pre class="snippet-code is-link"><code>' + escapeHTML(compactCode(item.url || "")) + "</code></pre>",
-    "</button>",
-  ].join("");
+  return SnippetResultView({
+    active: index === active_index,
+    code: compactCode(item.url || ""),
+    codeClass: "is-link",
+    index,
+    kind: "LINK",
+    kindClass: "is-link",
+    meta,
+    title: item.label || item.url || "超链接",
+  });
+}
+
+function SnippetResultView(props) {
+  const { Button, View } = TimelessPrimitive;
+  return Button(
+    {
+      class: "snippet-result" + (props.active ? " is-active" : ""),
+      id: "snippet-result-" + props.index,
+      attributes: {
+        "aria-selected": props.active ? "true" : "false",
+        "data-snippet-index": props.index,
+        n: "snippet-search-result",
+        role: "option",
+        type: "button",
+      },
+    },
+    [
+      View(
+        {
+          as: "span",
+          class: "snippet-result-main",
+          attributes: { n: "snippet-result-main" },
+        },
+        [
+          View(
+            {
+              as: "span",
+              class: "snippet-result-title",
+              attributes: { n: "snippet-result-title" },
+            },
+            [
+              View(
+                {
+                  as: "span",
+                  class: "snippet-kind " + props.kindClass,
+                  attributes: { n: "snippet-result-kind" },
+                },
+                [props.kind],
+              ),
+              View(
+                {
+                  as: "span",
+                  class: "snippet-name",
+                  attributes: { n: "snippet-result-name" },
+                },
+                [props.title],
+              ),
+            ],
+          ),
+          View(
+            {
+              as: "span",
+              class: "snippet-meta",
+              attributes: { n: "snippet-result-meta" },
+            },
+            [props.meta],
+          ),
+        ],
+      ),
+      View(
+        {
+          as: "pre",
+          class: "snippet-code" + (props.codeClass ? " " + props.codeClass : ""),
+          attributes: { n: "snippet-result-code" },
+        },
+        [props.code],
+      ),
+    ],
+  );
 }
 
 function nativeRequest(url, options) {
@@ -364,15 +475,6 @@ function compactCode(value) {
   const text = String(value || "").trim();
   if (!text) return "";
   return text.length > 220 ? text.slice(0, 217) + "..." : text;
-}
-
-function escapeHTML(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 const model = new SnippetLauncherModel({

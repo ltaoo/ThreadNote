@@ -8,7 +8,7 @@ import {
   memoReferenceAlias,
   memoTitle,
   parseMemoFenceLine,
-} from "../../domain/memos.js";
+} from "@/domain/memos.js";
 import {
   CLOUD_STORAGE_KEY,
   activeCloudStorageConfig,
@@ -17,11 +17,22 @@ import {
   missingCloudStorageFields,
   normalizeCloudStorageSettings,
   resolveAssetUrl as resolveAssetUrlWithSettings,
-} from "../../domain/storage.js";
+} from "@/domain/storage.js";
 import { formatShortDate } from "./memo-date.js";
 import { openMemoAgentDialog } from "./memo-agent-dialog.js";
-import { closestElement, escapeHTML } from "./memo-utils.js";
-import { Timeless } from "../../timeless-icons.js";
+import { closestElement } from "./memo-utils.js";
+import {
+  Timeless,
+  TimelessPrimitive,
+} from "@/timeless-icons.js";
+import {
+  createProseMirrorFileDropCard,
+  createProseMirrorRichCardNodeViews,
+} from "./prosemirror-rich-card.js?v=20260820-timeless-node-view";
+import {
+  renderTimelessView,
+  unmountTimelessView,
+} from "@/timeless-view-mount.js";
 
 const EDITOR_SETTINGS_STORAGE_KEY = "demo-desktop:settings:editor:v1";
 const EDITOR_SETTINGS_API = "/api/settings/editor";
@@ -232,6 +243,7 @@ function createMiniEditor(host, options) {
   editor = new window.ProsemirrorEditor({
     $el: host,
     mode: "mini",
+    nodeViews: createProseMirrorRichCardNodeViews({ runtime: TimelessPrimitive }),
     value: editorOptions.value || "",
     vim: vimEnabled,
     fileItems: editorOptions.fileItems || defaultEditorFileItems(),
@@ -675,26 +687,6 @@ function hideFileDropPlaceholder(editor) {
   view.dispatch(view.state.tr.setMeta(key, { type: "hideDropPlaceholder" }));
 }
 
-function fileDropPlaceholderWidget(pluginState) {
-  const placeholder = document.createElement("span");
-  placeholder.className = "file-drop-placeholder file-drop-placeholder-block";
-  placeholder.setAttribute("aria-hidden", "true");
-
-  const badge = document.createElement("span");
-  badge.className = "file-drop-placeholder-badge";
-  badge.textContent = pluginState.count > 1 ? String(pluginState.count) : "FILE";
-  placeholder.appendChild(badge);
-
-  const text = document.createElement("span");
-  text.className = "file-drop-placeholder-text";
-  text.textContent = pluginState.placement === "after"
-    ? "释放后在末尾新行插入文件"
-    : "释放后在这里插入文件";
-  placeholder.appendChild(text);
-
-  return placeholder;
-}
-
 function installFileDropHandler(host, editor) {
   function filesFromClipboard(clipboardData) {
     return clipboardData && clipboardData.files && clipboardData.files.length
@@ -951,8 +943,18 @@ function createMemoFileDropPlugin(editor) {
         }
 
         const pos = Math.max(0, Math.min(pluginState.pos, state.doc.content.size));
+        let mounted_card = null;
         return PM.DecorationSet.create(state.doc, [
-          PM.Decoration.widget(pos, () => fileDropPlaceholderWidget(pluginState), {
+          PM.Decoration.widget(pos, () => {
+            mounted_card = createProseMirrorFileDropCard(pluginState, {
+              runtime: TimelessPrimitive,
+            });
+            return mounted_card.dom;
+          }, {
+            destroy() {
+              mounted_card?.destroy();
+              mounted_card = null;
+            },
             key: [
               "memo-file-drop-placeholder",
               pos,
@@ -2070,20 +2072,27 @@ function memoLocationItems(query) {
 
 function renderLocationPickerMenu(menu, pluginState) {
   if (!pluginState.items.length) {
-    menu.innerHTML = '<div class="location-picker-empty">输入地点，例如 北京市 朝阳区</div>';
+    renderTimelessView(
+      menu,
+      PickerEmptyView({
+        className: "location-picker-empty",
+        meaning: "memo-location-picker-empty",
+        text: "输入地点，例如 北京市 朝阳区",
+      }),
+    );
     return;
   }
-
-  menu.innerHTML = pluginState.items
-    .map(function (item, index) {
-      return `
-        <div class="location-picker-option ${index === pluginState.selectedIndex ? "active" : ""}" data-location-picker-index="${index}">
-          <span class="location-picker-label">${escapeHTML(item.label)}</span>
-          <span class="location-picker-detail">${escapeHTML(item.detail)}</span>
-        </div>
-      `;
-    })
-    .join("");
+  renderTimelessView(
+    menu,
+    PickerOptionListView({
+      detailClass: "location-picker-detail",
+      indexAttribute: "data-location-picker-index",
+      itemClass: "location-picker-option",
+      labelClass: "location-picker-label",
+      meaning: "memo-location-picker",
+      pluginState,
+    }),
+  );
 }
 
 function createFloatingMenuView(config) {
@@ -2148,6 +2157,7 @@ function createFloatingMenuView(config) {
       window.removeEventListener("resize", onReposition);
       window.removeEventListener("scroll", onReposition, true);
       menu.removeEventListener("mousedown", onMouseDown);
+      unmountTimelessView(menu);
       menu.remove();
     },
   };
@@ -2224,23 +2234,67 @@ function memoSlashCommands() {
 
 function renderSlashCommandMenu(menu, pluginState) {
   if (!pluginState.items.length) {
-    menu.innerHTML = '<div class="slash-command-empty">没有匹配的命令</div>';
+    renderTimelessView(
+      menu,
+      PickerEmptyView({
+        className: "slash-command-empty",
+        meaning: "memo-slash-command-empty",
+        text: "没有匹配的命令",
+      }),
+    );
     return;
   }
-
-  menu.innerHTML = pluginState.items
-    .map(function (item, index) {
-      return `
-        <div class="slash-command-option ${index === pluginState.selectedIndex ? "active" : ""}" data-slash-command-index="${index}">
-          <span class="slash-command-icon">${escapeHTML(item.icon)}</span>
-          <span class="slash-command-copy">
-            <span class="slash-command-label">${escapeHTML(item.label)}</span>
-            <span class="slash-command-detail">${escapeHTML(item.detail)}</span>
-          </span>
-        </div>
-      `;
-    })
-    .join("");
+  const { Fragment, View } = TimelessPrimitive;
+  renderTimelessView(
+    menu,
+    Fragment(
+      {},
+      pluginState.items.map(function (item, index) {
+        return View(
+          {
+            class:
+              "slash-command-option " +
+              (index === pluginState.selectedIndex ? "active" : ""),
+            attributes: {
+              "data-slash-command-index": index,
+              n: "memo-slash-command-option",
+            },
+          },
+          [
+            View(
+              {
+                class: "slash-command-icon",
+                attributes: { n: "memo-slash-command-icon" },
+              },
+              [item.icon],
+            ),
+            View(
+              {
+                class: "slash-command-copy",
+                attributes: { n: "memo-slash-command-copy" },
+              },
+              [
+                View(
+                  {
+                    class: "slash-command-label",
+                    attributes: { n: "memo-slash-command-label" },
+                  },
+                  [item.label],
+                ),
+                View(
+                  {
+                    class: "slash-command-detail",
+                    attributes: { n: "memo-slash-command-detail" },
+                  },
+                  [item.detail],
+                ),
+              ],
+            ),
+          ],
+        );
+      }),
+    ),
+  );
 }
 
 function memoReferenceItems(options, query) {
@@ -2375,44 +2429,132 @@ function isMemoTagName(value) {
 
 function renderMemoReferenceMenu(menu, pluginState) {
   if (!pluginState.items.length) {
-    menu.innerHTML = '<div class="memo-ref-empty">没有匹配的 memo</div>';
+    renderTimelessView(
+      menu,
+      PickerEmptyView({
+        className: "memo-ref-empty",
+        meaning: "memo-reference-empty",
+        text: "没有匹配的 memo",
+      }),
+    );
     return;
   }
-
-  menu.innerHTML = pluginState.items
-    .map(function (item, index) {
-      return `
-        <div class="memo-ref-option ${index === pluginState.selectedIndex ? "active" : ""}" data-memo-ref-index="${index}">
-          <span class="memo-ref-option-kind">${pluginState.embed ? "EMBED" : "LINK"}</span>
-          <span class="memo-ref-option-copy">
-            <span class="memo-ref-option-label">${escapeHTML(item.label)}</span>
-            <span class="memo-ref-option-detail">${escapeHTML(item.detail)}</span>
-          </span>
-        </div>
-      `;
-    })
-    .join("");
+  const { Fragment, View } = TimelessPrimitive;
+  renderTimelessView(
+    menu,
+    Fragment(
+      {},
+      pluginState.items.map(function (item, index) {
+        return View(
+          {
+            class:
+              "memo-ref-option " +
+              (index === pluginState.selectedIndex ? "active" : ""),
+            attributes: {
+              "data-memo-ref-index": index,
+              n: "memo-reference-option",
+            },
+          },
+          [
+            View(
+              {
+                class: "memo-ref-option-kind",
+                attributes: { n: "memo-reference-kind" },
+              },
+              [pluginState.embed ? "EMBED" : "LINK"],
+            ),
+            View(
+              {
+                class: "memo-ref-option-copy",
+                attributes: { n: "memo-reference-copy" },
+              },
+              [
+                View(
+                  {
+                    class: "memo-ref-option-label",
+                    attributes: { n: "memo-reference-label" },
+                  },
+                  [item.label],
+                ),
+                View(
+                  {
+                    class: "memo-ref-option-detail",
+                    attributes: { n: "memo-reference-detail" },
+                  },
+                  [item.detail],
+                ),
+              ],
+            ),
+          ],
+        );
+      }),
+    ),
+  );
 }
 
 function renderTagPickerMenu(menu, pluginState) {
   if (!pluginState.items.length) {
-    menu.innerHTML = '<div class="tag-picker-empty">没有匹配的标签</div>';
+    renderTimelessView(
+      menu,
+      PickerEmptyView({
+        className: "tag-picker-empty",
+        meaning: "memo-tag-picker-empty",
+        text: "没有匹配的标签",
+      }),
+    );
     return;
   }
-
-  menu.innerHTML = pluginState.items
-    .map(function (item, index) {
-      return `
-        <div class="tag-picker-option ${index === pluginState.selectedIndex ? "active" : ""}" data-tag-picker-index="${index}">
-          <span class="tag-picker-mark">#</span>
-          <span class="tag-picker-copy">
-            <span class="tag-picker-label">${escapeHTML(item.label)}</span>
-            <span class="tag-picker-detail">${escapeHTML(item.detail)}</span>
-          </span>
-        </div>
-      `;
-    })
-    .join("");
+  const { Fragment, View } = TimelessPrimitive;
+  renderTimelessView(
+    menu,
+    Fragment(
+      {},
+      pluginState.items.map(function (item, index) {
+        return View(
+          {
+            class:
+              "tag-picker-option " +
+              (index === pluginState.selectedIndex ? "active" : ""),
+            attributes: {
+              "data-tag-picker-index": index,
+              n: "memo-tag-picker-option",
+            },
+          },
+          [
+            View(
+              {
+                class: "tag-picker-mark",
+                attributes: { n: "memo-tag-picker-mark" },
+              },
+              ["#"],
+            ),
+            View(
+              {
+                class: "tag-picker-copy",
+                attributes: { n: "memo-tag-picker-copy" },
+              },
+              [
+                View(
+                  {
+                    class: "tag-picker-label",
+                    attributes: { n: "memo-tag-picker-label" },
+                  },
+                  [item.label],
+                ),
+                View(
+                  {
+                    class: "tag-picker-detail",
+                    attributes: { n: "memo-tag-picker-detail" },
+                  },
+                  [item.detail],
+                ),
+              ],
+            ),
+          ],
+        );
+      }),
+    ),
+  );
 }
 
 function memoTimeItems(query) {
@@ -2451,20 +2593,72 @@ function addMemoTime(date, delta) {
 
 function renderTimePickerMenu(menu, pluginState) {
   if (!pluginState.items.length) {
-    menu.innerHTML = '<div class="time-picker-empty">输入时间，例如 23:21 或 2026-05-01</div>';
+    renderTimelessView(
+      menu,
+      PickerEmptyView({
+        className: "time-picker-empty",
+        meaning: "memo-time-picker-empty",
+        text: "输入时间，例如 23:21 或 2026-05-01",
+      }),
+    );
     return;
   }
+  renderTimelessView(
+    menu,
+    PickerOptionListView({
+      detailClass: "time-picker-detail",
+      indexAttribute: "data-time-picker-index",
+      itemClass: "time-picker-option",
+      labelClass: "time-picker-label",
+      meaning: "memo-time-picker",
+      pluginState,
+    }),
+  );
+}
 
-  menu.innerHTML = pluginState.items
-    .map(function (item, index) {
-      return `
-        <div class="time-picker-option ${index === pluginState.selectedIndex ? "active" : ""}" data-time-picker-index="${index}">
-          <span class="time-picker-label">${escapeHTML(item.label)}</span>
-          <span class="time-picker-detail">${escapeHTML(item.detail)}</span>
-        </div>
-      `;
-    })
-    .join("");
+function PickerEmptyView(props) {
+  return TimelessPrimitive.View(
+    {
+      class: props.className,
+      attributes: { n: props.meaning },
+    },
+    [props.text],
+  );
+}
+
+function PickerOptionListView(props) {
+  const { Fragment, View } = TimelessPrimitive;
+  return Fragment(
+    {},
+    props.pluginState.items.map(function (item, index) {
+      const active = index === props.pluginState.selectedIndex;
+      return View(
+        {
+          class: props.itemClass + (active ? " active" : ""),
+          attributes: {
+            [props.indexAttribute]: index,
+            n: props.meaning + "-option",
+          },
+        },
+        [
+          View(
+            {
+              class: props.labelClass,
+              attributes: { n: props.meaning + "-label" },
+            },
+            [item.label],
+          ),
+          View(
+            {
+              class: props.detailClass,
+              attributes: { n: props.meaning + "-detail" },
+            },
+            [item.detail],
+          ),
+        ],
+      );
+    }),
+  );
 }
 
 function formatMemoDate(date) {
@@ -3028,9 +3222,25 @@ function installMemoAgentSelection(host, adapter) {
   const toolbar = document.createElement("div");
   toolbar.className = "memo-selection-toolbar";
   toolbar.hidden = true;
-  toolbar.innerHTML = '<button type="button" title="用 Agent 对话编辑" aria-label="用 Agent 对话编辑">'
-    + Timeless.Icon({ name: "message-square-more" })
-    + "</button>";
+  renderTimelessView(
+    toolbar,
+    TimelessPrimitive.Button(
+      {
+        attributes: {
+          "aria-label": "用 Agent 对话编辑",
+          n: "memo-agent-selection-button",
+          title: "用 Agent 对话编辑",
+          type: "button",
+        },
+      },
+      [
+        Timeless.Icon({
+          name: "message-square-more",
+          attributes: { n: "memo-agent-selection-icon" },
+        }),
+      ],
+    ),
+  );
   document.body.appendChild(toolbar);
 
   function update() {
@@ -3076,6 +3286,7 @@ function installMemoAgentSelection(host, adapter) {
     host.removeEventListener("keyup", update);
     host.removeEventListener("focusout", update);
     document.removeEventListener("selectionchange", update);
+    unmountTimelessView(toolbar);
     toolbar.remove();
   };
 }

@@ -1,7 +1,6 @@
 package desktopapp
 
 import (
-	"os"
 	"strings"
 	"time"
 )
@@ -51,6 +50,10 @@ func deleteVaultTasksForMemo(ctx *VaultContext, memoID string) (int, error) {
 	}
 
 	deleted := 0
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return deleted, err
+	}
 	for _, task := range tasks {
 		if !deleteIDs[task.ID] {
 			continue
@@ -59,7 +62,7 @@ func deleteVaultTasksForMemo(ctx *VaultContext, memoID string) (int, error) {
 		if err != nil {
 			return deleted, err
 		}
-		if err := os.Remove(path); err != nil {
+		if err := workspace_fs.remove_file(path); err != nil {
 			return deleted, err
 		}
 		deleted++

@@ -7,3 +7,5 @@ build/
 # Release artifacts
 dist/
 *.syso
+
+node_modules

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -62,7 +61,7 @@ type GTDMilestoneUpdateRequest struct {
 }
 
 func gtdMilestonesPath(ctx *VaultContext) string {
-	return filepath.Join(ctx.VeloDir, vaultGTDMilestonesFileName)
+	return filepath.Join(vaultConfigDirName, vaultGTDMilestonesFileName)
 }
 
 func listVaultGTDMilestones(ctx *VaultContext) (GTDMilestoneFile, error) {
@@ -70,8 +69,12 @@ func listVaultGTDMilestones(ctx *VaultContext) (GTDMilestoneFile, error) {
 }
 
 func loadGTDMilestones(ctx *VaultContext) (GTDMilestoneFile, error) {
-	raw, err := os.ReadFile(gtdMilestonesPath(ctx))
-	if os.IsNotExist(err) {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return GTDMilestoneFile{}, err
+	}
+	raw, err := workspace_fs.read_file(gtdMilestonesPath(ctx))
+	if is_vault_file_not_exist(err) {
 		return GTDMilestoneFile{SchemaVersion: vaultSchemaVersion, Milestones: []GTDMilestoneRecord{}}, nil
 	}
 	if err != nil {
@@ -90,7 +93,7 @@ func loadGTDMilestones(ctx *VaultContext) (GTDMilestoneFile, error) {
 func saveGTDMilestones(ctx *VaultContext, file GTDMilestoneFile) error {
 	file = normalizeGTDMilestoneFile(file)
 	file.SchemaVersion = vaultSchemaVersion
-	return writeJSONFileAtomic(gtdMilestonesPath(ctx), file)
+	return write_vault_json_file_atomic(ctx, gtdMilestonesPath(ctx), file)
 }
 
 func createVaultGTDMilestone(ctx *VaultContext, req GTDMilestoneCreateRequest) (GTDMilestoneRecord, error) {

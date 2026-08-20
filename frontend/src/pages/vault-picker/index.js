@@ -1,231 +1,325 @@
-import { errorText } from "../../domain/native.js";
-import { loadVaultStatus, normalizeVaultPath, openVault, selectVaultDirectory } from "../../domain/vaults.js";
-import { Timeless } from "../../timeless-icons.js";
+import {
+  Timeless,
+  TimelessPrimitive,
+} from "@/timeless-icons.js";
+import { VaultPickerPageModel } from "./index.model.js";
 
-const FOLDER_ICON = Timeless.Icon({ name: "folder" });
-const PLUS_ICON = Timeless.Icon({ name: "plus" });
-const CHECK_ICON = Timeless.Icon({ name: "check" });
+const { Button, DOM, For, Img, Input, Show, View, computed } =
+  TimelessPrimitive;
 
-export function VaultPickerPageView() {
-  let picker = null;
+function icon(name, meaning) {
+  return Timeless.Icon({
+    name,
+    attributes: { n: meaning },
+  });
+}
+
+function VaultItemView(props) {
+  const path = String(props.vault.path || "");
+  return Button(
+    {
+      class: "vault-picker-item",
+      disabled: props.vm$.state.loading,
+      attributes: {
+        n: "vault-picker-recent-item",
+        type: "button",
+      },
+      onClick() {
+        props.vm$.methods.openVault(path);
+      },
+    },
+    [
+      View(
+        {
+          class: "vault-picker-item-icon",
+          attributes: { n: "vault-picker-recent-item-icon" },
+        },
+        [icon("folder", "vault-picker-folder-icon")],
+      ),
+      View(
+        {
+          class: "vault-picker-item-copy",
+          attributes: { n: "vault-picker-recent-item-copy" },
+        },
+        [
+          View(
+            {
+              class: "vault-picker-item-name",
+              attributes: { n: "vault-picker-recent-item-name" },
+            },
+            [props.vault.name || "Vault"],
+          ),
+          View(
+            {
+              class: "vault-picker-item-path",
+              attributes: { n: "vault-picker-recent-item-path" },
+            },
+            [path],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+/** @param {ViewComponentProps} props */
+function VaultPickerContentView(props) {
+  const vm$ = VaultPickerPageModel(props);
+  const status_text_ = computed(vm$.state.dataFileExists, function (exists) {
+    return exists ? "已有本机 vault 记录" : "首次打开";
+  });
+  const data_path_text_ = computed(vm$.state.dataPath, function (path) {
+    return path || "-";
+  });
+  const page_class_ = computed(vm$.state.loading, function (loading) {
+    return ["page vault-picker-page w-full h-full", loading ? "is-loading" : ""]
+      .filter(Boolean)
+      .join(" ");
+  });
+  const message_class_ = computed(vm$.state.messageType, function (type) {
+    return ["vault-picker-message", type ? "is-" + type : ""]
+      .filter(Boolean)
+      .join(" ");
+  });
+  const vault_list_empty_ = computed(vm$.state.vaults, function (vaults) {
+    return vaults.length === 0;
+  });
 
   return View(
     {
-      class: "page vault-picker-page w-full h-full",
-      onMounted(el) {
-        picker = mountVaultPicker(el);
+      class: page_class_,
+      attributes: { n: "vault-picker-page" },
+      onMounted() {
+        vm$.methods.init();
       },
       onUnmounted() {
-        if (picker) picker.destroy();
-        picker = null;
+        vm$.destroy();
+      },
+    },
+    [
+      View(
+        {
+          class: "vault-picker-shell",
+          attributes: { n: "vault-picker-shell" },
+        },
+        [
+          View(
+            {
+              class: "vault-picker-panel",
+              attributes: { n: "vault-picker-panel" },
+            },
+            [
+              View(
+                {
+                  class: "vault-picker-header",
+                  attributes: { n: "vault-picker-header" },
+                },
+                [
+                  View(
+                    {
+                      class: "vault-picker-mark",
+                      attributes: { n: "vault-picker-brand-mark" },
+                    },
+                    [
+                      Img({
+                        alt: "",
+                        attributes: { n: "vault-picker-brand-image" },
+                        src: "/public/threadnote-logo.svg",
+                      }),
+                    ],
+                  ),
+                  View(
+                    {
+                      class: "vault-picker-heading-copy",
+                      attributes: { n: "vault-picker-heading-copy" },
+                    },
+                    [
+                      View(
+                        {
+                          class: "vault-picker-title",
+                          attributes: {
+                            "aria-level": "1",
+                            n: "vault-picker-title",
+                            role: "heading",
+                          },
+                        },
+                        ["选择 Vault"],
+                      ),
+                      View(
+                        {
+                          class: "vault-picker-status",
+                          attributes: { n: "vault-picker-status" },
+                        },
+                        [status_text_],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              View(
+                {
+                  class: "vault-picker-meta",
+                  attributes: { n: "vault-picker-local-record" },
+                },
+                [
+                  View(
+                    {
+                      class: "vault-picker-meta-label",
+                      attributes: { n: "vault-picker-local-record-label" },
+                    },
+                    ["本机记录"],
+                  ),
+                  View(
+                    {
+                      class: "vault-picker-data-path",
+                      attributes: { n: "vault-picker-local-record-path" },
+                    },
+                    [data_path_text_],
+                  ),
+                ],
+              ),
+              View(
+                {
+                  class: "vault-picker-form",
+                  attributes: {
+                    "aria-label": "打开 Vault",
+                    n: "vault-picker-open-form",
+                    role: "form",
+                  },
+                },
+                [
+                  Input({
+                    autocomplete: false,
+                    disabled: vm$.state.loading,
+                    placeholder: "~/Documents/ThreadNote",
+                    value: vm$.state.path,
+                    attributes: { n: "vault-picker-path-input", type: "text" },
+                    onInput(event) {
+                      vm$.methods.setPath(event.currentTarget.value);
+                    },
+                    onKeyDown(event) {
+                      if (event.key !== "Enter") return;
+                      event.preventDefault();
+                      vm$.methods.openVault();
+                    },
+                  }),
+                  Button(
+                    {
+                      class: "vault-picker-button is-primary",
+                      disabled: vm$.state.loading,
+                      attributes: { n: "vault-picker-open-button", type: "button" },
+                      onClick() {
+                        vm$.methods.openVault();
+                      },
+                    },
+                    [icon("check", "vault-picker-open-icon"), "打开"],
+                  ),
+                ],
+              ),
+              View(
+                {
+                  class: "vault-picker-actions",
+                  attributes: { n: "vault-picker-actions" },
+                },
+                [
+                  Button(
+                    {
+                      class: "vault-picker-button",
+                      disabled: vm$.state.loading,
+                      attributes: {
+                        n: "vault-picker-choose-directory-button",
+                        type: "button",
+                      },
+                      onClick() {
+                        vm$.methods.chooseVault();
+                      },
+                    },
+                    [icon("plus", "vault-picker-add-icon"), "选择目录"],
+                  ),
+                ],
+              ),
+              View(
+                {
+                  class: "vault-picker-section",
+                  attributes: { n: "vault-picker-recent-section" },
+                },
+                [
+                  View(
+                    {
+                      class: "vault-picker-section-title",
+                      attributes: { n: "vault-picker-recent-title" },
+                    },
+                    ["最近 Vault"],
+                  ),
+                  View(
+                    {
+                      class: "vault-picker-list",
+                      attributes: { n: "vault-picker-recent-list" },
+                    },
+                    [
+                      For({
+                        each: vm$.state.vaults,
+                        render(vault) {
+                          return VaultItemView({ vault, vm$ });
+                        },
+                      }),
+                      Show({
+                        when: vault_list_empty_,
+                        ok() {
+                          return [
+                            View(
+                              {
+                                class: "vault-picker-empty",
+                                attributes: { n: "vault-picker-empty-state" },
+                              },
+                              ["暂无 vault"],
+                            ),
+                          ];
+                        },
+                      }),
+                    ],
+                  ),
+                ],
+              ),
+              View(
+                {
+                  class: message_class_,
+                  attributes: {
+                    "aria-live": "polite",
+                    n: "vault-picker-message",
+                    role: "status",
+                  },
+                },
+                [vm$.state.message],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+/**
+ * The desktop router owns the route host while Timeless.DOM mounts the page
+ * content into that host.
+ *
+ * @param {ViewComponentProps} props
+ */
+export function VaultPickerPageView(props) {
+  const content$ = VaultPickerContentView(props);
+  return globalThis.View(
+    {
+      class: "vault-picker-route-host w-full h-full",
+      attributes: { n: "vault-picker-route-host" },
+      onMounted(event) {
+        const root = event && event.target ? event.target : event;
+        DOM.render(content$, root);
+      },
+      onUnmounted() {
+        content$.destroy?.();
       },
     },
     [],
   );
-}
-
-function mountVaultPicker(root) {
-  const state = {
-    active: null,
-    dataPath: "",
-    dataFileExists: false,
-    loading: false,
-    message: "",
-    messageType: "",
-    vaults: [],
-  };
-
-  root.innerHTML = template();
-  const els = {
-    dataPath: root.querySelector("[data-vault-data-path]"),
-    list: root.querySelector("[data-vault-list]"),
-    message: root.querySelector("[data-vault-message]"),
-    pathInput: root.querySelector("[data-vault-path]"),
-    status: root.querySelector("[data-vault-status]"),
-  };
-
-  root.addEventListener("click", handleClick);
-  root.addEventListener("submit", handleSubmit);
-  loadStatus();
-
-  return {
-    destroy() {
-      root.removeEventListener("click", handleClick);
-      root.removeEventListener("submit", handleSubmit);
-      root.innerHTML = "";
-    },
-  };
-
-  function handleClick(event) {
-    const action = event.target.closest("[data-action]");
-    if (!action || !root.contains(action)) return;
-
-    if (action.dataset.action === "chooseVault") {
-      chooseVault();
-      return;
-    }
-
-    if (action.dataset.action === "openVault") {
-      openSelectedVault(action.dataset.vaultPath || "");
-    }
-  }
-
-  function handleSubmit(event) {
-    const form = event.target.closest("[data-vault-form]");
-    if (!form || !root.contains(form)) return;
-    event.preventDefault();
-    openSelectedVault(els.pathInput.value);
-  }
-
-  function loadStatus() {
-    setLoading(true);
-    loadVaultStatus().then(
-      function (status) {
-        state.active = status.active;
-        state.dataPath = status.dataPath;
-        state.dataFileExists = status.dataFileExists;
-        state.vaults = status.vaults;
-        render();
-      },
-      function (err) {
-        setMessage("读取 vault 状态失败: " + errorText(err), "error");
-      },
-    ).finally(function () {
-      setLoading(false);
-    });
-  }
-
-  function chooseVault() {
-    setLoading(true);
-    selectVaultDirectory().then(
-      function (path) {
-        if (!path) {
-          setMessage("没有选择目录", "warning");
-          return;
-        }
-        els.pathInput.value = path;
-        return openSelectedVault(path);
-      },
-      function (err) {
-        const message = errorText(err);
-        setMessage(message === "cancelled" ? "已取消选择" : "选择目录失败: " + message, "warning");
-      },
-    ).finally(function () {
-      setLoading(false);
-    });
-  }
-
-  function openSelectedVault(path) {
-    const value = normalizeVaultPath(path);
-    if (!value) {
-      setMessage("请输入或选择 vault 目录", "warning");
-      return Promise.resolve();
-    }
-    setLoading(true);
-    return openVault(value).then(
-      function (data) {
-        const created = data && data.created;
-        setMessage(created ? "已创建 vault" : "已加载 vault", "success");
-        window.setTimeout(function () {
-          window.location.replace("/desktop");
-        }, 180);
-      },
-      function (err) {
-        setMessage("打开 vault 失败: " + errorText(err), "error");
-      },
-    ).finally(function () {
-      setLoading(false);
-    });
-  }
-
-  function setLoading(loading) {
-    state.loading = Boolean(loading);
-    root.classList.toggle("is-loading", state.loading);
-    root.querySelectorAll("button, input").forEach(function (node) {
-      node.disabled = state.loading;
-    });
-  }
-
-  function setMessage(message, type) {
-    state.message = message || "";
-    state.messageType = type || "";
-    renderMessage();
-  }
-
-  function render() {
-    els.status.textContent = state.dataFileExists ? "已有本机 vault 记录" : "首次打开";
-    els.dataPath.textContent = state.dataPath || "-";
-    els.list.innerHTML = state.vaults.length
-      ? state.vaults.map(vaultItemTemplate).join("")
-      : '<div class="vault-picker-empty">暂无 vault</div>';
-    renderMessage();
-  }
-
-  function renderMessage() {
-    els.message.textContent = state.message || "";
-    els.message.className = "vault-picker-message" + (state.messageType ? " is-" + state.messageType : "");
-  }
-}
-
-function template() {
-  return `
-    <main class="vault-picker-shell">
-      <section class="vault-picker-panel">
-        <header class="vault-picker-header">
-          <div class="vault-picker-mark"><img src="/public/threadnote-logo.svg" alt="" /></div>
-          <div>
-            <h1>选择 Vault</h1>
-            <p data-vault-status>正在检查</p>
-          </div>
-        </header>
-
-        <div class="vault-picker-meta">
-          <span>本机记录</span>
-          <strong data-vault-data-path>-</strong>
-        </div>
-
-        <form class="vault-picker-form" data-vault-form>
-          <input data-vault-path type="text" placeholder="~/Documents/ThreadNote" autocomplete="off" />
-          <button class="vault-picker-button is-primary" type="submit">${CHECK_ICON}<span>打开</span></button>
-        </form>
-
-        <div class="vault-picker-actions">
-          <button class="vault-picker-button" type="button" data-action="chooseVault">${PLUS_ICON}<span>选择目录</span></button>
-        </div>
-
-        <section class="vault-picker-section">
-          <div class="vault-picker-section-title">最近 Vault</div>
-          <div class="vault-picker-list" data-vault-list></div>
-        </section>
-
-        <div class="vault-picker-message" data-vault-message role="status"></div>
-      </section>
-    </main>
-  `;
-}
-
-function vaultItemTemplate(vault) {
-  const path = String(vault.path || "");
-  return `
-    <button class="vault-picker-item" type="button" data-action="openVault" data-vault-path="${escapeAttr(path)}">
-      <span class="vault-picker-item-icon">${FOLDER_ICON}</span>
-      <span class="vault-picker-item-copy">
-        <strong>${escapeHTML(vault.name || "Vault")}</strong>
-        <small>${escapeHTML(path)}</small>
-      </span>
-    </button>
-  `;
-}
-
-function escapeHTML(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeAttr(value) {
-  return escapeHTML(value).replace(/`/g, "&#96;");
 }

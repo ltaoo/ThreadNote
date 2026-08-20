@@ -1,23 +1,19 @@
 /**
  * @file Store 入口 - 路由管理
  */
-import { routes, routesWithPathname } from "./routes.js";
+import { router } from "./routes.js";
 import { storage } from "./storage.js";
 export { client } from "./http_client.js";
-export { views } from "./views.js?v=20260820-link-card";
+export { router };
+export const views = router.views;
 
-Timeless.NavigatorCore.prefix = "";
+Timeless.kit.NavigatorCore.prefix = "";
 
 // @ts-ignore
-export const router = new Timeless.NavigatorCore();
-// export const user = new Timeless.UserCore(storage.get("user") || {}, {
-//   get: () => Promise.resolve({ data: null }),
-//   post: () => Promise.resolve({ data: null }),
-// });
+export const router$ = new Timeless.kit.NavigatorCore();
 export const user = {};
-// export const storage = storage;
 
-export const view = new Timeless.RouteViewCore({
+export const view = new Timeless.kit.RouteViewCore({
   name: "root",
   pathname: "/",
   title: "ROOT",
@@ -27,50 +23,24 @@ export const view = new Timeless.RouteViewCore({
 });
 view.isRoot = true;
 
-export const history = new Timeless.HistoryCore({
+export const history = new Timeless.kit.HistoryCore({
   view,
-  router,
-  routes,
+  router: router$,
+  routes: router.routes,
   views: {
     root: view,
   },
 });
 
-export const app = new Timeless.ApplicationModel({
+export const app = new Timeless.kit.ApplicationModel({
   // @ts-ignore
   user,
   storage,
   async beforeReady() {
-    const { pathname, query } = router;
-    const route = routesWithPathname[pathname];
-    console.log("[Store] beforeReady", pathname, route, routesWithPathname);
-    if (!route) {
-      // @ts-ignore
-      history.push("root.notfound", { replace: true });
-      return Timeless.Result.Err("not found");
-    }
-    // if (!route.options?.require?.includes("login")) {
-    //   if (!history.isLayout(route.name)) {
-    //     console.log("[Store] beforeReady push to fallback route", route.name);
-    //     history.push(route.name, query, { ignore: true });
-    //     return Timeless.Result.Ok(null);
-    //   }
-    //   return Timeless.Result.Err("can't goto layout");
-    // }
-    // if (!user.isLogin) {
-    //   app.tip?.({ text: ["请先登录"] });
-    //   history.push("root.login", { redirect: route.pathname });
-    //   return Timeless.Result.Err("need login");
-    // }
-    if (!history.isLayout(route.name)) {
-      history.push(route.name, query, { ignore: true });
-      return Timeless.Result.Ok(null);
-    }
-    console.log(
-      "[Store] beforeReady push to default page",
-      "root.home_layout.index",
-    );
-    history.push("root.home_layout.index", {}, { ignore: true });
+    const route = router.routesWithPathname[router$.pathname];
+    console.log("before ready - route", route);
+    const route_name = route ? route.name : router.defaultRouteName;
+    history.push(route_name, router$.query, { ignore: true });
     return Timeless.Result.Ok(null);
   },
 });
@@ -82,25 +52,31 @@ history.onRouteChange(({ reason, view, href, ignore }) => {
   }
   if (ignore) return;
   if (reason === "push") {
-    router.pushState(href);
+    router$.pushState(href);
   }
   if (reason === "replace") {
-    router.replaceState(href);
+    router$.replaceState(href);
   }
 });
 
-window.addEventListener("click", (event) => {
-  if (event.defaultPrevented || event.button !== 0) return;
-  const link = closestAnchor(event.target);
-  if (!link) return;
+window.addEventListener(
+  "click",
+  (event) => {
+    if (event.defaultPrevented || event.button !== 0) return;
+    const link = closestAnchor(event.target);
+    if (!link) return;
 
-  const externalURL = externalBrowserURL(link.getAttribute("href") || link.href || "");
-  if (!externalURL) return;
+    const externalURL = externalBrowserURL(
+      link.getAttribute("href") || link.href || "",
+    );
+    if (!externalURL) return;
 
-  event.preventDefault();
-  event.stopPropagation();
-  confirmOpenExternalLink(externalURL);
-}, true);
+    event.preventDefault();
+    event.stopPropagation();
+    confirmOpenExternalLink(externalURL);
+  },
+  true,
+);
 
 history.onClickLink(({ href, target }) => {
   const externalURL = externalBrowserURL(href);
@@ -110,8 +86,8 @@ history.onClickLink(({ href, target }) => {
   }
 
   // @ts-ignore
-  const { pathname, query } = Timeless.NavigatorCore.parse(href);
-  const route = routesWithPathname[pathname];
+  const { pathname, query } = Timeless.kit.NavigatorCore.parse(href);
+  const route = router.routesWithPathname[pathname];
   if (!route) {
     app.tip?.({ text: ["没有匹配的页面"] });
     return;
@@ -153,7 +129,9 @@ function openExternalLinkInDefaultBrowser(url) {
     return;
   }
 
-  invoke("/api/external/open?url=" + encodeURIComponent(url), { method: "GET" }).then(
+  invoke("/api/external/open?url=" + encodeURIComponent(url), {
+    method: "GET",
+  }).then(
     (resp) => {
       if (!resp || resp.code !== 0) {
         app.tip?.({ text: [(resp && resp.msg) || "打开链接失败"] });
@@ -166,6 +144,6 @@ function openExternalLinkInDefaultBrowser(url) {
 }
 
 // @ts-ignore
-TimelessWeb.provide_app(app);
+Timeless.web.provide_app(app);
 // @ts-ignore
-TimelessWeb.provide_history(history);
+Timeless.web.provide_history(history);

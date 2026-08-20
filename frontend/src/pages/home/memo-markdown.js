@@ -10,14 +10,14 @@ import {
   parseStandaloneMemoEmbed,
   parseTaskLine,
   resolveMemoReferenceTarget,
-} from "../../domain/memos.js";
-import { codeBlockFence, fileDisplayName, isFileAttachment, isImageAttachment } from "../../domain/memo-resources.js";
-import { parseAssetReference, parseImageQueryParams } from "../../domain/storage.js";
+} from "@/domain/memos.js";
+import { codeBlockFence, fileDisplayName, isFileAttachment, isImageAttachment } from "@/domain/memo-resources.js";
+import { parseAssetReference, parseImageQueryParams } from "@/domain/storage.js";
 import { formatRelativeDate } from "./memo-date.js";
 import { cloudStorageById, loadEditorSettings, normalizeFileEditor, normalizeFileEditorRules, resolveAssetUrl } from "./memo-editor.js";
 import { SVG } from "./memo-icons.js";
 import { escapeAttr, escapeHTML } from "./memo-utils.js";
-import { registerCheckboxElement } from "../../components.js?v=20260820-memo-expand-measured";
+import { registerCheckboxElement } from "@/components.js";
 
 registerCheckboxElement();
 

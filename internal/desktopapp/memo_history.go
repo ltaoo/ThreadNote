@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -39,28 +38,28 @@ func commentHistoryPath(commentMdPath string) string {
 }
 
 // saveHistoryBase creates a new .history.json with the initial base content.
-func saveHistoryBase(historyPath string, markdown string) {
+func saveHistoryBase(ctx *VaultContext, historyPath string, markdown string) {
 	_, content := parseMemoMarkdown(markdown)
 	content = normalizeMemoContent(content)
 	hf := HistoryFile{
 		Base:     content,
 		Versions: []HistoryVersionEntry{},
 	}
-	if err := writeHistoryFile(historyPath, hf); err != nil {
+	if err := writeHistoryFile(ctx, historyPath, hf); err != nil {
 		log.Printf("history: failed to write %s: %v", historyPath, err)
 	}
 }
 
 // saveHistoryDiff computes CRDT-style contentOps between old and new markdown,
 // appends a version entry to the history file. Best-effort: failures are logged.
-func saveHistoryDiff(historyPath string, oldMarkdown, newMarkdown string, changedFields []string) {
+func saveHistoryDiff(ctx *VaultContext, historyPath string, oldMarkdown, newMarkdown string, changedFields []string) {
 	// Extract plain content from YAML-wrapped markdown
 	_, oldContent := parseMemoMarkdown(oldMarkdown)
 	_, newContent := parseMemoMarkdown(newMarkdown)
 	oldContent = normalizeMemoContent(oldContent)
 	newContent = normalizeMemoContent(newContent)
 
-	hf, err := loadHistoryFile(historyPath)
+	hf, err := loadHistoryFile(ctx, historyPath)
 	if err != nil {
 		log.Printf("history: failed to load %s: %v", historyPath, err)
 		return
@@ -95,7 +94,7 @@ func saveHistoryDiff(historyPath string, oldMarkdown, newMarkdown string, change
 	}
 	hf.Versions = append(hf.Versions, entry)
 
-	if err := writeHistoryFile(historyPath, hf); err != nil {
+	if err := writeHistoryFile(ctx, historyPath, hf); err != nil {
 		log.Printf("history: failed to write %s: %v", historyPath, err)
 	}
 }
@@ -110,11 +109,15 @@ func collectContentOps(versions []HistoryVersionEntry) [][]ContentOp {
 }
 
 // loadHistoryFile reads a .history.json file.
-func loadHistoryFile(path string) (HistoryFile, error) {
+func loadHistoryFile(ctx *VaultContext, path string) (HistoryFile, error) {
 	hf := HistoryFile{Versions: []HistoryVersionEntry{}}
-	raw, err := os.ReadFile(path)
+	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
-		if os.IsNotExist(err) {
+		return hf, err
+	}
+	raw, err := workspace_fs.read_file(path)
+	if err != nil {
+		if is_vault_file_not_exist(err) {
 			return hf, nil
 		}
 		return hf, err
@@ -128,26 +131,27 @@ func loadHistoryFile(path string) (HistoryFile, error) {
 	return hf, nil
 }
 
-func writeHistoryFile(path string, hf HistoryFile) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+func writeHistoryFile(ctx *VaultContext, path string, hf HistoryFile) error {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
 		return err
 	}
 	raw, err := json.MarshalIndent(hf, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, raw, 0644)
+	return workspace_fs.write_file_atomic(path, raw, 0644)
 }
 
 // rebuildHistoryVersion reconstructs the plain content at the given version
 // by replaying contentOps from the base snapshot.
 // Version 0 returns the base content. Version N replays ops for versions 1..N.
-func rebuildHistoryVersion(historyPath string, version int) (string, error) {
+func rebuildHistoryVersion(ctx *VaultContext, historyPath string, version int) (string, error) {
 	if version < 0 {
 		return "", fmt.Errorf("version must be >= 0")
 	}
 
-	hf, err := loadHistoryFile(historyPath)
+	hf, err := loadHistoryFile(ctx, historyPath)
 	if err != nil {
 		return "", fmt.Errorf("history file not found: %w", err)
 	}
@@ -169,8 +173,13 @@ func rebuildHistoryVersion(historyPath string, version int) (string, error) {
 }
 
 // deleteHistoryFile removes the .history.json file for a record.
-func deleteHistoryFile(historyPath string) {
-	if err := os.Remove(historyPath); err != nil && !os.IsNotExist(err) {
+func deleteHistoryFile(ctx *VaultContext, historyPath string) {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		log.Printf("history: failed to open vault filesystem: %v", err)
+		return
+	}
+	if err := workspace_fs.remove_file(historyPath); err != nil && !is_vault_file_not_exist(err) {
 		log.Printf("history: failed to delete %s: %v", historyPath, err)
 	}
 }

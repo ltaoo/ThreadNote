@@ -1,22 +1,45 @@
-import { app, history, client, views } from "./store/index.js?v=20260820-link-card";
+import { app, history, client, views } from "./store/index.js";
 import { storage } from "./store/storage.js";
 import { RouterSubViews } from "./components/sub-views.js";
-import * as uiComponents from "./components.js?v=20260820-memo-expand-measured";
+import * as uiComponents from "./components.js";
 
 Object.assign(window, uiComponents);
 
 const WINDOW_STATE_POLL_INTERVAL = 250;
 const WINDOW_STATE_SNAPSHOT_DEBOUNCE = 800;
 
+/** @type {number | null} */
 let snapshotPollTimer = null;
+/** @type {number | null} */
 let snapshotDebounceTimer = null;
+/** @type {{x:number;y:number;width:number;height:number}|null} */
 let lastWindowState = null;
 
 function windowStateName() {
-  return window.location.pathname === "/vault-picker" ? "vault-picker" : "desktop";
+  return window.location.pathname === "/vault-picker"
+    ? "vault-picker"
+    : "desktop";
 }
 
-const render = ($root) => {
+function ApplicationRootView() {
+  return View({ class: "tn-root-view" }, [
+    Timeless.ui.StandardSubViews({
+      class: "root-view w-full h-full",
+      view: history.$view,
+      app,
+      views,
+      history,
+      storage,
+      client,
+    }),
+  ]);
+}
+
+/**
+ *
+ * @param {Element} $root
+ */
+function render($root) {
   const { innerWidth, innerHeight, location } = window;
   history.$router.prepare(location);
   app
@@ -25,21 +48,11 @@ const render = ($root) => {
       height: innerHeight,
     })
     .then(() => {
-      const v$ = RouterSubViews({
-        class: classnames("root-view w-full h-full"),
-        view: history.$view,
-        app,
-        views,
-        history,
-        storage,
-        client,
-      });
-      $root.appendChild(v$.render());
-      v$.onMounted();
       restoreWindowState();
       startWindowStateSnapshots();
     });
-};
+  Timeless.DOM.render(ApplicationRootView(), $root);
+}
 
 document.addEventListener("DOMContentLoaded", function () {
   const $root = document.querySelector("#root");
@@ -57,7 +70,10 @@ window.addEventListener("beforeunload", function () {
 
 function restoreWindowState() {
   if (typeof invoke !== "function") return;
-  invoke("/api/window/state/restore?name=" + encodeURIComponent(windowStateName()), { method: "GET" }).catch(function () {});
+  invoke(
+    "/api/window/state/restore?name=" + encodeURIComponent(windowStateName()),
+    { method: "GET" },
+  ).catch(function () {});
 }
 
 function startWindowStateSnapshots() {
@@ -88,7 +104,12 @@ function stopWindowStateSnapshots() {
 function snapshotWindowStateSync() {
   try {
     const xhr = new XMLHttpRequest();
-    xhr.open("GET", "/api/window/state/snapshot?name=" + encodeURIComponent(windowStateName()), false);
+    xhr.open(
+      "GET",
+      "/api/window/state/snapshot?name=" +
+        encodeURIComponent(windowStateName()),
+      false,
+    );
     xhr.send();
   } catch (_) {}
 }
@@ -100,7 +121,11 @@ function scheduleWindowStateSnapshot() {
   }
   snapshotDebounceTimer = window.setTimeout(function () {
     snapshotDebounceTimer = null;
-    invoke("/api/window/state/snapshot?name=" + encodeURIComponent(windowStateName()), { method: "GET" }).catch(function () {});
+    invoke(
+      "/api/window/state/snapshot?name=" +
+        encodeURIComponent(windowStateName()),
+      { method: "GET" },
+    ).catch(function () {});
   }, WINDOW_STATE_SNAPSHOT_DEBOUNCE);
 }
 
@@ -113,6 +138,19 @@ function readWindowStateHint() {
   };
 }
 
+/**
+ *
+ * @param {{x:number;y:number;width:number;height:number}|null} a
+ * @param {{x:number;y:number;width:number;height:number}} b
+ * @returns
+ */
 function isSameWindowStateHint(a, b) {
-  return Boolean(a && b && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height);
+  return Boolean(
+    a &&
+    b &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.width === b.width &&
+    a.height === b.height,
+  );
 }

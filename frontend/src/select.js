@@ -33,18 +33,17 @@ export function createSelectComponent(deps) {
 
   function primitiveEnvironment() {
     if (typeof window === "undefined") return null;
-    const bridge = window.Timeless;
-    const Runtime = bridge?.__select_primitive_runtime;
-    const ui = bridge?.ui;
+    const Runtime = window.Timeless;
+    const ui = Runtime?.ui;
     if (
       !Runtime?.DOM?.render
       || !Runtime?.View
       || !ui?.SelectPrimitive
-      || !bridge?.vm?.SelectCore
+      || !Runtime?.vm?.SelectCore
     ) {
       return null;
     }
-    return { bridge, Runtime, ui };
+    return { Runtime, ui };
   }
 
   function primitiveOptionView(environment, store, entry) {
@@ -54,8 +53,8 @@ export function createSelectComponent(deps) {
     const metadata = entry._tn_option || entry;
     const group = entry._tn_group_start
       ? Runtime.View({ class: "tn-select__group", attributes: { role: "presentation" } }, [
-          entry._tn_group,
-        ])
+        entry._tn_group,
+      ])
       : null;
     const markerStyle = metadata.color
       ? { "background-color": metadata.color }

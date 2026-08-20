@@ -252,6 +252,7 @@
               "time",
               {
                 class: "time-node",
+                "data-n": "prosemirror-time-card",
                 "data-time-node": "true",
                 datetime: node.attrs.value,
               },
@@ -300,6 +301,7 @@
               {
                 class:
                   "file-link-node" + (syntax === "markdown" ? " file-link-node-markdown" : ""),
+                "data-n": "prosemirror-file-card",
                 "data-file-link": "true",
                 "data-file-link-syntax": syntax || null,
                 "data-file-name": node.attrs.name,
@@ -342,6 +344,7 @@
               "span",
               {
                 class: "image-link-node",
+                "data-n": "prosemirror-image-card",
                 "data-image-link": "true",
                 "data-image-src": node.attrs.src,
                 "data-image-alt": node.attrs.alt,
@@ -387,6 +390,7 @@
               "span",
               {
                 class: "image-upload-node image-upload-node-" + status,
+                "data-n": "prosemirror-image-upload-card",
                 "data-image-upload": "true",
                 "data-image-upload-id": node.attrs.id,
                 "data-status": status,
@@ -569,7 +573,10 @@
       const fragment = PM.DOMSerializer.fromSchema(schema).serializeFragment(doc.content);
       const wrap = document.createElement("div");
       wrap.appendChild(fragment);
-      return wrap.innerHTML;
+      const serialized = new XMLSerializer().serializeToString(wrap);
+      return serialized
+        .replace(/^<div(?: xmlns="http:\/\/www\.w3\.org\/1999\/xhtml")?>/, "")
+        .replace(/<\/div>$/, "");
     }
 
     function normalizeFileItem(item) {
@@ -1285,6 +1292,7 @@
             doc: this.initialDoc(editorOptions),
             plugins: this.buildMiniPlugins(),
           }),
+          nodeViews: editorOptions.nodeViews || {},
           attributes: {
             autocapitalize: "off",
             autocomplete: "off",
@@ -2072,9 +2080,8 @@
               let text = event.clipboardData.getData("text/plain");
               const html = event.clipboardData.getData("text/html");
               if (!text && html) {
-                const wrap = document.createElement("div");
-                wrap.innerHTML = html;
-                text = wrap.textContent || "";
+                const parsed = new DOMParser().parseFromString(html, "text/html");
+                text = parsed.body.textContent || "";
               }
               if (!text && !html) return false;
 

@@ -1,4 +1,4 @@
-import { collectTodos, memoTitle, parseTaskTitleAndDesc } from "../../domain/memos.js";
+import { collectTodos, memoTitle, parseTaskTitleAndDesc } from "@/domain/memos.js";
 
 export const MEMO_QUICK_SEARCH_CONTEXT_PREFIX = "demo-desktop:memo-quick-search:v1:";
 export const DEFAULT_MEMO_QUICK_SEARCH_LIMIT = 20;

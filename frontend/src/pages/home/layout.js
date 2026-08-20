@@ -1,7 +1,7 @@
-import { RouterSubViews } from "../../components/sub-views.js";
+import { RouterSubViews } from "@/components/sub-views.js";
 
 export function HomeLayoutView(props) {
-  /** @type {Timeless.RouteViewCore} */
+  /** @type {Timeless.kit.RouteViewCore} */
   const view = props.view;
   const curSubView = ref(view.curView);
   view.onCurViewChange((view) => {

@@ -5,6 +5,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ThreadNote</title>
+  <script type="importmap" data-n="module-import-map">
+    {
+      "imports": {
+        "@/": "./src/"
+      }
+    }
+  </script>
   <script>
     !function () {
       try {
@@ -23,13 +30,9 @@
       } catch (_) { }
     }();
   </script>
-  <link rel="stylesheet" href="/src/style.css?v=20260820-compact-finder-thumbnails" />
+  <link rel="stylesheet" href="/src/style.css" />
   <link rel="stylesheet" href="/public/highlight-dark.css" />
   <script src="/public/tailwindcss.3.4.17.js"></script>
-  <script src="/public/timeless.core.umd.min.js"></script>
-  <script src="/public/timeless.web.umd.min.js"></script>
-  <script src="/public/veloui.umd.min.js"></script>
-  <script>window.__tn_legacy_timeless = window.Timeless;</script>
   <script src="/public/timeless/0.31.4/timeless.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.dom.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.web.umd.min.js"></script>
@@ -37,15 +40,17 @@
   <script src="/public/prosemirror.umd.min.js"></script>
   <script src="/public/lunar-javascript/lunar.js?v=1.7.7"></script>
   <script src="/public/vim.js?v=20260730-vim-marks"></script>
-  <script src="/public/prosemirror-editor.umd.js?v=20260612-image-layout"></script>
+  <script src="/public/prosemirror-editor.umd.js?v=20260820-timeless-node-view"></script>
   <script src="/public/highlight.min.js"></script>
   <script src="/public/input-policy.js" defer></script>
-  <script src="http://localhost:3201/content.js"></script>
+  <script>
+    Object.assign(window, Timeless);
+  </script>
 </head>
 
 <body>
   <div id="root"></div>
-  <script type="module" src="/src/index.js?v=20260820-link-card"></script>
+  <script type="module" src="/src/index.js"></script>
 </body>
 
 </html>

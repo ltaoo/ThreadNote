@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,7 +17,6 @@ var memoReferencePattern = regexp.MustCompile(`!?\[\[([^\]|#]+)(?:[|#][^\]]*)?\]
 var memoMarkdownURLPattern = regexp.MustCompile(`!?\[[^\]]*\]\(([^)]*)\)`)
 var memoAssetTokenPattern = regexp.MustCompile("@assets/[A-Za-z0-9_-]+/[^\\s\\]\\)<>'\"`]+")
 var memoLocationPattern = regexp.MustCompile(`(?:^|[\s([{（【「『])@@([^\n<>()\[\]{}，。！？、；;,.]{1,64})`)
-
 
 type memoAssetReference struct {
 	Key       string
@@ -250,7 +249,11 @@ func memoAssetReferencesInOtherMemos(ctx *VaultContext, targetID string) (map[st
 
 func memoAssetReferencesOutside(ctx *VaultContext, excludedMemoIDs map[string]bool, excludedCommentIDs map[string]bool) (map[string]bool, error) {
 	refs := map[string]bool{}
-	if err := filepath.WalkDir(ctx.MemoDir, func(path string, entry os.DirEntry, err error) error {
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := workspace_fs.walk_dir(vaultMemoDirName, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -272,9 +275,8 @@ func memoAssetReferencesOutside(ctx *VaultContext, excludedMemoIDs map[string]bo
 		return nil, err
 	}
 
-	commentDir := memoCommentDir(ctx)
-	if commentDir != "" {
-		if err := filepath.WalkDir(commentDir, func(path string, entry os.DirEntry, err error) error {
+	if ctx != nil {
+		if err := workspace_fs.walk_dir(vaultMemoCommentDirName, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -292,7 +294,7 @@ func memoAssetReferencesOutside(ctx *VaultContext, excludedMemoIDs map[string]bo
 				refs[memoAssetReferenceID(ref)] = true
 			}
 			return nil
-		}); err != nil && !os.IsNotExist(err) {
+		}); err != nil && !is_vault_file_not_exist(err) {
 			return nil, err
 		}
 	}

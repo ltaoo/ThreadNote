@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -45,9 +44,13 @@ type ProjectActivateRequest struct {
 }
 
 func loadVaultProjects(ctx *VaultContext) (ProjectFile, error) {
-	path := filepath.Join(ctx.VeloDir, vaultProjectsFileName)
-	raw, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
+	path := filepath.Join(vaultConfigDirName, vaultProjectsFileName)
+	workspace_fs, err := require_vault_fs(ctx)
+	if err != nil {
+		return ProjectFile{}, err
+	}
+	raw, err := workspace_fs.read_file(path)
+	if is_vault_file_not_exist(err) {
 		return ProjectFile{SchemaVersion: vaultSchemaVersion, Projects: []ProjectRecord{}}, nil
 	}
 	if err != nil {
@@ -96,7 +99,7 @@ func normalizeProjectFile(file ProjectFile) ProjectFile {
 func saveVaultProjects(ctx *VaultContext, file ProjectFile) error {
 	file = normalizeProjectFile(file)
 	file.SchemaVersion = vaultSchemaVersion
-	return writeJSONFileAtomic(filepath.Join(ctx.VeloDir, vaultProjectsFileName), file)
+	return write_vault_json_file_atomic(ctx, filepath.Join(vaultConfigDirName, vaultProjectsFileName), file)
 }
 
 func listVaultProjects(ctx *VaultContext) (ProjectFile, error) {

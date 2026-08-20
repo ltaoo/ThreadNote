@@ -1,4 +1,4 @@
-import { Timeless } from "../timeless-icons.js";
+import { Timeless } from "@/timeless-icons.js";
 
 export const Icons = Object.freeze({
   Check: Timeless.Icon({ name: "check", size: 14 }),

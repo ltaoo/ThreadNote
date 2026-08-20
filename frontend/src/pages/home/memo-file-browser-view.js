@@ -1,4 +1,49 @@
 import { closestElement } from "./memo-utils.js";
+import { TimelessPrimitive } from "@/timeless-icons.js";
+import { renderTimelessView } from "@/timeless-view-mount.js";
+
+function FileContextActionView(action, label, meaning) {
+  const { Button, View } = TimelessPrimitive;
+  return Button(
+    {
+      class: "tn-menu__item memo-file-context-option",
+      attributes: {
+        "data-file-context-action": action,
+        n: meaning,
+        role: "menuitem",
+        type: "button",
+      },
+    },
+    [
+      View(
+        {
+          as: "span",
+          attributes: { n: meaning + "-label" },
+        },
+        [label],
+      ),
+    ],
+  );
+}
+
+function FileContextMenuView(item) {
+  const { Fragment } = TimelessPrimitive;
+  return Fragment({}, [
+    FileContextActionView("view", "查看", "finder-file-context-view"),
+    item.memoId
+      ? FileContextActionView(
+          "source",
+          "打开来源 memo",
+          "finder-file-context-source",
+        )
+      : null,
+    FileContextActionView(
+      "copy",
+      "复制文件地址",
+      "finder-file-context-copy",
+    ),
+  ]);
+}
 
 export function bindFileBrowserView(root, model, options = {}) {
   let menu = null;
@@ -66,11 +111,7 @@ export function bindFileBrowserView(root, model, options = {}) {
     menu.setAttribute("data-n", "finder-file-context-menu");
     menu.setAttribute("role", "menu");
     menu.setAttribute("aria-label", item.name + " 文件操作");
-    menu.innerHTML = `
-      <button class="tn-menu__item memo-file-context-option" type="button" role="menuitem" data-n="finder-file-context-view" data-file-context-action="view"><span data-n="finder-file-context-view-label">查看</span></button>
-      ${item.memoId ? `<button class="tn-menu__item memo-file-context-option" type="button" role="menuitem" data-n="finder-file-context-source" data-file-context-action="source"><span data-n="finder-file-context-source-label">打开来源 memo</span></button>` : ""}
-      <button class="tn-menu__item memo-file-context-option" type="button" role="menuitem" data-n="finder-file-context-copy" data-file-context-action="copy"><span data-n="finder-file-context-copy-label">复制文件地址</span></button>
-    `;
+    renderTimelessView(menu, FileContextMenuView(item));
     menu.addEventListener("click", handleMenuClick);
     document.body.appendChild(menu);
     positionMenu(menu, x, y);
