@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "lint": "eslint index.js",
-    "lint:fix": "eslint index.js --fix"
+    "lint:fix": "eslint index.js --fix",
+    "test:components": "node --test src/component-models.test.js src/date-picker-model.test.js src/memo-card-model.test.js src/small-calendar-model.test.js"
   },
   "devDependencies": {
     "eslint": "^8.56.0"

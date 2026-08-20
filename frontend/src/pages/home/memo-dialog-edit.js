@@ -18,9 +18,9 @@ import { SVG } from "./memo-icons.js";
 import {
   projectOptionsTemplate,
   visibilityOptionsTemplate,
-} from "./memo-templates.js";
+} from "./memo-templates.js?v=20260820-todo-checkbox-unify";
 import { createMiniEditor } from "./memo-editor.js";
-import { renderMemoMarkdown } from "./memo-markdown.js";
+import { renderMemoMarkdown } from "./memo-markdown.js?v=20260820-pin-state-clarity";
 import { escapeHTML } from "./memo-utils.js";
 
 export function mountMemoEditDialog(host, context) {
@@ -108,27 +108,25 @@ export function mountMemoEditDialog(host, context) {
     var title = "修改 memo";
     var saveLabel = "保存";
     var editControls = '<div class="memo-dialog-meta-controls">'
-      + '<label class="memo-select-wrap is-compact">'
-      + '<select data-memo-dialog-project aria-label="编辑 Project">'
+      + '<div class="memo-select-wrap is-compact">'
+      + '<tn-project-select data-memo-dialog-project aria-label="编辑 Project">'
       + projectOptionsTemplate(projects, projectId)
-      + '</select>'
-      + SVG.chevronDown
-      + '</label>'
-      + '<label class="memo-select-wrap is-compact">'
-      + '<select data-memo-dialog-visibility aria-label="编辑可见性">'
+      + '</tn-project-select>'
+      + '</div>'
+      + '<div class="memo-select-wrap is-compact">'
+      + '<tn-select data-memo-dialog-visibility aria-label="编辑可见性">'
       + visibilityOptionsTemplate(visibility)
-      + '</select>'
-      + SVG.chevronDown
-      + '</label>'
+      + '</tn-select>'
+      + '</div>'
       + '</div>';
 
     var html = ''
-      + '<section class="memo-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="memo-dialog-title">'
+      + '<section class="tn-dialog tn-dialog--md memo-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="memo-dialog-title">'
       + '<header class="memo-dialog-head">'
       + '<h2 id="memo-dialog-title">' + escapeHTML(title) + '</h2>'
       + '<div class="memo-dialog-head-controls">'
       + editControls
-      + '<button class="memo-action-button" type="button" data-memo-dialog-action="close" title="关闭" aria-label="关闭">' + SVG.x + '</button>'
+      + '<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-memo-dialog-action="close" title="关闭" aria-label="关闭">' + SVG.x + '</button>'
       + '</div>'
       + '</header>'
       + '<div class="memo-dialog-body">'
@@ -139,14 +137,14 @@ export function mountMemoEditDialog(host, context) {
       + '</div>'
       + '<footer class="memo-dialog-actions">'
       + '<div class="memo-inline-status-line" data-memo-dialog-vim-status></div>'
-      + '<button class="memo-secondary-button" type="button" data-memo-dialog-action="preview" aria-pressed="false">' + SVG.eye + '<span>预览</span></button>'
-      + '<button class="memo-secondary-button" type="button" data-memo-dialog-action="cancel">' + SVG.x + '<span>取消</span></button>'
-      + '<button class="memo-primary-button" type="button" data-memo-dialog-action="save">' + SVG.check + '<span>' + escapeHTML(saveLabel) + '</span></button>'
+      + '<button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-memo-dialog-action="preview" aria-pressed="false">' + SVG.eye + '<span>预览</span></button>'
+      + '<button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-memo-dialog-action="cancel">' + SVG.x + '<span>取消</span></button>'
+      + '<button class="tn-button tn-button--primary memo-primary-button" type="button" data-memo-dialog-action="save">' + SVG.check + '<span>' + escapeHTML(saveLabel) + '</span></button>'
       + '</footer>'
       + '</section>';
 
     dialogEl = document.createElement("div");
-    dialogEl.className = "memo-dialog";
+    dialogEl.className = "tn-overlay tn-dialog-layer is-open memo-dialog";
     dialogEl.dataset.memoDialog = "true";
     dialogEl.dataset.memoId = memo.id || "";
     dialogEl.innerHTML = html;

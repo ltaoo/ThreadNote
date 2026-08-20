@@ -1,9 +1,10 @@
 import { errorText } from "../../domain/native.js";
 import { loadVaultStatus, normalizeVaultPath, openVault, selectVaultDirectory } from "../../domain/vaults.js";
+import { Timeless } from "../../timeless-icons.js";
 
-const FOLDER_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z"></path></svg>';
-const PLUS_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>';
-const CHECK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>';
+const FOLDER_ICON = Timeless.Icon({ name: "folder" });
+const PLUS_ICON = Timeless.Icon({ name: "plus" });
+const CHECK_ICON = Timeless.Icon({ name: "check" });
 
 export function VaultPickerPageView() {
   let picker = null;
@@ -171,7 +172,7 @@ function template() {
     <main class="vault-picker-shell">
       <section class="vault-picker-panel">
         <header class="vault-picker-header">
-          <div class="vault-picker-mark">${FOLDER_ICON}</div>
+          <div class="vault-picker-mark"><img src="/public/threadnote-logo.svg" alt="" /></div>
           <div>
             <h1>选择 Vault</h1>
             <p data-vault-status>正在检查</p>
@@ -184,7 +185,7 @@ function template() {
         </div>
 
         <form class="vault-picker-form" data-vault-form>
-          <input data-vault-path type="text" placeholder="/Users/litao/Documents/memo-vault" autocomplete="off" />
+          <input data-vault-path type="text" placeholder="~/Documents/ThreadNote" autocomplete="off" />
           <button class="vault-picker-button is-primary" type="submit">${CHECK_ICON}<span>打开</span></button>
         </form>
 

@@ -17,6 +17,9 @@ import { formatRelativeDate } from "./memo-date.js";
 import { cloudStorageById, loadEditorSettings, normalizeFileEditor, normalizeFileEditorRules, resolveAssetUrl } from "./memo-editor.js";
 import { SVG } from "./memo-icons.js";
 import { escapeAttr, escapeHTML } from "./memo-utils.js";
+import { registerCheckboxElement } from "../../components.js?v=20260820-memo-expand-measured";
+
+registerCheckboxElement();
 
 function renderMemoMarkdown(content, context = {}, lineNumberOffset = 0) {
   const lines = memoLines(content);
@@ -200,7 +203,7 @@ function renderMemoMarkdownLines(lines, context, lineNumberOffset) {
         lineNumber + lineNumberOffset,
         `
         <div class="memo-task-line">
-          <input type="checkbox" ${taskSourceAttrs} ${context.readonly ? "disabled" : ""} ${task.checked ? "checked" : ""} />
+          <tn-checkbox class="memo-task-checkbox memo-todo-checkbox" control-class="tn-checkbox--todo tn-checkbox--memo" size="sm" aria-label="切换任务完成状态" data-n="memo-todo-completion-checkbox" ${taskSourceAttrs} ${context.readonly ? "disabled" : ""} ${task.checked ? "checked" : ""}></tn-checkbox>
           <span ${taskDetailAttrs}>${inlineMarkdown(task.text, context)}</span>
         </div>
       `,
@@ -253,7 +256,7 @@ function memoTaskSourceAttrs(context, lineIndex) {
   const sourceCommentId = String((context && context.sourceCommentId) || "").trim();
   const sourceType = String((context && context.sourceType) || (sourceCommentId ? "comment" : "memo")).trim().toLowerCase() || "memo";
   return [
-    `data-task-line="${escapeAttr(lineIndex)}"`,
+    `data-task-line="${escapeAttr(String(lineIndex))}"`,
     `data-task-source-type="${escapeAttr(sourceType)}"`,
     sourceId ? `data-task-source-id="${escapeAttr(sourceId)}"` : "",
     sourceMemoId ? `data-task-source-memo-id="${escapeAttr(sourceMemoId)}"` : "",
@@ -267,7 +270,7 @@ function memoTaskDetailAttrs(context, lineIndex) {
   const sourceCommentId = String((context && context.sourceCommentId) || "").trim();
   const sourceType = String((context && context.sourceType) || (sourceCommentId ? "comment" : "memo")).trim().toLowerCase() || "memo";
   return [
-    `data-task-detail="${escapeAttr(lineIndex)}"`,
+    `data-task-detail="${escapeAttr(String(lineIndex))}"`,
     `data-task-detail-source-type="${escapeAttr(sourceType)}"`,
     sourceMemoId ? `data-task-detail-memo-id="${escapeAttr(sourceMemoId)}"` : "",
     sourceCommentId ? `data-task-detail-comment-id="${escapeAttr(sourceCommentId)}"` : "",
@@ -294,56 +297,79 @@ function highlightCode(code, language) {
   }
 }
 
-function renderMemoCodeBlock(fenceLine, codeLines, context, startLineIndex, endLineIndex) {
-  const sourceId = String((context && context.sourceId) || "").trim();
-  const blockId = sourceId ? `${sourceId}:${startLineIndex}:${endLineIndex}:code` : "";
-  const fence = codeBlockFence(fenceLine);
-  const language = fence.language || "";
+function memoCodeWorkbenchTemplate(codeLines, options = {}) {
+  const lines = Array.isArray(codeLines) && codeLines.length ? codeLines : [""];
+  const blockId = String(options.blockId || "").trim();
+  const language = String(options.language || "").trim();
   const label = language || "代码";
-  const code = codeLines.join("\n");
-  const collapsible = codeLines.length > 20;
+  const code = lines.join("\n");
+  const collapsible = lines.length > 20;
+  const lineCount = lines.length;
+  const lineCountLabel = `${lineCount} 行`;
+  const blockClass = lineCount > 1 ? "memo-fenced-code-multiline" : "memo-fenced-code-singleline";
+  const codeViewport = `
+    <div class="memo-fenced-code-viewport" data-n="code-viewport">
+      <div class="memo-fenced-code-scroll" data-n="code-horizontal-scroll">
+        <div class="memo-fenced-code-gutter" data-n="code-line-number-gutter" aria-hidden="true">${codeGutterTemplate(lineCount)}</div>
+        <pre class="memo-fenced-code-body" data-n="code-body"><code data-n="code-content" data-code-block-code>${highlightCode(code, language)}</code></pre>
+      </div>
+    </div>
+  `;
 
   if (!collapsible) {
     return `
-      <div class="memo-fenced-code-block" ${blockId ? `data-code-block-id="${escapeAttr(blockId)}"` : ""}>
-        <div class="memo-fenced-code-toolbar">
-          <span class="memo-fenced-code-label">${escapeHTML(label)}</span>
-          <div class="memo-fenced-code-actions">
-            <button class="memo-action-button memo-code-copy-button" type="button" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">
+      <div class="memo-fenced-code-block ${blockClass}" data-n="code-workbench" data-code-line-count="${lineCount}" ${blockId ? `data-code-block-id="${escapeAttr(blockId)}"` : ""}>
+        <div class="memo-fenced-code-toolbar" data-n="code-toolbar">
+          <div class="memo-fenced-code-identity" data-n="code-identity">
+            <span class="memo-fenced-code-label" data-n="code-language">${escapeHTML(label)}</span>
+            <span class="memo-fenced-code-meta" data-n="code-line-count">${lineCountLabel}</span>
+          </div>
+          <div class="memo-fenced-code-actions" data-n="code-actions">
+            <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-code-copy-button" type="button" data-n="code-copy" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">
               ${SVG.copy}
+              <span data-n="code-copy-label">复制</span>
             </button>
           </div>
         </div>
-        <pre class="memo-fenced-code-body"><code data-code-block-code>${highlightCode(code, language)}</code></pre>
+        ${codeViewport}
       </div>
     `;
   }
 
-  const hiddenCount = codeLines.length - 10;
-
   return `
-    <div class="memo-fenced-code-block memo-fenced-code-collapsible memo-fenced-code-collapsed" ${blockId ? `data-code-block-id="${escapeAttr(blockId)}"` : ""}>
-      <div class="memo-fenced-code-toolbar">
-        <span class="memo-fenced-code-label">${escapeHTML(label)}</span>
-        <div class="memo-fenced-code-actions">
-          <button class="memo-action-button memo-code-collapse-button" type="button" data-action="toggleCodeCollapse" title="展开代码" aria-label="展开代码">${SVG.chevronDown}</button>
-          <button class="memo-action-button memo-code-copy-button" type="button" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">
+    <div class="memo-fenced-code-block ${blockClass} memo-fenced-code-collapsible memo-fenced-code-collapsed" data-n="code-workbench" data-code-line-count="${lineCount}" ${blockId ? `data-code-block-id="${escapeAttr(blockId)}"` : ""}>
+      <div class="memo-fenced-code-toolbar" data-n="code-toolbar">
+        <div class="memo-fenced-code-identity" data-n="code-identity">
+          <span class="memo-fenced-code-label" data-n="code-language">${escapeHTML(label)}</span>
+          <span class="memo-fenced-code-meta" data-n="code-line-count">${lineCountLabel}</span>
+        </div>
+        <div class="memo-fenced-code-actions" data-n="code-actions">
+          <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-code-collapse-button" type="button" data-n="code-collapse-toggle" data-action="toggleCodeCollapse" title="展开代码" aria-label="展开代码">${SVG.chevronDown}</button>
+          <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-code-copy-button" type="button" data-n="code-copy" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">
             ${SVG.copy}
+            <span data-n="code-copy-label">复制</span>
           </button>
         </div>
       </div>
-      <div class="memo-fenced-code-viewport">
-        <pre class="memo-fenced-code-body"><code data-code-block-code>${highlightCode(code, language)}</code></pre>
-      </div>
-      <div class="memo-fenced-code-overlay">
-        <div class="memo-fenced-code-overlay-gradient"></div>
-        <button class="memo-fenced-code-expand-btn" type="button" data-action="toggleCodeCollapse">
-          ${SVG.chevronDown}
-          <span>展开剩余 ${hiddenCount} 行</span>
-        </button>
-      </div>
+      ${codeViewport}
     </div>
   `;
+}
+
+function renderMemoCodeBlock(fenceLine, codeLines, context, startLineIndex, endLineIndex) {
+  const sourceId = String((context && context.sourceId) || "").trim();
+  const blockId = sourceId ? `${sourceId}:${startLineIndex}:${endLineIndex}:code` : "";
+  const fence = codeBlockFence(fenceLine);
+  return memoCodeWorkbenchTemplate(codeLines, {
+    blockId,
+    language: fence.language || "",
+  });
+}
+
+function codeGutterTemplate(lineCount) {
+  return Array.from({ length: lineCount }, function (_item, index) {
+    return `<span data-n="code-line-number">${index + 1}</span>`;
+  }).join("");
 }
 
 function isQuoteLine(line) {
@@ -1090,7 +1116,7 @@ function renderMemoLinkBlock(resource) {
           <span class="memo-link-block-url">${escapeHTML(compactFileURL(copyUrl))}</span>
         </span>
       </a>
-      <button class="memo-action-button memo-link-block-copy" type="button" data-action="copyInlineLink" title="复制链接" aria-label="复制链接">
+      <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-link-block-copy" type="button" data-action="copyInlineLink" title="复制链接" aria-label="复制链接">
         ${SVG.copy}
       </button>
     </div>
@@ -1290,6 +1316,7 @@ export {
   collectMemoHeadings,
   compactFileURL,
   inlineMarkdown,
+  memoCodeWorkbenchTemplate,
   renderMemoMarkdown,
   renderVSCodeOpenButton,
   safeImageUrl,

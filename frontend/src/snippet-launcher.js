@@ -1,4 +1,5 @@
 import { SnippetLauncherModel } from "./snippet-launcher-model.js";
+import { Timeless } from "./timeless-icons.js";
 
 const WINDOW_WIDTH = 720;
 const COLLAPSED_HEIGHT = 60;
@@ -21,6 +22,7 @@ class SnippetLauncherView {
     this.resizeRequestId = 0;
     this.unsubscribe = null;
     this.windowHeight = 0;
+    this.els.close?.replaceChildren(Timeless.Icon({ name: "x", size: 18 }).render());
   }
 
   connect(model) {

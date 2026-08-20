@@ -7,21 +7,18 @@ import {
   errorMessage,
   loadMemosFromVault,
 } from "./domain/memo-repository.js";
-import { renderMemoMarkdown } from "./pages/home/memo-markdown.js";
+import { renderMemoMarkdown } from "./pages/home/memo-markdown.js?v=20260820-todo-checkbox-unify";
 import { relativeTimeTemplate } from "./pages/home/memo-date.js";
 import { loadTasks } from "./domain/tasks.js";
+import { Timeless } from "./timeless-icons.js";
 import { registerWindowSession } from "./window-state.js";
 
-const SVG = {
-  clock:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
-  memo:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>',
-  comment:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
-  check:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>',
-};
+const SVG = Object.freeze({
+  clock: Timeless.Icon({ name: "clock" }),
+  memo: Timeless.Icon({ name: "file-text" }),
+  comment: Timeless.Icon({ name: "message-square-more" }),
+  check: Timeless.Icon({ name: "check" }),
+});
 
 document.addEventListener("DOMContentLoaded", function () {
   const root = document.querySelector("#root");
@@ -466,7 +463,7 @@ function timelineItemTemplate(item, expandedItemIds, memoRefIndex) {
         <div class="memo-content">${cardContent}</div>
         <button class="memo-expand-button" type="button" data-action="toggleExpand" data-expand-id="${escapeAttr(item.id)}" aria-expanded="${isExpanded ? "true" : "false"}">
           <span>${isExpanded ? "收起" : "展开"}</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          ${Timeless.Icon({ name: "chevron-down" })}
         </button>
       </div>
     </div>`;

@@ -6,6 +6,7 @@ import {
   loadMemoAgentRunEvents,
   loadMemoAgents,
 } from "../../domain/memo-agent.js";
+import { Timeless } from "../../timeless-icons.js";
 import { escapeHTML } from "./memo-utils.js";
 
 let activeDialog = null;
@@ -29,7 +30,7 @@ function createDialog(options) {
 
   function open() {
     element = document.createElement("div");
-    element.className = "memo-agent-dialog";
+    element.className = "tn-overlay tn-dialog-layer is-open memo-agent-dialog";
     element.innerHTML = dialogHTML(candidate);
     document.body.appendChild(element);
     element.addEventListener("click", handleClick);
@@ -205,7 +206,7 @@ function createDialog(options) {
     busy = Boolean(value);
     if (!element) return;
     element.classList.toggle("is-busy", busy);
-    element.querySelectorAll("button, select, textarea").forEach(function (control) {
+    element.querySelectorAll("button, tn-select, textarea").forEach(function (control) {
       control.disabled = busy;
     });
     const closeButton = element.querySelector('[data-memo-agent-action="close"]');
@@ -246,11 +247,13 @@ function memoAgentStreamText(value) {
 }
 
 function dialogHTML(selection) {
-  return '<section class="memo-agent-panel" role="dialog" aria-modal="true" aria-labelledby="memo-agent-title">'
+  return '<section class="tn-dialog tn-dialog--md memo-agent-panel" role="dialog" aria-modal="true" aria-labelledby="memo-agent-title">'
     + '<header class="memo-agent-head"><div><h2 id="memo-agent-title">对话编辑</h2><p>Agent 会重写当前选区，确认后再替换到编辑器。</p></div>'
-    + '<button type="button" data-memo-agent-action="close" aria-label="关闭">×</button></header>'
+    + '<button type="button" data-memo-agent-action="close" aria-label="关闭">'
+    + Timeless.Icon({ name: "x" })
+    + "</button></header>"
     + '<div class="memo-agent-body">'
-    + '<label class="memo-agent-field"><span>Agent</span><select data-memo-agent-select><option value="opencode">OpenCode</option></select></label>'
+    + '<label class="memo-agent-field"><span>Agent</span><tn-select data-memo-agent-select><option value="opencode">OpenCode</option></tn-select></label>'
     + '<div class="memo-agent-section"><span>当前替换内容</span><pre data-memo-agent-preview>' + escapeHTML(selection) + '</pre></div>'
     + '<div class="memo-agent-messages" data-memo-agent-messages></div>'
     + '<label class="memo-agent-field"><span>修改要求</span><textarea rows="3" data-memo-agent-input placeholder="例如：改得更简洁，并保留 Markdown 格式"></textarea></label>'

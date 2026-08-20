@@ -1,6 +1,9 @@
-import { app, history, client, views } from "./store/index.js";
+import { app, history, client, views } from "./store/index.js?v=20260820-link-card";
 import { storage } from "./store/storage.js";
 import { RouterSubViews } from "./components/sub-views.js";
+import * as uiComponents from "./components.js?v=20260820-memo-expand-measured";
+
+Object.assign(window, uiComponents);
 
 const WINDOW_STATE_POLL_INTERVAL = 250;
 const WINDOW_STATE_SNAPSHOT_DEBOUNCE = 800;

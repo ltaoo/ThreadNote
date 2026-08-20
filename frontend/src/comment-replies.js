@@ -7,7 +7,7 @@ import {
   detachedMemoCardTemplate,
   detachedMemoCommentTemplate,
   detachedMemoRenderContext,
-} from "./pages/home/memo-templates.js";
+} from "./pages/home/memo-templates.js?v=20260820-todo-checkbox-unify";
 import { memoQuickSearchHighlightParts } from "./pages/home/memo-quick-search-model.js";
 import { escapeHTML } from "./pages/home/memo-utils.js";
 

@@ -4,41 +4,28 @@ import {
   registerWindowSession,
   setPersistedWindowFixed,
 } from "../window-state.js";
+import { Timeless } from "../timeless-icons.js";
 
 const PREVIEW_STORAGE_PREFIX = "demo-desktop:image-preview:";
 const PREVIEW_STORAGE_INDEX = "demo-desktop:image-preview:index";
 const MAX_STORED_PREVIEWS = 16;
 
-const ICONS = {
-  actual:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M8 8h8v8H8z"></path></svg>',
-  brush:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18c-2 0-4 1-5 3 4 0 7-1 7-4"></path><path d="M14 5l5 5"></path><path d="M10 15 20 5a2.1 2.1 0 0 0-3-3L7 12z"></path></svg>',
-  close:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>',
-  copy:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><rect x="4" y="4" width="11" height="11" rx="2"></rect></svg>',
-  download:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>',
-  fit:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M16 3h3a2 2 0 0 1 2 2v3"></path><path d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>',
-  hand:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 11V7a2 2 0 0 0-4 0v4"></path><path d="M14 10V5a2 2 0 0 0-4 0v6"></path><path d="M10 10V6a2 2 0 0 0-4 0v8"></path><path d="M6 14v-2a2 2 0 0 0-4 0v3a7 7 0 0 0 7 7h3a6 6 0 0 0 6-6v-5a2 2 0 0 0-4 0v1"></path></svg>',
-  pin:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5-4 4v5l-2 2-5-5-5-5 2-2h5z"></path><path d="m9 15-5 5"></path></svg>',
-  reset:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v6h6"></path></svg>',
-  rotateLeft:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v6h6"></path></svg>',
-  rotateRight:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 4v6h-6"></path></svg>',
-  trash:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path></svg>',
-  zoomIn:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M11 8v6"></path><path d="M8 11h6"></path><path d="m21 21-4.3-4.3"></path></svg>',
-  zoomOut:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M8 11h6"></path><path d="m21 21-4.3-4.3"></path></svg>',
-};
+const ICONS = Object.freeze({
+  actual: Timeless.Icon({ name: "square" }),
+  brush: Timeless.Icon({ name: "brush" }),
+  close: Timeless.Icon({ name: "x" }),
+  copy: Timeless.Icon({ name: "copy" }),
+  download: Timeless.Icon({ name: "download" }),
+  fit: Timeless.Icon({ name: "fit" }),
+  hand: Timeless.Icon({ name: "hand" }),
+  pin: Timeless.Icon({ name: "pin" }),
+  reset: Timeless.Icon({ name: "undo2" }),
+  rotateLeft: Timeless.Icon({ name: "rotate-ccw" }),
+  rotateRight: Timeless.Icon({ name: "rotate-right" }),
+  trash: Timeless.Icon({ name: "trash2" }),
+  zoomIn: Timeless.Icon({ name: "zoom-in" }),
+  zoomOut: Timeless.Icon({ name: "zoom-out" }),
+});
 
 const PREVIEW_CSS = `
   * {

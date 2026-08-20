@@ -1,6 +1,6 @@
 export function UIExamplePageView() {
-  return View({ class: "flex" }, [
-    View({ class: "w-[320px]" }, [
+  return View({ class: "ui-example-page flex" }, [
+    View({ class: "ui-example-nav w-[320px]" }, [
       For({
         each: ref([
           {
@@ -20,13 +20,35 @@ export function UIExamplePageView() {
         },
       }),
     ]),
-    View({ class: "flex-1 w-0 p-4" }, [
+    View({ class: "ui-example-main flex-1 w-0 p-4" }, [
       View({ class: "sections space-y-8" }, [
         View({ class: "section" }, [
           View({ class: "section__title text-2xl" }, [Txt("Button")]),
           View({ class: "section__body space-x-4" }, [
             Button({}, [Txt("Regular Button")]),
             Button({ type: "primary" }, [Txt("Primary Button")]),
+          ]),
+        ]),
+        View({ class: "section" }, [
+          View({ class: "section__title text-2xl" }, [Txt("MemoCard")]),
+          View({ class: "section__body tn-mt-3" }, [
+            MemoCard({
+              clickable: true,
+              memo: {
+                alias: "release-plan",
+                author: "Mayfair",
+                backlinks: 3,
+                comments: 2,
+                content:
+                  "# 桌面端发布计划\n完成组件库迁移、键盘可访问性检查和发布前回归。\n\n#release #desktop",
+                createdAt: "2026-08-19T10:30:00+08:00",
+                id: "memo-component-example",
+                pinned: true,
+                projectLabel: "ThreadNote",
+                reactions: ["👍", "🎉"],
+                visibility: "PROTECTED",
+              },
+            }),
           ]),
         ]),
         View({ class: "section" }, [
@@ -59,18 +81,19 @@ export function UIExamplePageView() {
           View({ class: "section__title text-2xl" }, [Txt("Select")]),
           View({ class: "section__body space-x-4" }, [
             Select({
-              store: new Timeless.ui.SelectCore({
+              store: new Timeless.vm.SelectCore({
                 defaultValue: "apple",
                 options: [
-                  {
+                  new Timeless.vm.SelectItemCore({
                     value: "apple",
                     label: "苹果",
-                  },
-                  {
+                  }),
+                  new Timeless.vm.SelectItemCore({
                     value: "banana",
                     label: "香蕉",
-                  },
+                  }),
                 ],
+                position: "popper",
               }),
             }),
           ]),

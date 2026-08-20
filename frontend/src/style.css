@@ -1,0 +1,403 @@
+/*
+ * ThreadNote design-token boundary.
+ *
+ * New UI must consume the semantic --tn-* tokens in this file, directly or
+ * through the imported tn-* atomic utilities. The legacy component layer and
+ * aliases remain available while components are migrated incrementally.
+ */
+@import url("../public/index.css");
+@import url("./components.css?v=20260820-component-foundations-v2");
+@import url("./form-controls.css?v=20260820-component-foundations-v2");
+@import url("./memo-card.css?v=20260820-pin-state-clarity");
+@import url("./small-calendar.css?v=20260820-calendar-navigation");
+@import url("./workspace-shell.css?v=20260820-fixed-settings-footer");
+@import url("./workspace-memos.css?v=20260820-project-tag-subtle");
+@import url("./memo-code.css?v=20260820-code-snippet-workbench");
+@import url("./workspace-collections.css?v=20260820-compact-finder-thumbnails");
+@import url("./workspace-windows.css?v=20260820-inline-task-detail-brand");
+@import url("./workspace-timeline.css");
+@import url("./standalone-tools.css");
+@import url("./atomic.css");
+
+:root {
+  color-scheme: light;
+
+  /* Typography: calm reading, compact controls, precise metadata. */
+  --tn-font-family-display: "Avenir Next", "Segoe UI Variable Display",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui,
+    sans-serif;
+  --tn-font-family-body: "SF Pro Text", "Segoe UI Variable Text",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui,
+    sans-serif;
+  --tn-font-family-mono: "SFMono-Regular", "Cascadia Mono", Consolas,
+    "Liberation Mono", monospace;
+  --tn-font-size-2xs: 10px;
+  --tn-font-size-xs: 12px;
+  --tn-font-size-sm: 13px;
+  --tn-font-size-md: 14px;
+  --tn-font-size-lg: 15px;
+  --tn-font-size-xl: 16px;
+  --tn-font-size-2xl: 18px;
+  --tn-font-size-3xl: 20px;
+  --tn-font-size-display: 24px;
+  --tn-font-weight-regular: 400;
+  --tn-font-weight-medium: 500;
+  --tn-font-weight-semibold: 600;
+  --tn-font-weight-bold: 700;
+  --tn-line-height-tight: 1.2;
+  --tn-line-height-snug: 1.35;
+  --tn-line-height-body: 1.55;
+  --tn-line-height-reading: 1.7;
+  --tn-letter-spacing-tight: -0.018em;
+  --tn-letter-spacing-normal: 0;
+  --tn-letter-spacing-wide: 0.06em;
+
+  /* Spacing: a 4px base grid with compact 2px half-steps. */
+  --tn-space-0: 0;
+  --tn-space-0-5: 2px;
+  --tn-space-1: 4px;
+  --tn-space-1-5: 6px;
+  --tn-space-2: 8px;
+  --tn-space-2-5: 10px;
+  --tn-space-3: 12px;
+  --tn-space-3-5: 14px;
+  --tn-space-4: 16px;
+  --tn-space-5: 20px;
+  --tn-space-6: 24px;
+  --tn-space-7: 28px;
+  --tn-space-8: 32px;
+  --tn-space-10: 40px;
+  --tn-space-12: 48px;
+  --tn-space-16: 64px;
+
+  /* Shape and control sizing. */
+  --tn-border-width: 1px;
+  --tn-border-width-strong: 2px;
+  --tn-radius-none: 0;
+  --tn-radius-xs: 3px;
+  --tn-radius-sm: 5px;
+  --tn-radius-md: 8px;
+  --tn-radius-lg: 12px;
+  --tn-radius-xl: 16px;
+  --tn-radius-full: 9999px;
+  --tn-control-height-xs: 26px;
+  --tn-control-height-sm: 30px;
+  --tn-control-height-md: 36px;
+  --tn-control-height-lg: 42px;
+  --tn-control-hit-area: 44px;
+  --tn-control-textarea-min-height: 96px;
+
+  /* Desktop layout. */
+  --tn-layout-min-width: 320px;
+  --tn-layout-sidebar-width: clamp(172px, 18vw, 220px);
+  --tn-layout-inspector-width: clamp(252px, 22vw, 300px);
+  --tn-layout-content-max: 1120px;
+  --tn-layout-popover-width: 288px;
+  --tn-layout-dialog-width: 640px;
+  --tn-titlebar-height: 40px;
+
+  /* Motion and stacking. */
+  --tn-duration-instant: 80ms;
+  --tn-duration-fast: 120ms;
+  --tn-duration-base: 180ms;
+  --tn-duration-slow: 260ms;
+  --tn-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --tn-ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --tn-opacity-disabled: 0.56;
+  --tn-z-base: 0;
+  --tn-z-raised: 2;
+  --tn-z-sticky: 20;
+  --tn-z-overlay: 50;
+  --tn-z-popover: 100;
+  --tn-z-control-popover: 12000;
+  --tn-z-toast: 200;
+
+  /* Raw brand palette, taken directly from the ThreadNote logo. */
+  --tn-color-brand-paper: #f7f5ef;
+  --tn-color-brand-ink: #202124;
+  --tn-color-brand-amber: #ffae24;
+
+  /* Light theme surfaces and content. */
+  --tn-color-bg-canvas: var(--tn-color-brand-paper);
+  --tn-color-bg-surface: #fffdf8;
+  --tn-color-bg-subtle: #f1eee6;
+  --tn-color-bg-interactive: #e9e5dc;
+  --tn-color-bg-elevated: #ffffff;
+  --tn-color-bg-inverse: var(--tn-color-brand-ink);
+  --tn-color-bg-strong: #4b4a46;
+  --tn-color-bg-scrim: rgba(32, 33, 36, 0.56);
+  --tn-color-text-primary: var(--tn-color-brand-ink);
+  --tn-color-text-secondary: #64615a;
+  --tn-color-text-tertiary: #8f8a80;
+  --tn-color-text-disabled: #b2ada2;
+  --tn-color-text-inverse: var(--tn-color-brand-paper);
+  --tn-color-border: #ddd8cd;
+  --tn-color-border-strong: #c6bfaf;
+  --tn-color-border-translucent: rgba(32, 33, 36, 0.12);
+  --tn-color-fill-translucent: rgba(32, 33, 36, 0.06);
+
+  /* Primary: logo amber is a fill; dark amber is readable text on paper. */
+  --tn-color-primary-text: #875000;
+  --tn-color-primary-text-hover: #673c00;
+  --tn-color-primary-fill: var(--tn-color-brand-amber);
+  --tn-color-primary-fill-hover: #f59b00;
+  --tn-color-primary-fill-active: #df8600;
+  --tn-color-primary-solid: #985700;
+  --tn-color-primary-solid-hover: #754200;
+  --tn-color-on-primary: var(--tn-color-brand-ink);
+  --tn-color-on-primary-solid: #ffffff;
+  --tn-color-primary-soft: #fff0c7;
+  --tn-color-primary-border: rgba(168, 97, 0, 0.34);
+  --tn-color-primary-border-strong: rgba(135, 80, 0, 0.62);
+  --tn-color-primary-glow: rgba(255, 174, 36, 0.28);
+
+  /* Semantic status colors. */
+  --tn-color-success: #18794e;
+  --tn-color-success-soft: #e5f4eb;
+  --tn-color-success-border: rgba(24, 121, 78, 0.3);
+  --tn-color-warning: #a65300;
+  --tn-color-warning-soft: #fff0de;
+  --tn-color-warning-border: rgba(166, 83, 0, 0.3);
+  --tn-color-danger: #c43d4d;
+  --tn-color-danger-soft: #fcebed;
+  --tn-color-danger-border: rgba(196, 61, 77, 0.3);
+  --tn-color-info: #2b6fb6;
+  --tn-color-info-soft: #e7f0fa;
+  --tn-color-info-border: rgba(43, 111, 182, 0.3);
+
+  /* Interaction states. */
+  --tn-color-hover-surface: var(--tn-color-bg-subtle);
+  --tn-color-active-surface: var(--tn-color-bg-interactive);
+  --tn-color-selection-surface: var(--tn-color-primary-soft);
+  --tn-color-selection-border: var(--tn-color-primary-border-strong);
+  --tn-color-selection-text: var(--tn-color-primary-text);
+  --tn-color-selection-indicator: var(--tn-color-primary-fill);
+  --tn-color-focus-ring: rgba(255, 174, 36, 0.38);
+  --tn-color-editor-selection: rgba(43, 111, 182, 0.2);
+  --tn-color-editor-selection-ring: rgba(43, 111, 182, 0.34);
+
+  /* Form overlays: a compact paper index rather than a generic menu. */
+  --tn-control-panel-bg: #fffdf8;
+  --tn-control-panel-rule: rgba(135, 80, 0, 0.14);
+  --tn-control-placeholder: #817b70;
+  --tn-control-selected-rail: var(--tn-color-primary-fill);
+  --tn-control-today-ring: var(--tn-color-primary-border-strong);
+
+  /* Checkbox: a compact completion stamp on the paper surface. */
+  --tn-checkbox-bg: #fffefa;
+  --tn-checkbox-border: #aaa294;
+  --tn-checkbox-hover-bg: #fff5d9;
+  --tn-checkbox-hover-border: #a76500;
+  --tn-checkbox-checked-bg: var(--tn-color-primary-fill);
+  --tn-checkbox-checked-border: #c97800;
+  --tn-checkbox-mark: var(--tn-color-brand-ink);
+  --tn-checkbox-complete-text: #777168;
+
+  /* Code surfaces: an ink plate embedded inside the warm paper canvas. */
+  --tn-code-bg: #1b1c1a;
+  --tn-code-toolbar: #24241f;
+  --tn-code-hover: #333129;
+  --tn-code-border: rgba(32, 33, 36, 0.32);
+  --tn-code-divider: rgba(255, 255, 255, 0.09);
+  --tn-code-text: #efede7;
+  --tn-code-muted: #aaa49a;
+  --tn-code-gutter: #777269;
+
+  /* Elevation: warm shadows keep paper surfaces from looking blue-gray. */
+  --tn-shadow-xs: 0 1px 1px rgba(55, 45, 27, 0.06);
+  --tn-shadow-sm: 0 2px 8px rgba(55, 45, 27, 0.09);
+  --tn-shadow-md: 0 12px 30px rgba(55, 45, 27, 0.13);
+  --tn-shadow-lg: 0 24px 64px rgba(55, 45, 27, 0.18);
+  --tn-shadow-popover: 0 14px 38px rgba(55, 45, 27, 0.2);
+  --tn-shadow-divider: 0 1px 0 var(--tn-color-border-translucent);
+  --tn-focus-ring: 0 0 0 3px var(--tn-color-focus-ring);
+
+  /* Signature "thread rail": relation and selection, never decoration. */
+  --tn-thread-width: 3px;
+  --tn-thread-color: var(--tn-color-primary-fill);
+  --tn-thread-node-size: 8px;
+  --tn-thread-node-ring: 0 0 0 3px var(--tn-color-primary-soft);
+
+  /* Transitional aliases for the existing component stylesheet. */
+  --background: var(--tn-color-bg-canvas);
+  --foreground: var(--tn-color-text-primary);
+  --BG-0: var(--tn-color-bg-surface);
+  --BG-1: var(--tn-color-bg-subtle);
+  --BG-2: var(--tn-color-bg-surface);
+  --BG-3: var(--tn-color-bg-interactive);
+  --BG-4: var(--tn-color-bg-strong);
+  --BG-5: var(--tn-color-bg-elevated);
+  --FG-0: var(--tn-color-text-primary);
+  --FG-0_5: var(--tn-color-text-primary);
+  --FG-1: var(--tn-color-text-secondary);
+  --FG-2: var(--tn-color-text-tertiary);
+  --FG-3: var(--tn-color-border-translucent);
+  --FG-4: var(--tn-color-border-strong);
+  --FG-5: var(--tn-color-fill-translucent);
+  --BG-COLOR-ACTIVE: var(--tn-color-bg-interactive);
+  --RED: var(--tn-color-danger);
+  --GREEN: var(--tn-color-success);
+  --border: var(--tn-color-border);
+  --line: var(--tn-color-border);
+  --accent: var(--tn-color-primary-text);
+  --accent-soft: var(--tn-color-primary-soft);
+  --danger: var(--tn-color-danger);
+  --muted: var(--tn-color-text-secondary);
+  --text: var(--tn-color-text-primary);
+  --font-root: var(--tn-font-size-md);
+  --font-2xs: var(--tn-font-size-2xs);
+  --font-xs: var(--tn-font-size-xs);
+  --font-sm: var(--tn-font-size-sm);
+  --font-md: var(--tn-font-size-md);
+  --font-body: var(--tn-font-size-md);
+  --font-lg: var(--tn-font-size-lg);
+  --font-xl: var(--tn-font-size-xl);
+  --font-1xl: 17px;
+  --font-2xl: var(--tn-font-size-2xl);
+  --font-3xl: var(--tn-font-size-3xl);
+  --font-display: var(--tn-font-size-display);
+  --input-line-height: var(--tn-line-height-body);
+  --memo-accent: var(--tn-color-primary-solid);
+  --memo-accent-strong: var(--tn-color-primary-text);
+  --memo-accent-soft: var(--tn-color-primary-soft);
+  --memo-accent-border: var(--tn-color-primary-border);
+  --memo-blue: var(--tn-color-info);
+  --memo-blue-soft: var(--tn-color-info-soft);
+  --memo-warn: var(--tn-color-warning);
+  --memo-warn-soft: var(--tn-color-warning-soft);
+  --memo-warn-border: var(--tn-color-warning-border);
+  --memo-titlebar-bg: var(--tn-color-bg-subtle);
+  --memo-titlebar-bg-focused: var(--tn-color-bg-interactive);
+  --vim-visual-bg: var(--tn-color-editor-selection);
+  --vim-visual-fg: var(--tn-color-text-primary);
+  --vim-visual-ring: var(--tn-color-editor-selection-ring);
+  --hh: 100vh;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --tn-color-bg-canvas: #171612;
+  --tn-color-bg-surface: #1f1e1a;
+  --tn-color-bg-subtle: #292722;
+  --tn-color-bg-interactive: #37342d;
+  --tn-color-bg-elevated: #302e28;
+  --tn-color-bg-inverse: var(--tn-color-brand-paper);
+  --tn-color-bg-strong: #4b4840;
+  --tn-color-bg-scrim: rgba(0, 0, 0, 0.7);
+  --tn-color-text-primary: #f7f5ef;
+  --tn-color-text-secondary: #bdb7ac;
+  --tn-color-text-tertiary: #918b80;
+  --tn-color-text-disabled: #6b665d;
+  --tn-color-text-inverse: var(--tn-color-brand-ink);
+  --tn-color-border: #413e37;
+  --tn-color-border-strong: #5a554b;
+  --tn-color-border-translucent: rgba(255, 255, 255, 0.1);
+  --tn-color-fill-translucent: rgba(255, 255, 255, 0.07);
+  --tn-color-primary-text: #ffc15c;
+  --tn-color-primary-text-hover: #ffd58f;
+  --tn-color-primary-fill: var(--tn-color-brand-amber);
+  --tn-color-primary-fill-hover: #ffc15c;
+  --tn-color-primary-fill-active: #e9930a;
+  --tn-color-primary-solid: #d98200;
+  --tn-color-primary-solid-hover: #f09a08;
+  --tn-color-on-primary: var(--tn-color-brand-ink);
+  --tn-color-on-primary-solid: var(--tn-color-brand-ink);
+  --tn-color-primary-soft: rgba(255, 174, 36, 0.16);
+  --tn-color-primary-border: rgba(255, 193, 92, 0.34);
+  --tn-color-primary-border-strong: rgba(255, 193, 92, 0.62);
+  --tn-color-primary-glow: rgba(255, 174, 36, 0.3);
+  --tn-color-success: #67dca0;
+  --tn-color-success-soft: rgba(103, 220, 160, 0.13);
+  --tn-color-success-border: rgba(103, 220, 160, 0.34);
+  --tn-color-warning: #ff9f57;
+  --tn-color-warning-soft: rgba(255, 159, 87, 0.14);
+  --tn-color-warning-border: rgba(255, 159, 87, 0.36);
+  --tn-color-danger: #ff858f;
+  --tn-color-danger-soft: rgba(255, 133, 143, 0.14);
+  --tn-color-danger-border: rgba(255, 133, 143, 0.38);
+  --tn-color-info: #78b8f4;
+  --tn-color-info-soft: rgba(120, 184, 244, 0.14);
+  --tn-color-info-border: rgba(120, 184, 244, 0.36);
+  --tn-color-focus-ring: rgba(255, 193, 92, 0.38);
+  --tn-control-panel-bg: #27251f;
+  --tn-control-panel-rule: rgba(255, 193, 92, 0.15);
+  --tn-control-placeholder: #a39c91;
+  --tn-control-selected-rail: var(--tn-color-primary-fill);
+  --tn-control-today-ring: var(--tn-color-primary-border-strong);
+  --tn-color-editor-selection: rgba(120, 184, 244, 0.32);
+  --tn-color-editor-selection-ring: rgba(120, 184, 244, 0.52);
+  --tn-checkbox-bg: #25231e;
+  --tn-checkbox-border: #777065;
+  --tn-checkbox-hover-bg: #342d20;
+  --tn-checkbox-hover-border: #ffc15c;
+  --tn-checkbox-checked-bg: var(--tn-color-primary-fill);
+  --tn-checkbox-checked-border: #ffc15c;
+  --tn-checkbox-mark: var(--tn-color-brand-ink);
+  --tn-checkbox-complete-text: #918b80;
+  --tn-code-bg: #11120f;
+  --tn-code-toolbar: #1c1b17;
+  --tn-code-hover: #302e27;
+  --tn-code-border: rgba(255, 255, 255, 0.14);
+  --tn-code-divider: rgba(255, 255, 255, 0.09);
+  --tn-code-text: #f2efe7;
+  --tn-code-muted: #aaa398;
+  --tn-code-gutter: #716c63;
+  --tn-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.24);
+  --tn-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+  --tn-shadow-md: 0 14px 34px rgba(0, 0, 0, 0.4);
+  --tn-shadow-lg: 0 26px 68px rgba(0, 0, 0, 0.5);
+  --tn-shadow-popover: 0 16px 42px rgba(0, 0, 0, 0.52);
+  --tn-shadow-divider: 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+html,
+body {
+  background-color: var(--tn-color-bg-canvas);
+  color: var(--tn-color-text-primary);
+  font-family: var(--tn-font-family-body);
+  font-synthesis: none;
+}
+
+body {
+  max-width: 100%;
+  width: 100%;
+}
+
+[data-theme="light"] body,
+[data-theme="dark"] body {
+  background-color: var(--tn-color-bg-canvas);
+}
+
+::selection {
+  background: var(--tn-color-editor-selection);
+  color: var(--tn-color-text-primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--tn-color-primary-fill);
+  outline-offset: 2px;
+}
+
+/* Override local legacy values so the memo workspace follows the new theme. */
+.memo-shell,
+.memo-window-shell {
+  --memo-accent: var(--tn-color-primary-solid);
+  --memo-accent-strong: var(--tn-color-primary-text);
+  --memo-accent-soft: var(--tn-color-primary-soft);
+  --memo-accent-border: var(--tn-color-primary-border);
+  --memo-blue: var(--tn-color-info);
+  --memo-blue-soft: var(--tn-color-info-soft);
+  --memo-warn: var(--tn-color-warning);
+  --memo-warn-soft: var(--tn-color-warning-soft);
+  --memo-warn-border: var(--tn-color-warning-border);
+  --memo-radius: var(--tn-radius-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --tn-duration-instant: 0ms;
+    --tn-duration-fast: 0ms;
+    --tn-duration-base: 0ms;
+    --tn-duration-slow: 0ms;
+  }
+}

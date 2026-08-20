@@ -1,4 +1,4 @@
-import { mountMemoEditDialog } from "./pages/home/memo-dialog-edit.js";
+import { mountMemoEditDialog } from "./pages/home/memo-dialog-edit.js?v=20260820-todo-checkbox-unify";
 import { registerWindowSession } from "./window-state.js";
 import { loadEditorSettingsFromVault } from "./pages/home/memo-editor.js";
 import { collectTags } from "./domain/memos.js";
@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
   var params = new URLSearchParams(window.location.search);
   var memoId = (params.get("id") || "").trim();
   if (!memoId) {
-    root.innerHTML = '<div class="memo-dialog"><section class="memo-dialog-panel"><p>缺少 memo id</p></section></div>';
+    root.innerHTML = '<div class="tn-overlay tn-dialog-layer is-open memo-dialog"><section class="tn-dialog tn-dialog--md memo-dialog-panel"><p>缺少 memo id</p></section></div>';
     return;
   }
 
@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function loadEditData() {
     if (typeof invoke !== "function") {
-      root.innerHTML = '<div class="memo-dialog"><section class="memo-dialog-panel"><p>请在 velo 桌面应用中打开</p></section></div>';
+      root.innerHTML = '<div class="tn-overlay tn-dialog-layer is-open memo-dialog"><section class="tn-dialog tn-dialog--md memo-dialog-panel"><p>请在 velo 桌面应用中打开</p></section></div>';
       return;
     }
 
@@ -83,17 +83,17 @@ document.addEventListener("DOMContentLoaded", function () {
     Promise.all([editDataPromise, settingsPromise, projectsPromise]).then(
       function () {
         if (!state.memo) {
-          root.innerHTML = '<div class="memo-dialog"><section class="memo-dialog-panel"><p>找不到 memo</p></section></div>';
+          root.innerHTML = '<div class="tn-overlay tn-dialog-layer is-open memo-dialog"><section class="tn-dialog tn-dialog--md memo-dialog-panel"><p>找不到 memo</p></section></div>';
           return;
         }
         mountEditor();
       },
       function (err) {
         if (err && err.message === "找不到 memo") {
-          root.innerHTML = '<div class="memo-dialog"><section class="memo-dialog-panel"><p>找不到 memo</p></section></div>';
+          root.innerHTML = '<div class="tn-overlay tn-dialog-layer is-open memo-dialog"><section class="tn-dialog tn-dialog--md memo-dialog-panel"><p>找不到 memo</p></section></div>';
           return;
         }
-        root.innerHTML = '<div class="memo-dialog"><section class="memo-dialog-panel"><p>加载失败</p></section></div>';
+        root.innerHTML = '<div class="tn-overlay tn-dialog-layer is-open memo-dialog"><section class="tn-dialog tn-dialog--md memo-dialog-panel"><p>加载失败</p></section></div>';
       },
     );
   }

@@ -2,14 +2,17 @@ import { buildMemoReferenceIndex } from "./domain/memos.js";
 import {
   readTodoDetailPayload,
   TodoDetailModel,
-} from "./todo-detail-model.js";
+} from "./todo-detail-model.js?v=20260820-todo-detail-dialog-brand";
 import {
   detachedMemoCardTemplate,
   detachedMemoCommentTemplate,
   detachedMemoRenderContext,
-} from "./pages/home/memo-templates.js";
+} from "./pages/home/memo-templates.js?v=20260820-todo-detail-dialog-brand-v2";
+import { registerCheckboxElement } from "./components.js?v=20260820-component-foundations-v2";
 import { memoQuickSearchHighlightParts } from "./pages/home/memo-quick-search-model.js";
 import { escapeHTML } from "./pages/home/memo-utils.js";
+
+registerCheckboxElement();
 
 class TodoDetailView {
   constructor(root, model) {
@@ -25,12 +28,20 @@ class TodoDetailView {
 
   render(state) {
     if (state.loading) {
-      this.root.innerHTML = this.shell('<div class="memo-window-empty">正在加载代办...</div>');
+      this.root.innerHTML = this.shell(`
+        <div class="todo-detail-state" data-n="todo-detail-loading-state" role="status">
+          <span class="todo-detail-state-mark" data-n="todo-detail-loading-mark" aria-hidden="true"></span>
+          <span data-n="todo-detail-loading-label">正在加载代办...</span>
+        </div>
+      `);
       return;
     }
     if (!state.found) {
       this.root.innerHTML = this.shell(
-        '<div class="memo-window-empty">' + escapeHTML(state.error || "未找到代办") + "</div>",
+        `<div class="todo-detail-state is-error" data-n="todo-detail-error-state" role="alert">
+          <span class="todo-detail-state-mark" data-n="todo-detail-error-mark" aria-hidden="true"></span>
+          <span data-n="todo-detail-error-label">${escapeHTML(state.error || "未找到代办")}</span>
+        </div>`,
       );
       return;
     }
@@ -40,80 +51,114 @@ class TodoDetailView {
       memos: state.memos,
     };
     const render_context = detachedMemoRenderContext(render_state, "", { readonly: true });
-    const sections = [
-      this.todoSection(state.todo),
-      this.memoSection(state.memo, render_context),
-    ];
-    if (state.comment) sections.push(this.commentSection(state.comment, render_context));
+    const context_sections = [this.memoSection(state.memo, render_context)];
+    if (state.comment) {
+      context_sections.push(this.commentSection(state.comment, render_context));
+    }
 
     document.title = "ThreadNote";
     this.root.innerHTML = this.shell(
-      '<div class="todo-detail-content" data-todo-detail-content>' + sections.join("") + "</div>",
+      `<div class="todo-detail-content" data-n="todo-detail-content" data-todo-detail-content>
+        ${this.todoSection(state.todo)}
+        <section class="todo-detail-context" data-n="todo-detail-context" aria-labelledby="todo-detail-context-title">
+          <header class="todo-detail-context-heading" data-n="todo-detail-context-heading">
+            <div class="todo-detail-context-heading-copy" data-n="todo-detail-context-heading-copy">
+              <span class="todo-detail-context-eyebrow" data-n="todo-detail-context-eyebrow">CONTEXT</span>
+              <h2 class="todo-detail-context-title" data-n="todo-detail-context-title" id="todo-detail-context-title">关联内容</h2>
+            </div>
+            <span class="todo-detail-context-count" data-n="todo-detail-context-count">${context_sections.length} 项</span>
+          </header>
+          <div class="todo-detail-context-list" data-n="todo-detail-context-list">
+            ${context_sections.join("")}
+          </div>
+        </section>
+      </div>`,
     );
     this.highlightQuery(state.query);
   }
 
   shell(content) {
     return `
-      <div class="memo-window-shell todo-detail-page velo-drag" data-velo-drag>
-        <header class="memo-window-titlebar velo-drag" data-velo-drag>
-          <div class="memo-window-native-controls" aria-hidden="true"></div>
-          <div class="memo-window-drag-region" aria-hidden="true"></div>
-          <div class="comment-detail-window-title">代办详情</div>
+      <div class="memo-window-shell todo-detail-page velo-drag" data-n="todo-detail-dialog" data-velo-drag>
+        <header class="memo-window-titlebar todo-detail-titlebar velo-drag" data-n="todo-detail-titlebar" data-velo-drag>
+          <div class="memo-window-native-controls" data-n="todo-detail-native-controls" aria-hidden="true"></div>
+          <div class="memo-window-drag-region todo-detail-window-heading" data-n="todo-detail-window-heading">
+            <span class="todo-detail-window-mark" data-n="todo-detail-window-mark" aria-hidden="true"></span>
+            <span class="todo-detail-window-title" data-n="todo-detail-window-title" id="todo-detail-window-title">代办详情</span>
+          </div>
+          <div class="todo-detail-titlebar-balance" data-n="todo-detail-titlebar-balance" aria-hidden="true"></div>
         </header>
-        <main class="memo-window-body velo-no-drag comment-detail-body">${content}</main>
+        <main class="memo-window-body velo-no-drag comment-detail-body todo-detail-body" data-n="todo-detail-body" aria-labelledby="todo-detail-window-title">${content}</main>
       </div>
     `;
   }
 
   todoSection(todo) {
     const status_label = todo.checked ? "已完成" : "未完成";
-    const source_label = todo.sourceCommentId ? "评论中的代办" : "Memo 中的代办";
+    const source_label = todo.sourceCommentId ? "来自评论" : "来自 Memo";
     return `
-      <section class="comment-detail-section comment-detail-primary todo-detail-primary" aria-label="代办内容">
-        <div class="comment-detail-section-title">
-          <span>代办内容</span>
-          <span class="todo-detail-status ${todo.checked ? "is-complete" : "is-open"}">${status_label}</span>
-        </div>
-        <div class="comment-detail-section-body">
-          <article class="todo-detail-card ${todo.checked ? "is-complete" : ""}">
-            <div class="todo-detail-check-row">
-              <input type="checkbox" ${todo.checked ? "checked" : ""} disabled aria-label="${escapeHTML(status_label)}" />
-              <div class="todo-detail-task-title">${escapeHTML(todo.title)}</div>
+      <section class="todo-detail-primary" data-n="todo-detail-primary" aria-labelledby="todo-detail-task-title">
+        <header class="todo-detail-primary-header" data-n="todo-detail-primary-header">
+          <div class="todo-detail-section-label" data-n="todo-detail-section-label">
+            <span class="todo-detail-section-mark" data-n="todo-detail-section-mark" aria-hidden="true"></span>
+            <span data-n="todo-detail-section-label-text">当前任务</span>
+          </div>
+          <span class="todo-detail-status ${todo.checked ? "is-complete" : "is-open"}" data-n="todo-detail-status">
+            <span class="todo-detail-status-dot" data-n="todo-detail-status-dot" aria-hidden="true"></span>
+            <span data-n="todo-detail-status-label">${status_label}</span>
+          </span>
+        </header>
+        <article class="todo-detail-card ${todo.checked ? "is-complete" : ""}" data-n="todo-detail-task-card">
+          <div class="todo-detail-check-row" data-n="todo-detail-check-row">
+            <tn-checkbox class="memo-todo-checkbox todo-detail-checkbox" control-class="tn-checkbox--todo" size="sm" aria-label="状态：${escapeHTML(status_label)}" data-n="todo-detail-completion-checkbox" ${todo.checked ? "checked" : ""} disabled></tn-checkbox>
+            <div class="todo-detail-task-copy" data-n="todo-detail-task-copy">
+              <h1 class="todo-detail-task-title" data-n="todo-detail-task-title" id="todo-detail-task-title">${escapeHTML(todo.title)}</h1>
+              ${todo.description ? `<p class="todo-detail-task-description" data-n="todo-detail-task-description">${escapeHTML(todo.description)}</p>` : ""}
             </div>
-            ${todo.description ? `<div class="todo-detail-task-description">${escapeHTML(todo.description)}</div>` : ""}
-            <div class="todo-detail-source">
-              <span>${escapeHTML(source_label)}</span>
-              ${todo.sourceText ? `<span class="todo-detail-source-text">${escapeHTML(todo.sourceText)}</span>` : ""}
-            </div>
-          </article>
-        </div>
+          </div>
+          <footer class="todo-detail-source" data-n="todo-detail-source">
+            <span class="todo-detail-source-label" data-n="todo-detail-source-label">${escapeHTML(source_label)}</span>
+            ${todo.sourceText ? `<span class="todo-detail-source-text" data-n="todo-detail-source-text">${escapeHTML(todo.sourceText)}</span>` : ""}
+          </footer>
+        </article>
       </section>
     `;
   }
 
   memoSection(memo, renderContext) {
     return `
-      <section class="comment-detail-section comment-detail-memo" aria-label="所在 Memo">
-        <div class="comment-detail-section-title">所在 Memo</div>
-        <div class="comment-detail-section-body">
+      <article class="todo-detail-context-card todo-detail-context-card-memo" data-n="todo-detail-memo-context" aria-labelledby="todo-detail-memo-title">
+        <header class="todo-detail-context-card-header" data-n="todo-detail-memo-header">
+          <span class="todo-detail-context-index" data-n="todo-detail-memo-index" aria-hidden="true">01</span>
+          <div class="todo-detail-context-card-heading" data-n="todo-detail-memo-heading">
+            <span class="todo-detail-context-card-kicker" data-n="todo-detail-memo-kicker">来源记录</span>
+            <h3 class="todo-detail-context-card-title" data-n="todo-detail-memo-title" id="todo-detail-memo-title">所在 Memo</h3>
+          </div>
+        </header>
+        <div class="todo-detail-context-card-body" data-n="todo-detail-memo-body">
           ${detachedMemoCardTemplate(memo, renderContext, { comments: [] })}
         </div>
-      </section>
+      </article>
     `;
   }
 
   commentSection(comment, renderContext) {
     return `
-      <section class="comment-detail-section" aria-label="所在评论">
-        <div class="comment-detail-section-title">所在评论</div>
-        <div class="comment-detail-section-body memo-comment-list">
+      <article class="todo-detail-context-card todo-detail-context-card-comment" data-n="todo-detail-comment-context" aria-labelledby="todo-detail-comment-title">
+        <header class="todo-detail-context-card-header" data-n="todo-detail-comment-header">
+          <span class="todo-detail-context-index" data-n="todo-detail-comment-index" aria-hidden="true">02</span>
+          <div class="todo-detail-context-card-heading" data-n="todo-detail-comment-heading">
+            <span class="todo-detail-context-card-kicker" data-n="todo-detail-comment-kicker">讨论上下文</span>
+            <h3 class="todo-detail-context-card-title" data-n="todo-detail-comment-title" id="todo-detail-comment-title">所在评论</h3>
+          </div>
+        </header>
+        <div class="todo-detail-context-card-body memo-comment-list" data-n="todo-detail-comment-body">
           ${detachedMemoCommentTemplate(comment, renderContext, "", new Set([comment.id]), {
             replyCount: 0,
             showReplyTo: false,
           })}
         </div>
-      </section>
+      </article>
     `;
   }
 
@@ -140,6 +185,7 @@ class TodoDetailView {
         }
         const mark = document.createElement("mark");
         mark.className = "memo-find-match";
+        mark.dataset.n = "todo-detail-search-match";
         mark.textContent = part.text;
         marks.push(mark);
         parent.insertBefore(mark, text_node);

@@ -28,3 +28,11 @@ export function normalizeProjectColor(value) {
   const color = String(value || "").trim();
   return /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : "#2563eb";
 }
+
+export function projectThemeColor(value) {
+  const color = normalizeProjectColor(value);
+  // Projects created before the current theme stored the old blue default.
+  // Resolve that historical default through the live theme token while
+  // preserving every explicitly different Project color.
+  return color === "#2563eb" ? "var(--tn-color-primary-fill)" : color;
+}

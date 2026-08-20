@@ -24,6 +24,12 @@
   </script>
   <script src="/public/input-policy.js" defer></script>
   <script type="module" src="/src/window-state.js"></script>
+  <script>window.__tn_legacy_timeless = window.Timeless || {};</script>
+  <script src="/public/timeless/0.31.4/timeless.umd.min.js"></script>
+  <script src="/public/timeless/0.31.4/timeless.dom.umd.min.js"></script>
+  <script src="/public/timeless/0.31.4/timeless.web.umd.min.js"></script>
+  <script src="/public/timeless-icon-runtime.js"></script>
+  <script type="module" src="/src/components.js?v=20260820-component-foundations-v2"></script>
   <style>
     :root {
       color-scheme: light;
@@ -307,6 +313,7 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="/src/style.css?v=20260820-component-foundations-v2" />
 </head>
 
 <body>
@@ -343,7 +350,7 @@
                 <span>存储类型</span>
                 <span class="editor-required">必填</span>
               </span>
-              <select class="editor-select" name="provider">
+              <tn-select class="editor-select" name="provider">
                 <option value="local">Local</option>
                 <option value="s3">S3 Compatible</option>
                 <option value="aws-s3">AWS S3</option>
@@ -351,7 +358,7 @@
                 <option value="tencent-cos">Tencent COS</option>
                 <option value="qiniu-kodo">Qiniu Kodo</option>
                 <option value="custom">Custom</option>
-              </select>
+              </tn-select>
             </label>
             <label class="editor-field">
               <span class="editor-label-row">
@@ -662,7 +669,8 @@
       }
 
       function readForm() {
-        var provider = form.elements.provider.value;
+        var providerControl = form.querySelector('tn-select[name="provider"]');
+        var provider = providerControl ? providerControl.value : form.elements.provider.value;
         var endpoint = form.elements.endpoint.value.trim();
         var storage = {
           accessKeyId: form.elements.accessKeyId.value.trim(),
@@ -714,7 +722,7 @@
         form.elements.storageId.value = next.id;
         form.elements.name.value = next.name;
         form.elements.pathPrefix.value = next.pathPrefix;
-        form.elements.provider.value = next.provider;
+        form.querySelector('tn-select[name="provider"]').value = next.provider;
         form.elements.publicBaseUrl.value = next.publicBaseUrl;
         form.elements.region.value = next.region;
         form.elements.secretAccessKey.value = next.secretAccessKey;
@@ -954,6 +962,9 @@
 
       function setControlsDisabled(disabled) {
         Array.prototype.forEach.call(form.elements, function (el) {
+          el.disabled = disabled;
+        });
+        Array.prototype.forEach.call(form.querySelectorAll("tn-select"), function (el) {
           el.disabled = disabled;
         });
       }

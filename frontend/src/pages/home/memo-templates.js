@@ -7,26 +7,19 @@ import {
   memoBacklinkCount,
 } from "../../domain/memos.js";
 import { collectCodeBlocks, collectLinks, collectResources, fileDisplayName } from "../../domain/memo-resources.js";
-import { normalizeProjectColor, normalizeProjectID } from "../../domain/projects.js";
-import {
-  calendarWeekdays,
-  formatDateKey,
-  formatRelativeDate,
-  generateCalendarDays,
-  memoDateCounts,
-  startOfMonth,
-} from "./memo-date.js";
-import { calendarDayInfo } from "./memo-calendar-info.js";
-import { SVG } from "./memo-icons.js";
+import { normalizeProjectID, projectThemeColor } from "../../domain/projects.js?v=20260820-project-theme-color";
+import { formatRelativeDate } from "./memo-date.js";
+import { SVG } from "./memo-icons.js?v=20260820-pin-state-clarity";
 import {
   compactFileURL,
   collectMemoHeadings,
   inlineMarkdown,
+  memoCodeWorkbenchTemplate,
   renderMemoMarkdown,
   renderVSCodeOpenButton,
   safeImageUrl,
   safeUrl,
-} from "./memo-markdown.js";
+} from "./memo-markdown.js?v=20260820-code-snippet-workbench";
 import { escapeAttr, escapeHTML } from "./memo-utils.js";
 
 const KNOWN_HOST_FAVICONS = {
@@ -80,11 +73,11 @@ function parseHost(url) {
 
 function hostFavicon(url) {
   const { host, hostname } = parseHost(url);
-  if (!host) return `<span class="memo-link-favicon is-fallback">${SVG.link}</span>`;
+  if (!host) return `<span class="memo-link-favicon is-fallback" data-n="link-card-favicon" aria-hidden="true">${SVG.link}</span>`;
 
   const known = KNOWN_HOST_FAVICONS[host] || KNOWN_HOST_FAVICONS[hostname];
   if (known) {
-    return `<span class="memo-link-favicon" style="background:${known.color}">${known.label}</span>`;
+    return `<span class="memo-link-favicon" data-n="link-card-favicon" aria-hidden="true" style="background:${known.color}">${known.label}</span>`;
   }
 
   const parts = host.split(".");
@@ -93,7 +86,7 @@ function hostFavicon(url) {
   let hash = 0;
   for (let i = 0; i < host.length; i++) hash = (hash * 31 + host.charCodeAt(i)) | 0;
   const color = HOST_COLORS[Math.abs(hash) % HOST_COLORS.length];
-  return `<span class="memo-link-favicon" style="background:${color}">${escapeHTML(label)}</span>`;
+  return `<span class="memo-link-favicon" data-n="link-card-favicon" aria-hidden="true" style="background:${color}">${escapeHTML(label)}</span>`;
 }
 
 function linksDomainBarTemplate(activeDomain, domainChips) {
@@ -101,7 +94,7 @@ function linksDomainBarTemplate(activeDomain, domainChips) {
     const isActive = activeDomain === domain;
     return `<span class="memo-domain-chip${isActive ? " is-active" : ""}">
       <button class="memo-domain-chip-btn" type="button" data-action="filterLinksDomain" data-domain="${domain}">${domain}</button>
-      <button class="memo-domain-chip-remove" type="button" data-action="removeLinksDomainChip" data-domain="${domain}" title="移除此筛选域名">&times;</button>
+      <button class="memo-domain-chip-remove" type="button" data-action="removeLinksDomainChip" data-domain="${domain}" title="移除此筛选域名">${SVG.x}</button>
     </span>`;
   }).join("");
 
@@ -198,10 +191,10 @@ function detachedMemoCardTemplate(memo, renderContext, options = {}) {
         </div>
         <div class="memo-card-meta memo-window-card-meta">
           <div class="memo-card-head-actions">
-            <button class="memo-action-button" type="button" data-action="editMemo" title="编辑" aria-label="编辑">${SVG.edit}</button>
-            <button class="memo-action-button" type="button" data-action="copyMemo" title="复制" aria-label="复制">${SVG.copy}</button>
-            <button class="memo-action-button" type="button" data-action="copyMemoRef" title="复制引用" aria-label="复制引用">${SVG.link}</button>
-            ${memo.updatedAt ? `<button class="memo-action-button" type="button" data-action="openMemoHistory" title="版本历史">${SVG.history}</button>` : ""}
+            <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="editMemo" title="编辑" aria-label="编辑">${SVG.edit}</button>
+            <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="copyMemo" title="复制" aria-label="复制">${SVG.copy}</button>
+            <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="copyMemoRef" title="复制引用" aria-label="复制引用">${SVG.link}</button>
+            ${memo.updatedAt ? `<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="openMemoHistory" title="版本历史">${SVG.history}</button>` : ""}
           </div>
           ${memo.pinned ? '<span class="memo-pin-label">置顶</span>' : ""}
           ${backlinks ? `<span class="memo-backlink-label">${backlinks} 引用</span>` : ""}
@@ -253,7 +246,7 @@ function detachedMemoCommentTemplate(comment, renderContext, editingCommentId = 
   const time = comment.updatedAt || comment.createdAt;
   const editing = comment.id === editingCommentId;
   const expanded = expandedCommentIds && typeof expandedCommentIds.has === "function" ? expandedCommentIds.has(comment.id) : false;
-  const expandLabel = expanded ? "收起" : "展开";
+  const expand_label = expanded ? "收起" : "展开";
   const content = renderMemoCommentContent(comment, commentRenderContext(renderContext, comment));
   var replyCount = typeof options.replyCount === "number" && options.replyCount > 0 ? options.replyCount : 0;
   var replyBadgeHTML = replyCount > 0 ? `<button class="memo-comment-reply-badge" type="button" data-window-comment-action="openCommentReplies">${replyCount}条回复</button>` : "";
@@ -281,9 +274,9 @@ function detachedMemoCommentTemplate(comment, renderContext, editingCommentId = 
                 <section class="memo-editor-preview memo-window-comment-edit-preview" data-window-comment-edit-preview hidden></section>
               </div>
               <div class="memo-window-comment-edit-actions">
-                <button class="memo-secondary-button" type="button" data-window-comment-action="preview" aria-pressed="false">${SVG.eye}<span>预览</span></button>
-                <button class="memo-secondary-button" type="button" data-window-comment-action="cancel">${SVG.x}<span>取消</span></button>
-                <button class="memo-primary-button" type="button" data-window-comment-action="save">${SVG.check}<span>保存</span></button>
+                <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-window-comment-action="preview" aria-pressed="false">${SVG.eye}<span>预览</span></button>
+                <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-window-comment-action="cancel">${SVG.x}<span>取消</span></button>
+                <button class="tn-button tn-button--primary memo-primary-button" type="button" data-window-comment-action="save">${SVG.check}<span>保存</span></button>
               </div>
             </div>
           `
@@ -291,17 +284,17 @@ function detachedMemoCommentTemplate(comment, renderContext, editingCommentId = 
             <div class="memo-window-comment-bubble">
               <div class="memo-window-comment-collapse ${expanded ? "is-expanded" : "is-collapsed"}" data-window-comment-collapse>
                 <div class="memo-window-comment-hover-actions" aria-label="评论操作">
-                  <button class="memo-action-button" type="button" data-window-comment-action="copy" title="复制" aria-label="复制">${SVG.copy}</button>
-                  <button class="memo-action-button" type="button" data-window-comment-action="reply" title="回复" aria-label="回复">${SVG.reply}</button>
-                  <button class="memo-action-button" type="button" data-window-comment-action="edit" title="编辑评论" aria-label="编辑评论">${SVG.edit}</button>
-                  ${comment.updatedAt ? `<button class="memo-action-button" type="button" data-window-comment-action="history" title="版本历史" aria-label="版本历史">${SVG.history}</button>` : ""}
-                  <button class="memo-action-button is-danger" type="button" data-window-comment-action="delete" title="删除评论" aria-label="删除评论">${SVG.trash}</button>
+                  <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-window-comment-action="copy" title="复制" aria-label="复制">${SVG.copy}</button>
+                  <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-window-comment-action="reply" title="回复" aria-label="回复">${SVG.reply}</button>
+                  <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-window-comment-action="edit" title="编辑评论" aria-label="编辑评论">${SVG.edit}</button>
+                  ${comment.updatedAt ? `<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-window-comment-action="history" title="版本历史" aria-label="版本历史">${SVG.history}</button>` : ""}
+                  <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button is-danger" type="button" data-window-comment-action="delete" title="删除评论" aria-label="删除评论">${SVG.trash}</button>
                   ${commentReactionsPicker(comment, "window-comment-action")}
                 </div>
                 ${replyToChipHTML}
                 <div class="memo-content memo-comment-content">${content}</div>
-                <button class="memo-expand-button memo-window-comment-expand-button" type="button" data-window-comment-action="toggleExpand" aria-expanded="${expanded ? "true" : "false"}" title="${expandLabel}">
-                  <span>${expandLabel}</span>
+                <button class="memo-expand-button memo-window-comment-expand-button" type="button" data-window-comment-action="toggleExpand" aria-expanded="${expanded ? "true" : "false"}" title="${expand_label}">
+                  <span>${expand_label}</span>
                   ${SVG.chevronDown}
                 </button>
               </div>
@@ -331,78 +324,92 @@ function detachedMemoRenderContext(state, sourceId, options = {}) {
 function activeViewMeta(view) {
   const metas = {
     files: {
+      eyebrow: "LIBRARY / FILES",
       hideComposer: true,
       searchPlaceholder: "搜索文件、图片或来源 memo",
-      subtitle: "从所有 memo 中汇总文件和图片",
+      subtitle: "Finder 图标视图 · 右键文件可查看或定位来源",
       title: "文件",
     },
     images: {
+      eyebrow: "LIBRARY / IMAGES",
       hideComposer: true,
       searchPlaceholder: "搜索图片或来源 memo",
       subtitle: "从所有 memo 中汇总图片，瀑布流展示",
       title: "图片",
     },
     codeblocks: {
+      eyebrow: "LIBRARY / CODE",
       hideComposer: true,
       searchPlaceholder: "搜索代码片段、别名、命令或来源 memo",
-      subtitle: "标记片段优先，未标记代码块沉底",
+      subtitle: "默认仅显示已标记片段，可切换查看全部代码块",
       title: "代码片段",
     },
     links: {
+      eyebrow: "LIBRARY / LINKS",
       hideComposer: true,
       searchPlaceholder: "搜索链接或来源 memo",
       subtitle: "从所有 memo 中汇总超链接",
       title: "超链接",
     },
     clipboard: {
+      eyebrow: "CAPTURE / CLIPBOARD",
       hideComposer: true,
       searchPlaceholder: "搜索当前粘贴板内容",
       subtitle: "显示当前粘贴板的文本、链接或图片",
       title: "粘贴板",
     },
     "project-detail": {
+      eyebrow: "WORKSPACE / PROJECT",
       hideComposer: true,
       searchPlaceholder: "搜索项目内 memos",
       subtitle: "",
       title: "项目详情",
     },
     memos: {
+      eyebrow: "THREAD / INBOX",
       hideComposer: false,
       searchPlaceholder: "搜索 memos",
+      showHomeActions: true,
       subtitle: "捕捉、整理、回看",
       title: "Inbox",
     },
     todos: {
+      eyebrow: "GTD / TASKS",
       hideComposer: true,
       searchPlaceholder: "搜索任务、清单或上下文",
       subtitle: "Inbox、Today、Scheduled 与任务 notes",
       title: "GTD",
     },
     items: {
+      eyebrow: "GTD / TRIAGE",
       hideComposer: true,
       searchPlaceholder: "搜索开放事项、标签或决策",
       subtitle: "像 Issue 一样管理 open loops",
       title: "Open Loops",
     },
     milestones: {
+      eyebrow: "GTD / HORIZON",
       hideComposer: true,
       searchPlaceholder: "搜索阶段目标",
       subtitle: "像 Milestone 一样管理阶段收敛",
       title: "Milestones",
     },
     boards: {
+      eyebrow: "WORKFLOW / BOARDS",
       hideComposer: true,
       searchPlaceholder: "搜索看板或任务",
       subtitle: "可配置工作流的看板视图",
       title: "看板",
     },
     rules: {
+      eyebrow: "WORKFLOW / RULES",
       hideComposer: true,
       searchPlaceholder: "搜索规则",
       subtitle: "集中管理所有看板的自动化规则",
       title: "流程配置",
     },
     chat: {
+      eyebrow: "LOCAL / AGENT",
       hideComposer: true,
       searchPlaceholder: "",
       subtitle: "直接连接本机原生 ACP Agent",
@@ -415,9 +422,10 @@ function activeViewMeta(view) {
 function shellTemplate() {
   return `
     <div class="memo-shell">
-      <aside class="memo-sidebar" aria-label="Memo navigation">
+      <aside class="memo-sidebar" data-n="home-sidebar" aria-label="Memo navigation">
+        <div class="memo-sidebar-scroll" data-n="home-sidebar-scroll-content">
         <div class="memo-brand">
-          <div class="memo-brand-mark">M</div>
+          <div class="memo-brand-mark"><img src="/public/threadnote-logo.svg" alt="" /></div>
           <div>
             <div class="memo-brand-title">ThreadNote</div>
             <div class="memo-brand-subtitle">Local workspace</div>
@@ -433,7 +441,7 @@ function shellTemplate() {
         <div class="memo-sidebar-section">
           <div class="memo-sidebar-heading">
             <span>Projects</span>
-            <button class="memo-project-create-btn" type="button" data-action="createProject" title="新建 Project">${SVG.plus}</button>
+            <button class="memo-project-create-btn" type="button" data-action="createProject" data-n="sidebar-project-create" title="新建 Project" aria-label="新建 Project">${SVG.plus}</button>
           </div>
           <div class="memo-project-list" data-project-list></div>
         </div>
@@ -462,8 +470,9 @@ function shellTemplate() {
           </div>
           <div class="memo-tag-list" data-tag-list></div>
         </div>
-        <div class="memo-sidebar-footer">
-          <button class="memo-nav-button memo-settings-button" type="button" data-action="openSettings">
+        </div>
+        <div class="memo-sidebar-footer" data-n="home-sidebar-footer">
+          <button class="memo-nav-button memo-settings-button" type="button" data-action="openSettings" data-n="home-sidebar-settings">
             ${SVG.settings}
             <span>设置</span>
           </button>
@@ -472,25 +481,26 @@ function shellTemplate() {
 
       <main class="memo-main">
         <header class="memo-topbar">
-          <div>
+          <div class="memo-topbar-copy">
+            <div class="memo-topbar-eyebrow" data-main-eyebrow>THREAD / INBOX</div>
             <h1 data-main-title>Inbox</h1>
             <p data-main-subtitle>捕捉、整理、回看</p>
           </div>
           <div class="memo-topbar-actions">
             <span data-topbar-default-actions>
-              <button class="memo-icon-text-button" type="button" data-action="openTimeline" title="打开时间线窗口">
+              <button class="tn-button memo-icon-text-button" type="button" data-action="openTimeline" title="打开时间线窗口">
                 ${SVG.clock}
                 <span>时间线</span>
               </button>
-              <button class="memo-icon-text-button" type="button" data-action="openSlimMemos" title="打开精简版">
+              <button class="tn-button memo-icon-text-button" type="button" data-action="openSlimMemos" title="打开精简版">
                 ${SVG.list}
                 <span>精简版</span>
               </button>
-              <button class="memo-icon-text-button" type="button" data-action="openSlimGTD" title="打开精简代办窗口">
+              <button class="tn-button memo-icon-text-button" type="button" data-action="openSlimGTD" title="打开精简代办窗口">
                 ${SVG.check}
                 <span>代办</span>
               </button>
-              <button class="memo-icon-text-button" type="button" data-action="sortMemos" title="排序">
+              <button class="tn-button memo-icon-text-button" type="button" data-action="sortMemos" title="排序">
                 ${SVG.sort}
                 <span>排序</span>
               </button>
@@ -513,26 +523,23 @@ function shellTemplate() {
               ${toolButtonTemplate("attach", "附件", SVG.paperclip)}
               ${toolButtonTemplate("date", "时间", SVG.clock)}
             </div>
-            <label class="memo-select-wrap">
+            <div class="memo-select-wrap">
               <span class="memo-select-icon">${SVG.hash}</span>
-              <select data-project-select aria-label="Project">
+              <tn-project-select data-project-select aria-label="Project">
                 ${projectOptionsTemplate([], "")}
-              </select>
-              ${SVG.chevronDown}
-            </label>
+              </tn-project-select>
+            </div>
             <span class="memo-visibility-group">
-              <label class="memo-select-wrap">
+              <div class="memo-select-wrap">
                 <span class="memo-select-icon">${SVG.lock}</span>
-                <select data-visibility-select aria-label="可见性">
+                <tn-select data-visibility-select aria-label="可见性">
                   ${visibilityOptionsTemplate(DEFAULT_VISIBILITY)}
-                </select>
-                ${SVG.chevronDown}
-              </label>
+                </tn-select>
+              </div>
             </span>
           </div>
           <div class="memo-editor-switch memo-composer-switch">
             <div class="memo-editor-host" data-composer-host data-editor-switch-host></div>
-            <span class="memo-composer-draft-status" data-composer-draft-status hidden>已存草稿</span>
             <section class="memo-editor-preview memo-composer-preview" data-composer-preview hidden></section>
           </div>
           <div class="memo-composer-toolbar">
@@ -541,11 +548,12 @@ function shellTemplate() {
               <span data-composer-status></span>
             </div>
             <div class="memo-composer-actions">
-              <button class="memo-secondary-button" type="button" data-action="toggleComposerPreview" aria-pressed="false">
+              <span class="memo-composer-draft-status" data-composer-draft-status role="status" aria-live="polite" hidden>已存草稿</span>
+              <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="toggleComposerPreview" aria-pressed="false">
                 ${SVG.eye}
                 <span>预览</span>
               </button>
-              <button class="memo-primary-button" type="button" data-action="createMemo">
+              <button class="tn-button tn-button--primary memo-primary-button" type="button" data-action="createMemo">
                 ${SVG.send}
                 <span>发布</span>
               </button>
@@ -559,35 +567,24 @@ function shellTemplate() {
             ${SVG.search}
             <input type="search" placeholder="搜索 memos" data-search-input />
           </label>
-          <label class="memo-select-wrap memo-project-filter-wrap">
+          <div class="memo-select-wrap memo-project-filter-wrap">
             <span class="memo-select-icon">${SVG.hash}</span>
-            <select data-project-filter-select aria-label="项目筛选">
-            </select>
-            ${SVG.chevronDown}
-          </label>
-          <button class="memo-icon-text-button" type="button" data-action="createProject" title="新建 Project">
-            ${SVG.plus}
-            <span>Project</span>
-          </button>
-          <button class="memo-clear-button" type="button" data-action="clearFilters">重置</button>
-          <span class="memo-feed-count" data-feed-count></span>
+            <tn-project-select data-project-filter-select aria-label="项目筛选">
+            </tn-project-select>
+          </div>
+          <button class="tn-button tn-button--ghost memo-clear-button" type="button" data-action="clearFilters">重置</button>
         </section>
 
         <section class="memo-list" data-memo-list aria-label="Memo list"></section>
       </main>
 
       <aside class="memo-inspector" aria-label="Memo details">
-        <section class="memo-inspector-section">
-          <div class="memo-inspector-title">日历</div>
-          <div class="memo-calendar" data-calendar></div>
+        <section class="memo-inspector-section memo-inspector-section--calendar">
+          <div class="tn-w-full" data-calendar></div>
         </section>
         <section class="memo-inspector-section">
           <div class="memo-inspector-title">置顶</div>
           <div class="memo-pinned-list" data-pinned-list></div>
-        </section>
-        <section class="memo-inspector-section">
-          <div class="memo-inspector-title">概览</div>
-          <div class="memo-stats" data-stats></div>
         </section>
       </aside>
       <div class="memo-command-palette" data-memo-search-palette hidden>
@@ -606,10 +603,14 @@ function shellTemplate() {
 }
 
 function filterButtonTemplate(filter, label, icon) {
+  const count = filter === "all"
+    ? '<strong data-all-nav-count data-n="all-memo-count"></strong>'
+    : "";
   return `
     <button class="memo-nav-button" type="button" data-filter="${filter}">
       ${icon}
       <span>${label}</span>
+      ${count}
     </button>
   `;
 }
@@ -617,12 +618,12 @@ function filterButtonTemplate(filter, label, icon) {
 function projectOptionsTemplate(projects, selected) {
   const selectedID = normalizeProjectID(selected);
   const activeProjects = Array.isArray(projects) ? projects : [];
-  const options = ['<option value="">未归属</option>'].concat(
+  const options = ['<option value="" data-kind="unassigned">未归属</option>'].concat(
     activeProjects
       .filter((project) => !project.archived)
-      .map((project) => `<option value="${escapeAttr(project.id)}" ${project.id === selectedID ? "selected" : ""}>${escapeHTML(project.name)}</option>`),
+      .map((project) => `<option value="${escapeAttr(project.id)}" data-color="${escapeAttr(projectThemeColor(project.color))}" ${project.id === selectedID ? "selected" : ""}>${escapeHTML(project.name)}</option>`),
   );
-  if (!selectedID) options[0] = '<option value="" selected>未归属</option>';
+  if (!selectedID) options[0] = '<option value="" data-kind="unassigned" selected>未归属</option>';
   return options.join("");
 }
 
@@ -631,12 +632,12 @@ function projectBadgeTemplate(projectId, projects = []) {
   if (!id) return '<span class="memo-project-badge">未归属</span>';
   const project = (Array.isArray(projects) ? projects : []).find((item) => item && item.id === id);
   const label = project ? project.name : "未知 Project";
-  const color = normalizeProjectColor(project && project.color);
+  const color = projectThemeColor(project && project.color);
   return `<span class="memo-project-badge" style="--project-color: ${escapeAttr(color)}">${escapeHTML(label)}</span>`;
 }
 
 function projectSidebarItemTemplate(project, count, isActive) {
-  const color = normalizeProjectColor(project.color);
+  const color = projectThemeColor(project.color);
   return `
     <button class="memo-nav-button memo-project-item ${isActive ? "is-active" : ""}"
             type="button" data-project-detail="${escapeAttr(project.id)}">
@@ -647,20 +648,28 @@ function projectSidebarItemTemplate(project, count, isActive) {
   `;
 }
 
-function projectDetailViewTemplate(project, memos, renderMemoCard, todos, activeTab, projectBoards) {
+function projectDetailViewTemplate(project, memos, renderMemoCard, todos, activeTab, projectBoards, pagination = {}) {
   const tab = activeTab || "memos";
   const boards = projectBoards || [];
+  const memoTotal = Number.isFinite(pagination.memoTotal) ? pagination.memoTotal : memos.length;
+  const taskTotal = Number.isFinite(pagination.taskTotal) ? pagination.taskTotal : todos.length;
   const memoCards = memos.length
     ? memos.map((memo) => renderMemoCard(memo)).join("")
+      + (pagination.memoHasMore
+        ? `<div class="memo-feed-load-more" data-n="project-memo-scroll-loader" data-project-scroll-loader="memos">继续向下滚动加载</div>`
+        : "")
     : `<div class="memo-empty-state">暂无 memo</div>`;
   const todoItems = todos.length
     ? todos.map((task) => {
         const done = task.status === "completed";
-        return `<div class="memo-project-todo-item ${done ? "is-done" : ""}">
-          <span class="memo-project-todo-check">${done ? SVG.check : ""}</span>
+        return `<div class="memo-project-todo-item ${done ? "is-done" : ""}" data-task-id="${escapeAttr(task.id)}">
+          <tn-checkbox class="memo-project-todo-check memo-todo-checkbox" control-class="tn-checkbox--todo" size="sm" aria-label="切换任务完成状态" data-n="project-todo-completion-checkbox" data-task-complete ${done ? "checked" : ""}></tn-checkbox>
           <span class="memo-project-todo-text">${escapeHTML(task.content || task.title || "")}</span>
         </div>`;
       }).join("")
+      + (pagination.taskHasMore
+        ? `<div class="memo-feed-load-more" data-n="project-task-scroll-loader" data-project-scroll-loader="tasks">继续向下滚动加载</div>`
+        : "")
     : `<div class="memo-empty-state">暂无待办</div>`;
   const boardTabs = boards.map(function (board) {
     return `<button class="memo-project-tab ${tab === board.id ? "is-active" : ""}" type="button" data-project-tab="${escapeAttr(board.id)}">${escapeHTML(board.title)} <span class="memo-project-tab-count">${board.columns.length}列</span></button>`;
@@ -671,17 +680,17 @@ function projectDetailViewTemplate(project, memos, renderMemoCard, todos, active
   return `
     <div class="memo-project-detail">
       <div class="memo-project-tabs">
-        <button class="memo-project-tab ${tab === "memos" ? "is-active" : ""}" type="button" data-project-tab="memos">Memo <span class="memo-project-tab-count">${memos.length}</span></button>
-        <button class="memo-project-tab ${tab === "tasks" ? "is-active" : ""}" type="button" data-project-tab="tasks">待办 <span class="memo-project-tab-count">${todos.length}</span></button>
+        <button class="memo-project-tab ${tab === "memos" ? "is-active" : ""}" type="button" data-project-tab="memos">Memo <span class="memo-project-tab-count">${memoTotal}</span></button>
+        <button class="memo-project-tab ${tab === "tasks" ? "is-active" : ""}" type="button" data-project-tab="tasks">待办 <span class="memo-project-tab-count">${taskTotal}</span></button>
         ${boardTabs}
       </div>
       <div class="memo-project-tab-panel ${tab === "memos" ? "" : "hidden"}" data-project-tab-panel="memos">
         <div class="memo-project-tab-toolbar">
           <label class="memo-search memo-project-memo-search">
             ${SVG.search}
-            <input type="search" placeholder="搜索项目内 memos" data-project-memo-search />
+            <input type="search" value="${escapeAttr(pagination.query || "")}" placeholder="搜索项目内 memos" data-project-memo-search />
           </label>
-          <button class="memo-primary-button" type="button" data-action="createMemo">新建 Memo</button>
+          <button class="tn-button tn-button--primary memo-primary-button" type="button" data-action="createMemo">新建 Memo</button>
         </div>
         <div class="memo-project-memo-list">${memoCards}</div>
       </div>
@@ -705,83 +714,9 @@ function viewNavButtonTemplate(view, label, icon, countAttr) {
 
 function toolButtonTemplate(command, label, icon) {
   return `
-    <button class="memo-tool-button" type="button" data-command="${command}" title="${label}" aria-label="${label}">
+    <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-tool-button" type="button" data-command="${command}" title="${label}" aria-label="${label}">
       ${icon}
     </button>
-  `;
-}
-
-function statTemplate(label, value) {
-  return `
-    <div class="memo-stat">
-      <span>${label}</span>
-      <strong>${value}</strong>
-    </div>
-  `;
-}
-
-function calendarTemplate(monthDate, memos, selectedDate, weekStart) {
-  const month = startOfMonth(monthDate);
-  const counts = memoDateCounts(memos);
-  const weekdays = calendarWeekdays(weekStart);
-  const days = generateCalendarDays(month, weekStart);
-  const todayKey = formatDateKey(new Date());
-
-  return `
-    <div class="memo-calendar-head">
-      <button class="memo-calendar-nav" type="button" data-calendar-action="prevMonth" title="上个月" aria-label="上个月">
-        ${SVG.chevronLeft}
-      </button>
-      <div class="memo-calendar-title">
-        <strong>${month.getFullYear()} 年 ${month.getMonth() + 1} 月</strong>
-        <span>${selectedDate || "未选择日期"}</span>
-      </div>
-      <button class="memo-calendar-nav" type="button" data-calendar-action="nextMonth" title="下个月" aria-label="下个月">
-        ${SVG.chevronRight}
-      </button>
-    </div>
-    <div class="memo-calendar-toolbar ${selectedDate ? "" : "is-single"}">
-      <button class="memo-calendar-today" type="button" data-calendar-action="today">今天</button>
-      ${selectedDate ? '<button class="memo-calendar-clear" type="button" data-calendar-action="clearDate">清除</button>' : ""}
-    </div>
-    <div class="memo-calendar-weekdays">
-      ${weekdays.map((day) => `<span>${day}</span>`).join("")}
-    </div>
-    <div class="memo-calendar-grid">
-      ${days
-        .map((day) => {
-          const count = counts.get(day.key) || 0;
-          const info = calendarDayInfo(day.date);
-          const classes = [
-            "memo-calendar-day",
-            day.inMonth ? "" : "is-outside",
-            day.key === todayKey ? "is-today" : "",
-            day.key === selectedDate ? "is-selected" : "",
-            count ? "has-memo" : "",
-            info.festivalLabel ? "has-festival" : "",
-            info.holidayStatus ? "is-" + info.holidayStatus : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-          const ariaLabel = [day.key, info.title, count ? `${count} 条 memo` : ""].filter(Boolean).join("，");
-          return `
-            <button
-              class="${classes}"
-              type="button"
-              data-calendar-date="${escapeAttr(day.key)}"
-              aria-label="${escapeAttr(ariaLabel)}"
-              title="${escapeAttr(ariaLabel)}"
-            >
-              <span class="memo-calendar-solar">${day.date.getDate()}</span>
-              <span class="memo-calendar-lunar">${escapeHTML(info.lunarLabel)}</span>
-              ${info.festivalLabel ? `<em class="memo-calendar-festival">${escapeHTML(info.festivalLabel)}</em>` : ""}
-              ${info.holidayBadge ? `<span class="memo-calendar-holiday-badge" aria-hidden="true">${info.holidayBadge}</span>` : ""}
-              ${count ? `<strong class="memo-calendar-memo-count">${count}</strong>` : ""}
-            </button>
-          `;
-        })
-        .join("")}
-    </div>
   `;
 }
 
@@ -828,7 +763,7 @@ function commentReactionsPicker(comment, actionAttr) {
 
   return `
     <span class="memo-comment-reaction-wrap">
-      <button class="memo-action-button" type="button" data-comment-id="${escapeAttr(comment.id)}" data-${escapeAttr(actionAttr)}="toggleCommentReactions" title="添加反应" aria-label="添加反应">${SVG.smile}</button>
+      <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-comment-id="${escapeAttr(comment.id)}" data-${escapeAttr(actionAttr)}="toggleCommentReactions" title="添加反应" aria-label="添加反应">${SVG.smile}</button>
       <div class="memo-reactions-picker" data-reactions-picker hidden>${picker}</div>
     </span>
   `;
@@ -847,7 +782,6 @@ function memoTemplate(memo, editingId, renderContext, expanded = false, projects
   const editing = memo.id === editingId;
   const backlinks = memoBacklinkCount(renderContext, memo.id);
   const textLines = (memo.content || "").split("\n").length;
-  const expandLabel = expanded ? "收起" : "展开";
   const projectBadge = memo.projectId ? projectBadgeTemplate(memo.projectId, projects) : "";
   const aliasBadge = memo.alias ? `<span class="memo-alias-label">@${escapeHTML(memo.alias)}</span>` : "";
   const comments = Array.isArray(options.comments) ? options.comments : [];
@@ -857,6 +791,8 @@ function memoTemplate(memo, editingId, renderContext, expanded = false, projects
   const tocHTML = !editing ? memoCardTocTemplate(collectMemoHeadings(memo.content)) : "";
   const hasToc = !!tocHTML;
   const tocVisible = hasToc && (expanded || options.tocVisible === true);
+  const moreOpen = options.moreOpen === true;
+  const moreMenuId = `memo-more-menu-${memo.id}`;
 
   return `
     <article class="${cardClass}" data-memo-id="${escapeAttr(memo.id)}">
@@ -869,14 +805,12 @@ function memoTemplate(memo, editingId, renderContext, expanded = false, projects
         <div class="memo-card-meta">
           ${showVisibility ? `<span class="memo-visibility">${SVG[displayVisibility.icon]} ${displayVisibility.label}</span>` : ""}
           ${aliasBadge}
-          ${projectBadge}
-          ${memo.pinned ? '<span class="memo-pin-label">置顶</span>' : ""}
           ${backlinks ? `<span class="memo-backlink-label">${backlinks} 引用</span>` : ""}
           <div class="memo-card-head-actions">
-            ${hasToc ? `<button class="memo-action-button memo-toc-toggle" type="button" data-action="toggleMemoToc" title="${tocVisible ? "隐藏目录" : "显示目录"}">${SVG.toc}</button>` : ""}
-            <button class="memo-action-button" type="button" data-action="togglePin" title="${memo.pinned ? "取消置顶" : "置顶"}">${SVG.pin}</button>
-            <button class="memo-action-button" type="button" data-action="detachMemo" title="分离为窗口">${SVG.external}</button>
-            <button class="memo-action-button" type="button" data-action="copyMemo" title="复制">${SVG.copy}</button>
+            ${hasToc ? `<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-toc-toggle" type="button" data-action="toggleMemoToc" title="${tocVisible ? "隐藏目录" : "显示目录"}">${SVG.toc}</button>` : ""}
+            <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-pin-action ${memo.pinned ? "is-active" : ""}" type="button" data-n="memo-pin-toggle" data-action="togglePin" title="${memo.pinned ? "取消置顶" : "置顶"}" aria-label="${memo.pinned ? "取消置顶" : "置顶"}" aria-pressed="${memo.pinned ? "true" : "false"}">${memo.pinned ? SVG.unpin : SVG.pin}</button>
+            <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="detachMemo" title="分离为窗口">${SVG.external}</button>
+            <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="copyMemo" title="复制">${SVG.copy}</button>
           </div>
         </div>
       </header>
@@ -888,10 +822,12 @@ function memoTemplate(memo, editingId, renderContext, expanded = false, projects
               <div class="memo-card-reading-main">
                 <div class="memo-list-collapse ${expanded ? "is-expanded" : "is-collapsed"}${!expanded && textLines <= 36 ? " is-short" : ""}" data-memo-collapse data-memo-lines="${textLines}">
                   <div class="memo-content">${renderMemoMarkdown(memo.content, renderContext)}</div>
-                  <button class="memo-expand-button" type="button" data-action="toggleMemoExpand" aria-expanded="${expanded ? "true" : "false"}" title="${expandLabel}">
-                    <span>${expandLabel}</span>
-                    ${SVG.chevronDown}
-                  </button>
+                  ${!expanded ? `
+                    <button class="memo-expand-button" type="button" data-action="expandMemo" aria-expanded="false" title="展开全文" aria-label="展开全文">
+                      ${SVG.chevronDown}
+                      <span>展开全文</span>
+                    </button>
+                  ` : ""}
                 </div>
               </div>
               ${tocHTML}
@@ -899,27 +835,73 @@ function memoTemplate(memo, editingId, renderContext, expanded = false, projects
           `
       }
       <footer class="memo-card-actions">
+        <div class="memo-card-operation-meta">
+          ${projectBadge}
+          ${summary}
+        </div>
         ${!editing && !isPrivateVisible ? memoReactionsTemplate(memo) : ""}
-        ${summary}
         <div class="memo-card-actions-buttons">
-          <button class="memo-action-button" type="button" data-action="copyMemoRef" title="复制引用">${SVG.link}</button>
-          <button class="memo-action-button" type="button" data-action="commentMemo" title="评论">
+          <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="copyMemoRef" title="复制引用">${SVG.link}</button>
+          <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="commentMemo" title="评论">
             ${SVG.comment}
             ${comments.length ? `<span class="memo-action-count">${comments.length}</span>` : ""}
           </button>
-          <button class="memo-action-button" type="button" data-action="editMemo" title="编辑">${SVG.edit}</button>
-          <button class="memo-action-button" type="button" data-action="detachMemoEdit" title="在独立窗口中编辑">${SVG.external}</button>
-          <button class="memo-action-button" type="button" data-action="editMemoSource" title="编辑源数据" aria-label="编辑源数据">${SVG.code}</button>
-          ${memo.updatedAt ? `<button class="memo-action-button" type="button" data-action="openMemoHistory" title="版本历史">${SVG.history}</button>` : ""}
-          ${
-            archived
-              ? `<button class="memo-action-button" type="button" data-action="restoreMemo" title="恢复">${SVG.restore}</button>`
-              : `<button class="memo-action-button" type="button" data-action="archiveMemo" title="归档">${SVG.archive}</button>`
-          }
-          <button class="memo-action-button is-danger" type="button" data-action="deleteMemo" title="删除">${SVG.trash}</button>
+          <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="editMemo" title="编辑">${SVG.edit}</button>
+          <div class="memo-card-more ${moreOpen ? "is-open" : ""}" data-memo-more data-memo-id="${escapeAttr(memo.id)}">
+            <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-card-more-trigger" type="button" data-action="toggleMemoMore" title="更多操作" aria-label="更多操作" aria-haspopup="menu" aria-controls="${escapeAttr(moreMenuId)}" aria-expanded="${moreOpen ? "true" : "false"}">${SVG.moreHorizontal}</button>
+            <div class="tn-popup tn-popup--menu tn-menu tn-dropdown-menu memo-card-more-menu" id="${escapeAttr(moreMenuId)}" data-memo-more-menu data-memo-id="${escapeAttr(memo.id)}" role="menu" aria-label="Memo 更多操作" ${moreOpen ? "" : "hidden"}>
+              <button class="tn-menu__item memo-card-more-item" type="button" role="menuitem" data-action="detachMemoEdit">${SVG.external}<span>在独立窗口中编辑</span></button>
+              <button class="tn-menu__item memo-card-more-item" type="button" role="menuitem" data-action="editMemoSource">${SVG.code}<span>编辑源数据</span></button>
+              ${memo.updatedAt ? `<button class="tn-menu__item memo-card-more-item" type="button" role="menuitem" data-action="openMemoHistory">${SVG.history}<span>版本历史</span></button>` : ""}
+              <div class="tn-menu__separator memo-card-more-separator" role="separator"></div>
+              ${
+                archived
+                  ? `<button class="tn-menu__item memo-card-more-item" type="button" role="menuitem" data-action="restoreMemo">${SVG.restore}<span>恢复 Memo</span></button>`
+                  : `<button class="tn-menu__item memo-card-more-item" type="button" role="menuitem" data-action="archiveMemo">${SVG.archive}<span>归档 Memo</span></button>`
+              }
+              <button class="tn-menu__item memo-card-more-item is-danger" type="button" role="menuitem" data-action="deleteMemo">${SVG.trash}<span>删除 Memo</span></button>
+            </div>
+          </div>
         </div>
       </footer>
       ${!editing && (comments.length || commenting) ? memoCommentSectionTemplate(comments, commenting, renderContext, editingCommentId, commentsExpanded, { privateUnlocked: options.privateUnlocked, commentVisibility: options.commentVisibility }) : ""}
+    </article>
+  `;
+}
+
+function pinnedMemoTemplate(memo, renderContext, expanded = false, projects = []) {
+  const tags = extractTags(memo.content);
+  const summary = memoCardSummaryTemplate(memo, tags);
+  const textLines = (memo.content || "").split("\n").length;
+  const projectBadge = memo.projectId ? projectBadgeTemplate(memo.projectId, projects) : "";
+
+  return `
+    <article class="memo-pinned-item memo-pinned-card" data-memo-id="${escapeAttr(memo.id)}" aria-label="置顶 Memo">
+      <header class="memo-pinned-head">
+        <div class="memo-card-author-info memo-pinned-author-info">
+          <span class="memo-author-name">You</span>
+          <time datetime="${escapeAttr(memo.createdAt)}">${formatRelativeDate(memo.createdAt)}</time>
+        </div>
+        <div class="memo-pinned-actions">
+          <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-pin-action is-active" type="button" data-n="pinned-memo-unpin" data-action="togglePin" title="取消置顶" aria-label="取消置顶" aria-pressed="true">${SVG.unpin}</button>
+          <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="detachMemo" title="分离为窗口" aria-label="分离为窗口">${SVG.external}</button>
+        </div>
+      </header>
+      <div class="memo-pinned-collapse memo-list-collapse ${expanded ? "is-expanded" : "is-collapsed"}${!expanded && textLines <= 36 ? " is-short" : ""}" data-memo-collapse data-memo-lines="${textLines}">
+        <div class="memo-pinned-content memo-content">${renderMemoMarkdown(memo.content, renderContext)}</div>
+        ${!expanded ? `
+          <button class="memo-expand-button memo-pinned-expand-button" type="button" data-action="expandMemo" aria-expanded="false" title="展开全文" aria-label="展开全文">
+            ${SVG.chevronDown}
+            <span>展开全文</span>
+          </button>
+        ` : ""}
+      </div>
+      <footer class="memo-pinned-footer">
+        <div class="memo-card-operation-meta">
+          ${projectBadge}
+          ${summary}
+        </div>
+      </footer>
     </article>
   `;
 }
@@ -1060,10 +1042,10 @@ function memoCommentSectionTemplate(comments, commenting, renderContext, editing
               </div>
               <div class="memo-inline-actions memo-comment-actions">
                 <div class="memo-inline-status-line" data-comment-vim-status></div>
-                <select class="memo-comment-visibility-select" data-comment-visibility-select aria-label="评论可见范围">${visibilityOptionsTemplate(options.commentVisibility || DEFAULT_VISIBILITY)}</select>
-                <button class="memo-secondary-button" type="button" data-action="toggleCommentPreview" aria-pressed="false">${SVG.eye}<span>预览</span></button>
-                <button class="memo-secondary-button" type="button" data-action="cancelComment">${SVG.x}<span>取消</span></button>
-                <button class="memo-primary-button" type="button" data-action="saveComment">${SVG.check}<span>评论</span></button>
+                <tn-select class="memo-comment-visibility-select" data-comment-visibility-select aria-label="评论可见范围">${visibilityOptionsTemplate(options.commentVisibility || DEFAULT_VISIBILITY)}</tn-select>
+                <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="toggleCommentPreview" aria-pressed="false">${SVG.eye}<span>预览</span></button>
+                <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="cancelComment">${SVG.x}<span>取消</span></button>
+                <button class="tn-button tn-button--primary memo-primary-button" type="button" data-action="saveComment">${SVG.check}<span>评论</span></button>
               </div>
             </div>
           `
@@ -1107,20 +1089,20 @@ function memoCommentTemplate(comment, renderContext, editingCommentId = "", opti
               </div>
               <div class="memo-inline-actions memo-comment-edit-actions">
                 <div class="memo-inline-status-line" data-comment-edit-vim-status></div>
-                <button class="memo-secondary-button" type="button" data-action="toggleCommentEditPreview" aria-pressed="false">${SVG.eye}<span>预览</span></button>
-                <button class="memo-secondary-button" type="button" data-action="cancelCommentEdit">${SVG.x}<span>取消</span></button>
-                <button class="memo-primary-button" type="button" data-action="saveCommentEdit">${SVG.check}<span>保存</span></button>
+                <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="toggleCommentEditPreview" aria-pressed="false">${SVG.eye}<span>预览</span></button>
+                <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="cancelCommentEdit">${SVG.x}<span>取消</span></button>
+                <button class="tn-button tn-button--primary memo-primary-button" type="button" data-action="saveCommentEdit">${SVG.check}<span>保存</span></button>
               </div>
             </div>
           `
           : `
             <div class="memo-comment-bubble">
               <div class="memo-comment-hover-actions" aria-label="评论操作">
-                <button class="memo-action-button" type="button" data-action="copyComment" title="复制" aria-label="复制">${SVG.copy}</button>
-                <button class="memo-action-button" type="button" data-action="replyToComment" title="回复" aria-label="回复">${SVG.reply}</button>
-                <button class="memo-action-button" type="button" data-action="editComment" title="编辑评论" aria-label="编辑评论">${SVG.edit}</button>
-                ${comment.updatedAt ? `<button class="memo-action-button" type="button" data-action="openCommentHistory" title="版本历史" aria-label="版本历史">${SVG.history}</button>` : ""}
-                <button class="memo-action-button is-danger" type="button" data-action="deleteComment" title="删除评论" aria-label="删除评论">${SVG.trash}</button>
+                <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="copyComment" title="复制" aria-label="复制">${SVG.copy}</button>
+                <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="replyToComment" title="回复" aria-label="回复">${SVG.reply}</button>
+                <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="editComment" title="编辑评论" aria-label="编辑评论">${SVG.edit}</button>
+                ${comment.updatedAt ? `<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="openCommentHistory" title="版本历史" aria-label="版本历史">${SVG.history}</button>` : ""}
+                <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button is-danger" type="button" data-action="deleteComment" title="删除评论" aria-label="删除评论">${SVG.trash}</button>
                 ${commentReactionsPicker(comment, "action")}
               </div>
               ${replyToChipHTML}
@@ -1177,7 +1159,7 @@ function todoTemplate(todo, renderContext, projects = []) {
   return `
     <article class="memo-todo-card ${todo.checked ? "is-complete" : ""}" data-memo-id="${escapeAttr(todo.memoId)}"${commentAttr}>
       <div class="memo-todo-check">
-        <input type="checkbox" data-task-line="${todo.lineIndex}" ${todo.checked ? "checked" : ""} />
+        <tn-checkbox class="memo-todo-checkbox" control-class="tn-checkbox--todo" size="sm" aria-label="切换任务完成状态" data-n="aggregated-todo-completion-checkbox" data-task-line="${todo.lineIndex}" ${todo.checked ? "checked" : ""}></tn-checkbox>
         <span>${inlineMarkdown(todo.text, renderContext)}</span>
       </div>
       <div class="memo-todo-source">
@@ -1208,15 +1190,15 @@ function taskWorkspaceTemplate(options) {
     <section class="memo-task-workspace">
       <form class="memo-task-create" data-task-create-form>
         <input name="title" type="text" placeholder="添加任务到 Inbox" autocomplete="off" />
-        <select name="priority" aria-label="优先级">
+        <tn-select name="priority" aria-label="优先级">
           <option value="none">无优先级</option>
           <option value="low">低</option>
           <option value="medium">中</option>
           <option value="high">高</option>
-        </select>
-        <input name="dueAt" type="date" aria-label="截止日期" />
-        <select name="visibility" aria-label="可见范围">${visibilityOptionsTemplate(DEFAULT_VISIBILITY)}</select>
-        <button class="memo-primary-button" type="submit">${SVG.plus}<span>添加</span></button>
+        </tn-select>
+        <tn-date-picker name="dueAt" mode="date" aria-label="截止日期"></tn-date-picker>
+        <tn-select name="visibility" aria-label="可见范围">${visibilityOptionsTemplate(DEFAULT_VISIBILITY)}</tn-select>
+        <button class="tn-button tn-button--primary memo-primary-button" type="submit">${SVG.plus}<span>添加</span></button>
       </form>
       <div class="memo-task-tabs" role="tablist" aria-label="Task filters">
         ${filters
@@ -1260,10 +1242,7 @@ function taskCardTemplate(task, context) {
   return `
     <article class="${taskClass}" data-task-id="${escapeAttr(task.id)}">
       ${isPrivateVisible ? privateOverlayTemplate("仅自己可见") : ""}
-      <label class="memo-task-check">
-        <input type="checkbox" data-task-complete ${complete ? "checked" : ""} />
-        <span></span>
-      </label>
+      <tn-checkbox class="memo-task-check memo-todo-checkbox" control-class="tn-checkbox--todo" size="sm" aria-label="切换任务完成状态" data-n="task-completion-checkbox" data-task-complete ${complete ? "checked" : ""}></tn-checkbox>
       <div class="memo-task-body">
         <div class="memo-task-title-row">
           <strong>${escapeHTML(task.title)}</strong>
@@ -1284,10 +1263,10 @@ function taskCardTemplate(task, context) {
         </div>
       </div>
       <div class="memo-task-actions">
-        <button class="memo-action-button" type="button" data-action="editTask" title="编辑任务">${SVG.clock}</button>
-        <button class="memo-action-button" type="button" data-action="addTaskNote" title="添加 note">${SVG.edit}</button>
-        <button class="memo-action-button" type="button" data-action="copyTaskRef" title="复制引用">${SVG.link}</button>
-        <button class="memo-action-button is-danger" type="button" data-action="deleteTask" title="删除">${SVG.trash}</button>
+        <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="editTask" title="编辑任务">${SVG.clock}</button>
+        <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="addTaskNote" title="添加 note">${SVG.edit}</button>
+        <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="copyTaskRef" title="复制引用">${SVG.link}</button>
+        <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button is-danger" type="button" data-action="deleteTask" title="删除">${SVG.trash}</button>
       </div>
     </article>
   `;
@@ -1327,7 +1306,7 @@ function emptyTasksTemplate() {
     <div class="memo-empty-state">
       <div class="memo-empty-icon">${SVG.check}</div>
       <h2>没有匹配的任务</h2>
-      <button class="memo-secondary-button" type="button" data-action="clearFilters">查看全部</button>
+      <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="clearFilters">查看全部</button>
     </div>
   `;
 }
@@ -1380,18 +1359,18 @@ function gtdItemWorkspaceTemplate(options) {
     <section class="memo-task-workspace">
       <form class="memo-task-create" data-gtd-item-create-form>
         <input name="title" type="text" placeholder="捕捉开放事项、bug、想法或问题" autocomplete="off" />
-        <select name="type" aria-label="事项类型">
+        <tn-select name="type" aria-label="事项类型">
           <option value="idea">想法</option>
           <option value="feature">功能</option>
           <option value="bug">Bug</option>
           <option value="question">问题</option>
           <option value="chore">杂项</option>
-        </select>
-        <select name="milestoneId" aria-label="里程碑">
+        </tn-select>
+        <tn-select name="milestoneId" aria-label="里程碑">
           <option value="">无里程碑</option>
           ${milestones.filter((item) => item.status !== "completed" && item.status !== "cancelled").map((item) => `<option value="${escapeAttr(item.id)}">${escapeHTML(item.title)}</option>`).join("")}
-        </select>
-        <button class="memo-primary-button" type="submit">${SVG.plus}<span>添加</span></button>
+        </tn-select>
+        <button class="tn-button tn-button--primary memo-primary-button" type="submit">${SVG.plus}<span>添加</span></button>
       </form>
     </section>
   `;
@@ -1416,10 +1395,7 @@ function gtdItemCardTemplate(item, context) {
   const closed = item.status === "closed" || item.status === "resolved";
   return `
     <article class="memo-task-card ${closed ? "is-complete" : ""} is-priority-none" data-gtd-item-id="${escapeAttr(item.id)}">
-      <label class="memo-task-check">
-        <input type="checkbox" data-gtd-item-complete ${closed ? "checked" : ""} />
-        <span></span>
-      </label>
+      <tn-checkbox class="memo-task-check memo-todo-checkbox" control-class="tn-checkbox--todo" size="sm" aria-label="切换事项完成状态" data-n="gtd-item-completion-checkbox" data-gtd-item-complete ${closed ? "checked" : ""}></tn-checkbox>
       <div class="memo-task-body">
         <div class="memo-task-title-row">
           <strong>${escapeHTML(item.title)}</strong>
@@ -1437,10 +1413,10 @@ function gtdItemCardTemplate(item, context) {
         ${item.decision ? `<p class="memo-task-note">${escapeHTML(item.decision)}</p>` : ""}
       </div>
       <div class="memo-task-actions">
-        ${item.status === "open" ? `<button class="memo-action-button" type="button" data-action="triageGTDItem" title="标记已澄清">${SVG.check}</button>` : ""}
-        ${!closed ? `<button class="memo-action-button" type="button" data-action="waitGTDItem" title="标记等待">${SVG.clock}</button>` : ""}
-        ${!closed ? `<button class="memo-action-button" type="button" data-action="closeGTDItem" title="关闭">${SVG.archive}</button>` : ""}
-        <button class="memo-action-button is-danger" type="button" data-action="deleteGTDItem" title="删除">${SVG.trash}</button>
+        ${item.status === "open" ? `<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="triageGTDItem" title="标记已澄清">${SVG.check}</button>` : ""}
+        ${!closed ? `<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="waitGTDItem" title="标记等待">${SVG.clock}</button>` : ""}
+        ${!closed ? `<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="closeGTDItem" title="关闭">${SVG.archive}</button>` : ""}
+        <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button is-danger" type="button" data-action="deleteGTDItem" title="删除">${SVG.trash}</button>
       </div>
     </article>
   `;
@@ -1451,12 +1427,12 @@ function gtdMilestoneWorkspaceTemplate() {
     <section class="memo-task-workspace">
       <form class="memo-task-create" data-gtd-milestone-create-form>
         <input name="title" type="text" placeholder="新增阶段目标，例如 v0.2 GTD Inbox" autocomplete="off" />
-        <select name="status" aria-label="状态">
+        <tn-select name="status" aria-label="状态">
           <option value="planned">计划中</option>
           <option value="active">进行中</option>
-        </select>
-        <input name="targetAt" type="date" aria-label="目标日期" />
-        <button class="memo-primary-button" type="submit">${SVG.plus}<span>添加</span></button>
+        </tn-select>
+        <tn-date-picker name="targetAt" mode="date" aria-label="目标日期"></tn-date-picker>
+        <button class="tn-button tn-button--primary memo-primary-button" type="submit">${SVG.plus}<span>添加</span></button>
       </form>
     </section>
   `;
@@ -1499,8 +1475,8 @@ function gtdMilestoneCardTemplate(milestone, context) {
         </div>
       </div>
       <div class="memo-task-actions">
-        ${milestone.status === "planned" ? `<button class="memo-action-button" type="button" data-action="activateGTDMilestone" title="开始">${SVG.check}</button>` : ""}
-        ${!complete ? `<button class="memo-action-button" type="button" data-action="completeGTDMilestone" title="完成">${SVG.archive}</button>` : ""}
+        ${milestone.status === "planned" ? `<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="activateGTDMilestone" title="开始">${SVG.check}</button>` : ""}
+        ${!complete ? `<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="completeGTDMilestone" title="完成">${SVG.archive}</button>` : ""}
       </div>
     </article>
   `;
@@ -1543,18 +1519,19 @@ function linkTemplate(link, linkTitles) {
   const fetchedTitle = linkTitles && linkTitles[link.url] ? linkTitles[link.url] : "";
   const displayTitle = fetchedTitle || link.label || link.url;
   return `
-    <article class="memo-resource-card is-link" data-memo-id="${escapeAttr(link.memoId)}" data-link-url="${escapeAttr(link.url)}">
-      <a class="memo-resource-target" href="${escapeAttr(href)}" target="_blank" rel="noreferrer">
+    <article class="memo-resource-card is-link" data-n="link-card" data-memo-id="${escapeAttr(link.memoId)}" data-link-url="${escapeAttr(link.url)}">
+      <a class="memo-resource-target" data-n="link-card-target" href="${escapeAttr(href)}" target="_blank" rel="noreferrer" aria-label="打开链接：${escapeAttr(displayTitle)}">
         ${hostFavicon(link.url)}
-        <span class="memo-resource-body">
-          <span class="memo-resource-title${fetchedTitle ? " is-fetched-title" : ""}">${escapeHTML(displayTitle)}</span>
-          <span class="memo-resource-url">${escapeHTML(compactFileURL(link.url))}</span>
+        <span class="memo-resource-body" data-n="link-card-content">
+          <span class="memo-resource-title${fetchedTitle ? " is-fetched-title" : ""}" data-n="link-card-title">${escapeHTML(displayTitle)}</span>
+          <span class="memo-resource-url" data-n="link-card-url">${escapeHTML(compactFileURL(link.url))}</span>
         </span>
+        <span class="memo-link-open-cue" data-n="link-card-open-cue" aria-hidden="true">${SVG.external}</span>
       </a>
-      <div class="memo-link-actions">
-        <button class="memo-action-button memo-link-copy-button" type="button" data-action="copyLink" title="复制链接" aria-label="复制链接">${SVG.copy}</button>
-        <button class="memo-action-button memo-link-fetch-title-button" type="button" data-action="fetchLinkTitle" title="获取标题" aria-label="获取标题">${SVG.refresh}</button>
-        <button class="memo-action-button memo-link-source-button" type="button" data-action="openSourceMemo" title="来源 memo" aria-label="来源 memo">${SVG.eye}</button>
+      <div class="memo-link-actions" data-n="link-card-actions" role="group" aria-label="链接操作">
+        <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-link-copy-button" type="button" data-n="link-card-copy" data-action="copyLink" title="复制链接" aria-label="复制链接">${SVG.copy}</button>
+        <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-link-fetch-title-button" type="button" data-n="link-card-fetch-title" data-action="fetchLinkTitle" title="获取标题" aria-label="获取标题">${SVG.refresh}</button>
+        <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-link-source-button" type="button" data-n="link-card-open-source" data-action="openSourceMemo" title="来源 memo" aria-label="来源 memo">${SVG.eye}</button>
       </div>
     </article>
   `;
@@ -1565,37 +1542,58 @@ function codeBlockTemplate(block) {
   const tags = extractTags(block.memo.content);
   const code = block.code || "";
   const preview = code.trim() || "空代码块";
+  const codeLines = code.split("\n");
+  const multiline = codeLines.length > 1;
   const markerLabel = block.marked ? "已标记" : "未标记";
   const aliases = Array.isArray(block.aliases) ? block.aliases : [];
   const lineRange = block.endLineIndex > block.lineIndex
     ? `${block.lineIndex + 1}-${block.endLineIndex + 1}`
     : String(block.lineIndex + 1);
   return `
-    <article class="memo-resource-card is-code ${block.marked ? "is-snippet" : "is-unmarked"}" data-memo-id="${escapeAttr(block.memoId)}" data-code-block-id="${escapeAttr(block.id)}">
-      <div class="memo-code-block-head">
-        <span class="memo-resource-icon">${SVG.code}</span>
-        <span class="memo-resource-body">
-          <span class="memo-resource-title">
+    <article class="memo-resource-card is-code ${block.marked ? "is-snippet" : "is-unmarked"}" data-n="code-snippet-card" data-memo-id="${escapeAttr(block.memoId)}" data-code-block-id="${escapeAttr(block.id)}">
+      <div class="memo-code-block-head" data-n="code-snippet-header">
+        <span class="memo-resource-icon" data-n="code-snippet-icon">${SVG.code}</span>
+        <span class="memo-resource-body" data-n="code-snippet-summary">
+          <span class="memo-resource-title" data-n="code-snippet-title">
             ${escapeHTML(block.label || "代码片段")}
-            <span class="memo-code-block-badge">${escapeHTML(markerLabel)}</span>
+            <span class="memo-code-block-badge" data-n="code-snippet-marker">${escapeHTML(markerLabel)}</span>
           </span>
-          <span class="memo-resource-url">
+          <span class="memo-resource-url" data-n="code-snippet-metadata">
             第 ${escapeHTML(lineRange)} 行${block.language ? ` / ${escapeHTML(block.language)}` : ""}
             ${aliases.length ? ` / ${aliases.map((alias) => escapeHTML(alias)).join(" ")}` : ""}
           </span>
         </span>
-        <button class="memo-action-button" type="button" data-action="copyCodeBlock" title="复制代码">${SVG.copy}</button>
+        ${multiline ? "" : `<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-n="code-snippet-copy" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">${SVG.copy}</button>`}
       </div>
-      <pre class="memo-code-block-preview"><code>${escapeHTML(preview)}</code></pre>
-      <div class="memo-resource-source">
+      ${multiline
+        ? memoCodeWorkbenchTemplate(codeLines, { blockId: block.id, language: block.language })
+        : `<pre class="memo-code-block-preview" data-n="code-snippet-single-line-preview"><code data-n="code-snippet-single-line-content">${escapeHTML(preview)}</code></pre>`}
+      <div class="memo-resource-source" data-n="code-snippet-source">
         ${sourceReferenceMarkerTemplate(block)}
-        <div class="memo-todo-meta">
-          <time datetime="${escapeAttr(block.memo.createdAt)}">${formatRelativeDate(block.memo.createdAt)}</time>
-          <span>${SVG[visibility.icon]} ${visibility.label}</span>
-          ${tags.slice(0, 3).map((tag) => `<span>#${escapeHTML(tag)}</span>`).join("")}
+        <div class="memo-todo-meta" data-n="code-snippet-source-metadata">
+          <time data-n="code-snippet-created-at" datetime="${escapeAttr(block.memo.createdAt)}">${formatRelativeDate(block.memo.createdAt)}</time>
+          <span data-n="code-snippet-visibility">${SVG[visibility.icon]} ${visibility.label}</span>
+          ${tags.slice(0, 3).map((tag) => `<span data-n="code-snippet-tag">#${escapeHTML(tag)}</span>`).join("")}
         </div>
       </div>
     </article>
+  `;
+}
+
+function codeBlocksFilterTemplate(showAll, visibleCount, totalCount) {
+  return `
+    <div class="memo-code-blocks-toolbar" data-n="code-snippet-filter-toolbar">
+      <tn-checkbox
+        class="memo-code-blocks-show-all"
+        size="sm"
+        label="查看全部"
+        aria-label="查看全部代码块"
+        data-n="code-snippet-show-all-checkbox"
+        data-code-blocks-show-all
+        ${showAll ? "checked" : ""}
+      ></tn-checkbox>
+      <span class="memo-code-blocks-count" data-n="code-snippet-result-count">${escapeHTML(visibleCount)} / ${escapeHTML(totalCount)}</span>
+    </div>
   `;
 }
 
@@ -1652,6 +1650,43 @@ function resourcePreviewTemplate(resource) {
     <span class="memo-resource-preview">
       <img src="${escapeAttr(src)}" alt="${escapeAttr(resource.label || "image")}" loading="lazy" />
     </span>
+  `;
+}
+
+function fileGridTemplate(items) {
+  return `
+    <div class="memo-file-grid" data-n="finder-file-grid" data-file-browser-grid role="grid" aria-label="文件图标视图">
+      ${items.map(fileBrowserItemTemplate).join("")}
+    </div>
+  `;
+}
+
+function fileBrowserItemTemplate(item) {
+  const href = safeUrl(item.url);
+  const previewSrc = item.kind === "image" ? safeImageUrl(item.url) : "";
+  const icon = previewSrc
+    ? `<span class="memo-finder-file-icon is-thumbnail" data-n="finder-file-thumbnail-frame" aria-hidden="true"><img class="memo-finder-file-thumbnail" data-n="finder-file-thumbnail" src="${escapeAttr(previewSrc)}" alt="" loading="lazy" /></span>`
+    : `<span class="memo-finder-file-icon" data-n="finder-file-icon" data-file-badge="${escapeAttr(item.badge)}" aria-hidden="true"></span>`;
+  return `
+    <button
+      class="memo-finder-file"
+      type="button"
+      role="gridcell"
+      aria-label="${escapeAttr(item.name)}，${escapeAttr(item.kindLabel)}，右键查看"
+      aria-selected="false"
+      data-n="finder-file-item"
+      data-file-browser-item
+      data-file-browser-id="${escapeAttr(item.id)}"
+      data-file-kind="${escapeAttr(item.kind)}"
+      data-file-badge="${escapeAttr(item.badge)}"
+      data-file-href="${escapeAttr(href)}"
+      data-file-url="${escapeAttr(item.url)}"
+      ${previewSrc ? `data-preview-src="${escapeAttr(previewSrc)}" data-image-preview-title="${escapeAttr(item.name)}"` : ""}
+      title="${escapeAttr(item.name)}（右键查看）"
+    >
+      ${icon}
+      <span class="memo-finder-file-name" data-n="finder-file-name">${escapeHTML(item.name)}</span>
+    </button>
   `;
 }
 
@@ -1727,8 +1762,8 @@ function clipboardCurrentTemplate(item, options = {}) {
           </span>
         </div>
         <div class="memo-clipboard-current-actions">
-          <button class="memo-secondary-button" type="button" data-action="clipboardRefresh">${SVG.restore}<span>刷新</span></button>
-          <button class="memo-primary-button" type="button" data-action="clipboardAccept" ${options.working ? "disabled" : ""}>
+          <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="clipboardRefresh">${SVG.restore}<span>刷新</span></button>
+          <button class="tn-button tn-button--primary memo-primary-button" type="button" data-action="clipboardAccept" ${options.working ? "disabled" : ""}>
             ${SVG.plus}
             <span>${escapeHTML(actionLabel)}</span>
           </button>
@@ -1746,7 +1781,7 @@ function emptyClipboardTemplate() {
     <div class="memo-empty-state">
       <div class="memo-empty-icon">${SVG.copy}</div>
       <h2>暂无粘贴板内容</h2>
-      <button class="memo-secondary-button" type="button" data-action="clipboardRefresh">刷新</button>
+      <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="clipboardRefresh">刷新</button>
     </div>
   `;
 }
@@ -1779,21 +1814,19 @@ function editTemplate(memo, projects = []) {
       </div>
       <div class="memo-inline-actions">
         <div class="memo-inline-status-line" data-edit-vim-status></div>
-        <label class="memo-select-wrap is-compact">
-          <select data-edit-project aria-label="编辑 Project">
+        <div class="memo-select-wrap is-compact">
+          <tn-project-select data-edit-project aria-label="编辑 Project">
             ${projectOptionsTemplate(projects, memo.projectId || "")}
-          </select>
-          ${SVG.chevronDown}
-        </label>
-        <label class="memo-select-wrap is-compact">
-          <select data-edit-visibility aria-label="编辑可见性">
+          </tn-project-select>
+        </div>
+        <div class="memo-select-wrap is-compact">
+          <tn-select data-edit-visibility aria-label="编辑可见性">
             ${visibilityOptionsTemplate(memo.private && memo.visibility === "PRIVATE" ? "SECRET" : memo.visibility)}
-          </select>
-          ${SVG.chevronDown}
-        </label>
-        <button class="memo-secondary-button" type="button" data-action="toggleEditPreview" aria-pressed="false">${SVG.eye}<span>预览</span></button>
-        <button class="memo-secondary-button" type="button" data-action="cancelEdit">${SVG.x}<span>取消</span></button>
-        <button class="memo-primary-button" type="button" data-action="saveEdit">${SVG.check}<span>保存</span></button>
+          </tn-select>
+        </div>
+        <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="toggleEditPreview" aria-pressed="false">${SVG.eye}<span>预览</span></button>
+        <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="cancelEdit">${SVG.x}<span>取消</span></button>
+        <button class="tn-button tn-button--primary memo-primary-button" type="button" data-action="saveEdit">${SVG.check}<span>保存</span></button>
       </div>
     </div>
   `;
@@ -1804,7 +1837,7 @@ function emptyFeedTemplate() {
     <div class="memo-empty-state">
       <div class="memo-empty-icon">${SVG.search}</div>
       <h2>没有匹配的 memo</h2>
-      <button class="memo-secondary-button" type="button" data-action="clearFilters">查看全部</button>
+      <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="clearFilters">查看全部</button>
     </div>
   `;
 }
@@ -1814,7 +1847,7 @@ function emptyTodosTemplate() {
     <div class="memo-empty-state">
       <div class="memo-empty-icon">${SVG.check}</div>
       <h2>没有匹配的代办</h2>
-      <button class="memo-secondary-button" type="button" data-action="clearFilters">查看全部</button>
+      <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="clearFilters">查看全部</button>
     </div>
   `;
 }
@@ -1824,27 +1857,36 @@ function emptyLinksTemplate() {
     <div class="memo-empty-state">
       <div class="memo-empty-icon">${SVG.link}</div>
       <h2>没有匹配的超链接</h2>
-      <button class="memo-secondary-button" type="button" data-action="clearFilters">查看全部</button>
+      <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="clearFilters">查看全部</button>
     </div>
   `;
 }
 
-function emptyCodeBlocksTemplate() {
+function emptyCodeBlocksTemplate(options = {}) {
+  if (options.hasHiddenBlocks && !options.showAll) {
+    return `
+      <div class="memo-empty-state" data-n="code-snippet-marked-empty-state">
+        <div class="memo-empty-icon" data-n="code-snippet-marked-empty-icon">${SVG.code}</div>
+        <h2 data-n="code-snippet-marked-empty-title">暂无已标记的代码片段</h2>
+        <p data-n="code-snippet-marked-empty-hint">勾选“查看全部”可显示未标记代码块</p>
+      </div>
+    `;
+  }
   return `
-    <div class="memo-empty-state">
-      <div class="memo-empty-icon">${SVG.code}</div>
-      <h2>没有匹配的代码片段</h2>
-      <button class="memo-secondary-button" type="button" data-action="clearFilters">查看全部</button>
+    <div class="memo-empty-state" data-n="code-snippet-empty-state">
+      <div class="memo-empty-icon" data-n="code-snippet-empty-icon">${SVG.code}</div>
+      <h2 data-n="code-snippet-empty-title">没有匹配的代码片段</h2>
+      <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-n="code-snippet-clear-filters" data-action="clearFilters">清除筛选</button>
     </div>
   `;
 }
 
 function emptyFilesTemplate() {
   return `
-    <div class="memo-empty-state">
-      <div class="memo-empty-icon">${SVG.paperclip}</div>
-      <h2>没有匹配的文件</h2>
-      <button class="memo-secondary-button" type="button" data-action="clearFilters">查看全部</button>
+    <div class="memo-empty-state" data-n="finder-file-empty-state">
+      <div class="memo-empty-icon" data-n="finder-file-empty-icon">${SVG.paperclip}</div>
+      <h2 data-n="finder-file-empty-title">没有匹配的文件</h2>
+      <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-n="finder-file-clear-filters" data-action="clearFilters">查看全部</button>
     </div>
   `;
 }
@@ -1872,8 +1914,8 @@ function pinDialogTemplate(mode, errorMessage) {
         ${errorHtml}
         <input class="pin-dialog-input" type="password" maxlength="16" placeholder="输入 PIN" data-pin-input autofocus />
         <div class="pin-dialog-actions">
-          <button class="memo-secondary-button" type="button" data-action="cancelPinDialog">取消</button>
-          <button class="memo-primary-button" type="button" data-action="submitPin">${buttonLabel}</button>
+          <button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="cancelPinDialog">取消</button>
+          <button class="tn-button tn-button--primary memo-primary-button" type="button" data-action="submitPin">${buttonLabel}</button>
         </div>
       </div>
     </div>
@@ -2122,14 +2164,14 @@ function historyDialogTemplate(state) {
           (changed ? '<span class="history-version-fields">' + escapeHTML(changed) + "</span>" : "") +
           "</div>" +
           '<div class="history-version-actions">' +
-          '<button class="memo-action-button" type="button" data-action="toggleHistoryDiff" data-version="' +
+          '<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="toggleHistoryDiff" data-version="' +
           v.version +
           '" title="' +
           (isExpanded ? "收起差异" : "展开差异") +
           '">' +
           (isExpanded ? SVG.chevronUp : SVG.eye) +
           "</button>" +
-          '<button class="memo-action-button" type="button" data-action="restoreHistoryVersion" data-version="' +
+          '<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="restoreHistoryVersion" data-version="' +
           v.version +
           '" title="回退"' +
           (isRestoring ? " disabled" : "") +
@@ -2154,7 +2196,7 @@ function historyDialogTemplate(state) {
     '<span class="history-record-id">' +
     recordId +
     "</span>" +
-    '<button class="memo-action-button" type="button" data-action="closeHistoryDialog" aria-label="关闭">' +
+    '<button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button" type="button" data-action="closeHistoryDialog" aria-label="关闭">' +
     SVG.x +
     "</button>" +
     "</div>" +
@@ -2221,8 +2263,8 @@ function boardPresetsTemplate(presets) {
     );
   }).join("");
   return (
-    '<div class="memo-board-presets-overlay" data-board-presets-overlay>' +
-    '<div class="memo-board-presets-dialog">' +
+    '<div class="tn-overlay tn-dialog-layer is-open memo-board-presets-overlay" data-board-presets-overlay>' +
+    '<div class="tn-dialog tn-dialog--lg memo-board-presets-dialog">' +
     '<div class="memo-board-presets-header">' +
     '<h3>选择模板</h3>' +
     '<button class="memo-board-presets-close" type="button" data-action="closeBoardPresets">' + SVG.x + '</button>' +
@@ -2244,10 +2286,10 @@ function boardTemplate(board, tasksByColumn, projectTasks) {
       return '<option value="' + escapeAttr(task.id) + '">' + escapeHTML(task.title) + '</option>';
     }).join("");
     taskSelectHTML = (
-      '<select class="memo-board-task-select" data-board-task-select data-board-id="' + escapeAttr(board.id) + '">' +
+      '<tn-select class="memo-board-task-select" data-board-task-select data-board-id="' + escapeAttr(board.id) + '">' +
       '<option value="">选择待办…</option>' +
       options +
-      '</select>'
+      '</tn-select>'
     );
   }
   return (
@@ -2299,10 +2341,7 @@ function boardCardTemplate(task) {
     'draggable="true" ' +
     'data-task-id="' + escapeAttr(task.id) + '" ' +
     'data-board-id="' + escapeAttr(task.boardId || "") + '">' +
-    '<label class="memo-board-card-check">' +
-    '<input type="checkbox" data-board-card-complete=""' + (isCompleted ? ' checked' : '') + '>' +
-    '<span class="memo-board-card-check-mark">' + SVG.check + '</span>' +
-    '</label>' +
+    '<tn-checkbox class="memo-board-card-check memo-todo-checkbox" control-class="tn-checkbox--todo" size="sm" aria-label="切换任务完成状态" data-n="board-card-completion-checkbox" data-board-card-complete' + (isCompleted ? ' checked' : '') + '></tn-checkbox>' +
     '<div class="memo-board-card-body-inner">' +
     '<div class="memo-board-card-title">' + escapeHTML(task.title) + '</div>' +
     (dueBadge ? '<div class="memo-board-card-meta">' + dueBadge + '</div>' : '') +
@@ -2420,17 +2459,17 @@ function boardRuleEditTemplate(rule, board, isNew) {
     '<div class="board-rule-editor-section">' +
     '<label>触发条件</label>' +
     '<div class="board-rule-editor-row">' +
-    '<select name="triggerType" class="board-rule-editor-select">' +
+    '<tn-select name="triggerType" class="board-rule-editor-select">' +
     '<option value="task.enterColumn" selected>进入列</option>' +
-    '</select>' +
-    '<select name="triggerColumnId" class="board-rule-editor-select">' +
+    '</tn-select>' +
+    '<tn-select name="triggerColumnId" class="board-rule-editor-select">' +
     '<option value="">任意列</option>' +
     columnOptions +
-    '</select>' +
-    '<select name="triggerFromColumnId" class="board-rule-editor-select">' +
+    '</tn-select>' +
+    '<tn-select name="triggerFromColumnId" class="board-rule-editor-select">' +
     '<option value="">任意来源列</option>' +
     fromColumnOptions +
-    '</select>' +
+    '</tn-select>' +
     '</div>' +
     '</div>' +
     // Conditions
@@ -2451,8 +2490,8 @@ function boardRuleEditTemplate(rule, board, isNew) {
     '</div>' +
     '</div>' +
     '<div class="board-rule-editor-footer">' +
-    '<button class="memo-secondary-button" type="button" data-action="closeRuleEditor">取消</button>' +
-    '<button class="memo-primary-button" type="button" data-action="saveRule">保存</button>' +
+    '<button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-action="closeRuleEditor">取消</button>' +
+    '<button class="tn-button tn-button--primary memo-primary-button" type="button" data-action="saveRule">保存</button>' +
     '</div>' +
     '</div>' +
     '</div>'
@@ -2466,19 +2505,19 @@ function boardRuleConditionRowHTML(field, operator, value) {
   var showValue = o !== "isEmpty" && o !== "isNotEmpty";
   return (
     '<div class="board-rule-condition-row">' +
-    '<select class="board-rule-editor-select" data-cond-field>' +
+    '<tn-select class="board-rule-editor-select" data-cond-field>' +
     '<option value="status"' + (f === "status" ? " selected" : "") + '>status</option>' +
     '<option value="tags"' + (f === "tags" ? " selected" : "") + '>tags</option>' +
     '<option value="priority"' + (f === "priority" ? " selected" : "") + '>priority</option>' +
-    '</select>' +
-    '<select class="board-rule-editor-select" data-cond-operator>' +
+    '</tn-select>' +
+    '<tn-select class="board-rule-editor-select" data-cond-operator>' +
     '<option value="equals"' + (o === "equals" ? " selected" : "") + '>=</option>' +
     '<option value="notEquals"' + (o === "notEquals" ? " selected" : "") + '>!=</option>' +
     '<option value="contains"' + (o === "contains" ? " selected" : "") + '>包含</option>' +
     '<option value="notContains"' + (o === "notContains" ? " selected" : "") + '>不包含</option>' +
     '<option value="isEmpty"' + (o === "isEmpty" ? " selected" : "") + '>为空</option>' +
     '<option value="isNotEmpty"' + (o === "isNotEmpty" ? " selected" : "") + '>不为空</option>' +
-    '</select>' +
+    '</tn-select>' +
     (showValue ? '<input type="text" class="board-rule-editor-input" data-cond-value value="' + escapeAttr(v) + '" placeholder="值">' : '<input type="text" class="board-rule-editor-input" data-cond-value value="" placeholder="值" style="display:none">') +
     '<button class="board-rule-item-btn is-danger" type="button" data-action="removeRuleCondition" title="移除条件">' + SVG.x + '</button>' +
     '</div>'
@@ -2490,26 +2529,26 @@ function boardRuleActionRowHTML(type, params) {
   var p = params || {};
   return (
     '<div class="board-rule-action-row">' +
-    '<select class="board-rule-editor-select" data-action-type>' +
+    '<tn-select class="board-rule-editor-select" data-action-type>' +
     '<option value="addTags"' + (t === "addTags" ? " selected" : "") + '>添加标签</option>' +
     '<option value="removeTags"' + (t === "removeTags" ? " selected" : "") + '>移除标签</option>' +
     '<option value="setStatus"' + (t === "setStatus" ? " selected" : "") + '>设置状态</option>' +
     '<option value="setPriority"' + (t === "setPriority" ? " selected" : "") + '>设置优先级</option>' +
-    '</select>' +
+    '</tn-select>' +
     (t === "setStatus"
-      ? '<select class="board-rule-editor-select" data-action-status>' +
+      ? '<tn-select class="board-rule-editor-select" data-action-status>' +
         '<option value="open"' + (p.status === "open" ? " selected" : "") + '>open</option>' +
         '<option value="completed"' + (p.status === "completed" ? " selected" : "") + '>completed</option>' +
         '<option value="cancelled"' + (p.status === "cancelled" ? " selected" : "") + '>cancelled</option>' +
         '<option value="archived"' + (p.status === "archived" ? " selected" : "") + '>archived</option>' +
-        '</select>'
+        '</tn-select>'
       : (t === "setPriority"
-        ? '<select class="board-rule-editor-select" data-action-priority>' +
+        ? '<tn-select class="board-rule-editor-select" data-action-priority>' +
           '<option value=""' + (p.priority === "" ? " selected" : "") + '>无</option>' +
           '<option value="high"' + (p.priority === "high" ? " selected" : "") + '>high</option>' +
           '<option value="medium"' + (p.priority === "medium" ? " selected" : "") + '>medium</option>' +
           '<option value="low"' + (p.priority === "low" ? " selected" : "") + '>low</option>' +
-          '</select>'
+          '</tn-select>'
         : '<input type="text" class="board-rule-editor-input" data-action-tags value="' + escapeAttr((p.tags || []).join(", ")) + '" placeholder="标签，逗号分隔">')
     ) +
     '<button class="board-rule-item-btn is-danger" type="button" data-action="removeRuleAction" title="移除动作">' + SVG.x + '</button>' +
@@ -2538,8 +2577,8 @@ function projectBoardPresetsTemplate(presets, projectId) {
     );
   }).join("");
   return (
-    '<div class="memo-board-presets-overlay" data-board-presets-overlay>' +
-    '<div class="memo-board-presets-dialog">' +
+    '<div class="tn-overlay tn-dialog-layer is-open memo-board-presets-overlay" data-board-presets-overlay>' +
+    '<div class="tn-dialog tn-dialog--lg memo-board-presets-dialog">' +
     '<div class="memo-board-presets-header">' +
     '<h3>选择模板</h3>' +
     '<button class="memo-board-presets-close" type="button" data-action="closeProjectBoardPresets">' + SVG.x + '</button>' +
@@ -2614,8 +2653,8 @@ function rulesOverviewRuleCardTemplate(rule, board) {
 export {
   activeViewMeta,
   applyContentOpsToString,
-  calendarTemplate,
   clipboardCurrentTemplate,
+  codeBlocksFilterTemplate,
   codeBlockTemplate,
   detachedMemoCardTemplate,
   detachedMemoCommentTemplate,
@@ -2628,6 +2667,7 @@ export {
   emptyLinksTemplate,
   emptyTasksTemplate,
   emptyTodosTemplate,
+  fileGridTemplate,
   gtdItemCardTemplate,
   gtdItemGroupTemplate,
   gtdItemWorkspaceTemplate,
@@ -2641,6 +2681,7 @@ export {
   memoReactionsTemplate,
   commentReactionsTemplate,
   memoTemplate,
+  pinnedMemoTemplate,
   parseHost,
   pinDialogTemplate,
   privateOverlayTemplate,
@@ -2652,7 +2693,6 @@ export {
   stripMemoFrontmatter,
   resourceTemplate,
   shellTemplate,
-  statTemplate,
   taskCardTemplate,
   taskGroupTemplate,
   taskWorkspaceTemplate,

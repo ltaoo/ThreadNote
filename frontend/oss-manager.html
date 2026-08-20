@@ -24,6 +24,12 @@
   </script>
   <script src="/public/input-policy.js" defer></script>
   <script type="module" src="/src/window-state.js"></script>
+  <script>window.__tn_legacy_timeless = window.Timeless || {};</script>
+  <script src="/public/timeless/0.31.4/timeless.umd.min.js"></script>
+  <script src="/public/timeless/0.31.4/timeless.dom.umd.min.js"></script>
+  <script src="/public/timeless/0.31.4/timeless.web.umd.min.js"></script>
+  <script src="/public/timeless-icon-runtime.js"></script>
+  <script type="module" src="/src/components.js?v=20260820-component-foundations-v2"></script>
   <style>
     :root {
       color-scheme: light;
@@ -499,6 +505,7 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="/src/style.css?v=20260820-component-foundations-v2" />
 </head>
 
 <body>
@@ -510,7 +517,7 @@
         <div class="manager-meta" data-manager-meta></div>
       </div>
       <label class="manager-storage">
-        <select class="manager-select" data-storage-select></select>
+        <tn-select class="manager-select" data-storage-select></tn-select>
       </label>
     </header>
 
@@ -521,14 +528,14 @@
       <button class="manager-button" type="button" data-action="file-refresh">刷新</button>
       <button class="manager-button" type="button" data-action="file-mkdir">新建文件夹</button>
       <button class="manager-button is-primary" type="button" data-action="file-upload">上传文件</button>
-      <select class="manager-select" data-type-filter style="max-width:120px">
+      <tn-select class="manager-select" data-type-filter style="max-width:120px">
         <option value="">全部</option>
         <option value="image">图片</option>
         <option value="document">文档</option>
         <option value="code">代码</option>
         <option value="archive">压缩包</option>
         <option value="other">其他</option>
-      </select>
+      </tn-select>
       <div class="manager-message" data-manager-message></div>
       <div class="manager-path" data-file-path>/</div>
     </div>

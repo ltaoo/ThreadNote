@@ -8,7 +8,8 @@ import {
 import { openImagePreviewFromElement } from "./components/image-preview.js";
 import { createMiniEditor, loadEditorSettings, loadEditorSettingsFromVault } from "./pages/home/memo-editor.js";
 import { SVG as MEMO_SVG } from "./pages/home/memo-icons.js";
-import { renderMemoMarkdown } from "./pages/home/memo-markdown.js";
+import { renderMemoMarkdown } from "./pages/home/memo-markdown.js?v=20260820-todo-checkbox-unify";
+import { Timeless } from "./timeless-icons.js";
 import { forgetPersistedWindow, registerWindowSession, setPersistedWindowFixed } from "./window-state.js";
 
 const COMPOSER_STORAGE_KEY = "demo-desktop:memo-slim:composer:v1";
@@ -19,18 +20,13 @@ const HISTORY_INPUT_QUIET_MS = 140;
 const TIMELINE_GAP_MS = 5 * 60 * 1000;
 const EMOJIS = ["😀", "😄", "😂", "🥰", "😎", "🤔", "👍", "👏", "🎉", "✅", "💡", "❤️"];
 
-const SVG = {
-  check:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>',
-  chevron:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"></path></svg>',
-  more:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg>',
-  note:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6z"></path><path d="M9 8h6M9 12h6M9 16h4"></path></svg>',
-  smile:
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><path d="M9 9h.01M15 9h.01"></path></svg>',
-};
+const SVG = Object.freeze({
+  check: Timeless.Icon({ name: "check" }),
+  chevron: Timeless.Icon({ name: "chevron-down" }),
+  more: Timeless.Icon({ name: "ellipsis" }),
+  note: Timeless.Icon({ name: "file-text" }),
+  smile: Timeless.Icon({ name: "smile" }),
+});
 
 document.addEventListener("DOMContentLoaded", function () {
   const root = document.querySelector("#root");

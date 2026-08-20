@@ -1,6 +1,14 @@
 export function LoginPageView(props) {
-  return View({}, [
-    View({}, [
+  return View({ class: "page auth-page w-full h-full" }, [
+    View({ class: "auth-panel" }, [
+      View({ class: "auth-brand" }, [
+        View({ class: "auth-brand-mark" }),
+        View({ class: "auth-brand-copy" }, [
+          View({ class: "auth-eyebrow" }, [Txt("LOCAL / WORKSPACE")]),
+          View({ class: "auth-title" }, [Txt("ThreadNote")]),
+          View({ class: "auth-subtitle" }, [Txt("登录到你的本地工作台")]),
+        ]),
+      ]),
       View({ class: "fields" }, [
         View({ class: "field" }, [
           View({ class: "label" }, [Txt("Username")]),
@@ -15,8 +23,7 @@ export function LoginPageView(props) {
           ]),
         ]),
       ]),
-    ]),
-    View({}, [
+      View({ class: "auth-actions" }, [
       Button(
         {
           type: "primary",
@@ -26,6 +33,7 @@ export function LoginPageView(props) {
         },
         [Txt("Login")],
       ),
+      ]),
     ]),
   ]);
 }

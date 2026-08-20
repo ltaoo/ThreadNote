@@ -9,6 +9,12 @@ import { errorMessage } from "./domain/memo-repository.js";
 import { SVG } from "./pages/home/memo-icons.js";
 import { closestElement, escapeAttr, escapeHTML } from "./pages/home/memo-utils.js";
 import { registerWindowSession, setPersistedWindowFixed } from "./window-state.js";
+import {
+  registerCheckboxElement,
+  setCheckboxControlValue,
+} from "./components.js?v=20260820-component-foundations-v2";
+
+registerCheckboxElement();
 
 const FILTER_STORAGE_KEY = "demo-desktop:gtd:task-filter:v1";
 const FILTERS = [
@@ -297,7 +303,7 @@ function mountGTDSlim(root) {
         render();
       },
       function (err) {
-        checkbox.checked = !checked;
+        setCheckboxControlValue(checkbox, !checked);
         checkbox.disabled = false;
         showToast((checked ? "完成失败: " : "恢复失败: ") + errorMessage(err));
       },
@@ -310,12 +316,12 @@ function mountGTDSlim(root) {
 
     var wrapper = document.createElement("span");
     wrapper.className = "gtd-slim-completed-time-edit";
-    wrapper.innerHTML = '<input type="datetime-local" class="gtd-slim-completed-time-input" value="' + escapeAttr(localValue) + '" />' +
+    wrapper.innerHTML = '<tn-date-picker mode="datetime-local" class="gtd-slim-completed-time-input" value="' + escapeAttr(localValue) + '"></tn-date-picker>' +
       '<button type="button" class="gtd-slim-completed-time-confirm" title="确认">' + SVG.check + '</button>' +
       '<button type="button" class="gtd-slim-completed-time-cancel" title="取消">' + SVG.x + '</button>';
 
     button.replaceWith(wrapper);
-    var input = wrapper.querySelector("input");
+    var input = wrapper.querySelector(".gtd-slim-completed-time-input");
     input.focus();
 
     function save() {
@@ -524,13 +530,13 @@ function slimTemplate() {
             ${SVG.plus}
           </button>
           <div class="gtd-slim-form-options">
-            <input data-gtd-slim-due name="dueAt" type="date" aria-label="截止日期" />
-            <select data-gtd-slim-priority name="priority" aria-label="优先级">
+            <tn-date-picker data-gtd-slim-due name="dueAt" mode="date" aria-label="截止日期"></tn-date-picker>
+            <tn-select data-gtd-slim-priority name="priority" aria-label="优先级">
               <option value="none">无优先级</option>
               <option value="low">低</option>
               <option value="medium">中</option>
               <option value="high">高</option>
-            </select>
+            </tn-select>
           </div>
         </form>
         <nav class="gtd-slim-tabs" data-gtd-slim-tabs aria-label="代办过滤"></nav>
@@ -551,10 +557,7 @@ function taskTemplate(task) {
   const hasReminders = task.reminders && task.reminders.length > 0;
   return `
     <article class="gtd-slim-task ${complete ? "is-complete" : ""} is-priority-${escapeAttr(priority)}" data-gtd-slim-task-id="${escapeAttr(task.id)}">
-      <label class="gtd-slim-check">
-        <input type="checkbox" data-gtd-slim-complete ${complete ? "checked" : ""} />
-        <span></span>
-      </label>
+      <tn-checkbox class="gtd-slim-check memo-todo-checkbox" control-class="tn-checkbox--todo" size="sm" aria-label="切换任务完成状态" data-n="gtd-slim-completion-checkbox" data-gtd-slim-complete ${complete ? "checked" : ""}></tn-checkbox>
       <div class="gtd-slim-task-body">
         <strong>${escapeHTML(task.title)}</strong>
         <div class="gtd-slim-task-meta">
@@ -568,7 +571,7 @@ function taskTemplate(task) {
       </div>
       <div class="gtd-slim-task-actions">
         <button class="gtd-slim-reminder-btn ${hasReminders ? "has-reminders" : ""}" type="button" data-gtd-slim-reminder-btn title="设置提醒" aria-label="设置提醒">
-          ${SVG.bell || "🔔"}
+          ${SVG.bell}
         </button>
       </div>
     </article>
@@ -826,7 +829,7 @@ function reminderPopoverContent(task) {
   }
   html += '</div>';
   html += '<div class="gtd-slim-reminder-abs">';
-  html += '<input type="datetime-local" data-reminder-abs-input class="gtd-slim-reminder-abs-input" />';
+  html += '<tn-date-picker mode="datetime-local" data-reminder-abs-input class="gtd-slim-reminder-abs-input"></tn-date-picker>';
   html += '<button type="button" class="gtd-slim-reminder-abs-btn" data-reminder-abs-confirm>确定</button>';
   html += '</div>';
   if (reminders.length > 0) {
@@ -834,7 +837,7 @@ function reminderPopoverContent(task) {
     html += '<div class="gtd-slim-reminder-list-title">已设提醒</div>';
     reminders.forEach(function (r, i) {
       const label = reminderLabel(r);
-      html += `<div class="gtd-slim-reminder-item"><span>${escapeHTML(label)}</span><button type="button" data-reminder-delete="${i}" class="gtd-slim-reminder-delete" title="删除">×</button></div>`;
+      html += `<div class="gtd-slim-reminder-item"><span>${escapeHTML(label)}</span><button type="button" data-reminder-delete="${i}" class="gtd-slim-reminder-delete" title="删除">${SVG.x}</button></div>`;
     });
     html += '</div>';
   }

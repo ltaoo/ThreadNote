@@ -1,0 +1,595 @@
+/* Settings, file tools, launchers and previews share the ThreadNote workspace. */
+
+:root,
+[data-theme="light"],
+[data-theme="dark"] {
+  --background: var(--tn-color-bg-canvas);
+  --BG-0: var(--tn-color-bg-surface);
+  --BG-1: var(--tn-color-bg-subtle);
+  --BG-2: var(--tn-color-bg-surface);
+  --BG-3: var(--tn-color-bg-interactive);
+  --FG-0: var(--tn-color-text-primary);
+  --FG-1: var(--tn-color-text-secondary);
+  --FG-2: var(--tn-color-text-tertiary);
+  --border: var(--tn-color-border-translucent);
+  --accent: var(--tn-color-primary-fill);
+  --accent-strong: var(--tn-color-primary-text);
+  --accent-soft: var(--tn-color-primary-soft);
+  --danger: var(--tn-color-danger);
+  --danger-soft: var(--tn-color-danger-soft);
+}
+
+body:has(.settings-shell),
+body:has(.manager-shell),
+body:has(.editor-shell),
+body:has(.preview-shell) {
+  background: var(--tn-color-bg-canvas);
+  color: var(--tn-color-text-primary);
+  font-family: var(--tn-font-family-body);
+}
+
+/* Settings */
+.settings-shell {
+  background: var(--tn-color-bg-canvas);
+  grid-template-columns: 212px minmax(0, 1fr);
+}
+
+.settings-sidebar {
+  background: var(--tn-color-bg-subtle);
+  border-right-color: var(--tn-color-border-translucent);
+  padding: 22px 14px;
+}
+
+.settings-brand {
+  align-items: center;
+  display: grid;
+  gap: 1px 11px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  margin: 0 6px 28px;
+}
+
+.settings-brand::before {
+  background: url("/public/threadnote-logo.svg") center / cover no-repeat;
+  border-radius: var(--tn-radius-md);
+  box-shadow: var(--tn-shadow-xs);
+  content: "";
+  grid-row: 1 / span 2;
+  height: 38px;
+  width: 38px;
+}
+
+.settings-title {
+  font-family: var(--tn-font-family-display);
+  font-size: var(--tn-font-size-xl);
+  letter-spacing: var(--tn-letter-spacing-tight);
+}
+
+.settings-subtitle {
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+  letter-spacing: 0.09em;
+  margin-top: 0;
+  text-transform: uppercase;
+}
+
+.settings-nav {
+  gap: 3px;
+}
+
+.settings-nav-button {
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--tn-radius-md) var(--tn-radius-md) 0;
+  color: var(--tn-color-text-secondary);
+  min-height: 38px;
+  padding-inline: 11px;
+}
+
+.settings-nav-button:hover {
+  background: var(--tn-color-bg-interactive);
+  color: var(--tn-color-text-primary);
+}
+
+.settings-nav-button.is-active {
+  background: var(--tn-color-primary-soft);
+  border-left-color: var(--tn-thread-color);
+  color: var(--tn-color-primary-text);
+}
+
+.settings-main {
+  background: var(--tn-color-bg-canvas);
+  padding: clamp(24px, 4vw, 46px);
+}
+
+.settings-header,
+.settings-form {
+  margin-inline: auto;
+  max-width: 940px;
+}
+
+.settings-header {
+  border-bottom: 1px solid var(--tn-color-border-translucent);
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+}
+
+.settings-header h1,
+.manager-title h1,
+.editor-header h1,
+.preview-title h1 {
+  font-family: var(--tn-font-family-display);
+  font-weight: var(--tn-font-weight-semibold);
+  letter-spacing: var(--tn-letter-spacing-tight);
+}
+
+.settings-header h1 {
+  font-size: var(--tn-font-size-display);
+}
+
+.settings-header p {
+  color: var(--tn-color-text-secondary);
+  font-size: var(--tn-font-size-sm);
+  max-width: 620px;
+}
+
+.setting-status {
+  background: var(--tn-color-bg-surface);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-full);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+  letter-spacing: 0.05em;
+}
+
+.setting-status.is-ready {
+  background: var(--tn-color-success-soft);
+  color: var(--tn-color-success);
+}
+
+.settings-form {
+  gap: 16px;
+}
+
+.settings-section {
+  background: var(--tn-color-bg-surface);
+  border: 1px solid var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-xl);
+  box-shadow: var(--tn-shadow-xs);
+  gap: 15px;
+  padding: 18px;
+  position: relative;
+}
+
+.settings-section:first-child {
+  border-top: 1px solid var(--tn-color-border-translucent);
+  padding-top: 18px;
+}
+
+.settings-section::before {
+  background: var(--tn-thread-color);
+  border-radius: var(--tn-radius-full);
+  content: "";
+  height: 3px;
+  left: 18px;
+  position: absolute;
+  top: -1px;
+  width: 48px;
+}
+
+.settings-profile-title,
+.settings-section-title,
+.editor-section-title {
+  color: var(--tn-color-text-secondary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-shortcut-card,
+.settings-storage-item,
+.settings-info-row,
+.settings-check,
+.settings-inputsource-rule {
+  background: color-mix(in srgb, var(--tn-color-bg-subtle) 68%, transparent);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-lg);
+}
+
+.settings-storage-item.is-selected {
+  border-color: var(--tn-color-primary-border-strong);
+  box-shadow: var(--tn-focus-ring);
+}
+
+.settings-storage-manage,
+.settings-button.is-secondary,
+.settings-input,
+.settings-select,
+.settings-textarea,
+.settings-shortcut-input {
+  background: var(--tn-color-bg-surface);
+  border-color: var(--tn-color-border);
+  border-radius: var(--tn-radius-md);
+  color: var(--tn-color-text-primary);
+}
+
+.settings-input:focus,
+.settings-select:focus,
+.settings-textarea:focus {
+  border-color: var(--tn-color-primary-border-strong);
+  box-shadow: var(--tn-focus-ring);
+}
+
+.settings-button,
+.settings-storage-manage {
+  border-radius: var(--tn-radius-md);
+  min-height: var(--tn-control-height-md);
+}
+
+.settings-button.is-primary {
+  background: var(--tn-color-primary-fill);
+  border-color: var(--tn-color-primary-fill);
+  color: var(--tn-color-on-primary);
+}
+
+.settings-actions {
+  border-top-color: var(--tn-color-border-translucent);
+}
+
+/* OSS manager and preview */
+.manager-shell,
+.editor-shell,
+.preview-shell {
+  background: var(--tn-color-bg-canvas);
+}
+
+.manager-header,
+.editor-header,
+.preview-header {
+  background: var(--tn-color-bg-subtle);
+  border-bottom-color: var(--tn-color-border-translucent);
+  padding: 18px 22px;
+}
+
+.manager-header,
+.preview-header {
+  border-top: 3px solid var(--tn-thread-color);
+}
+
+.manager-title h1,
+.editor-header h1,
+.preview-title h1 {
+  font-size: var(--tn-font-size-2xl);
+}
+
+.manager-meta,
+.editor-header p,
+.preview-meta {
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+  letter-spacing: 0.04em;
+}
+
+.manager-toolbar {
+  background: color-mix(in srgb, var(--tn-color-bg-surface) 84%, transparent);
+  border-bottom-color: var(--tn-color-border-translucent);
+  gap: 7px;
+  padding: 10px 22px;
+}
+
+.manager-button,
+.manager-select,
+.manager-input,
+.preview-button,
+.editor-button,
+.editor-input,
+.editor-select,
+.editor-textarea {
+  background: var(--tn-color-bg-surface);
+  border-color: var(--tn-color-border);
+  border-radius: var(--tn-radius-md);
+  color: var(--tn-color-text-primary);
+}
+
+.manager-button:hover,
+.manager-action:hover,
+.preview-button:hover,
+.editor-button:hover {
+  border-color: var(--tn-color-primary-border-strong);
+  color: var(--tn-color-primary-text);
+}
+
+.manager-button.is-primary,
+.editor-button.is-primary {
+  background: var(--tn-color-primary-fill);
+  border-color: var(--tn-color-primary-fill);
+  color: var(--tn-color-on-primary);
+}
+
+.manager-path {
+  background: var(--tn-color-bg-subtle);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-md);
+  color: var(--tn-color-text-secondary);
+  font-family: var(--tn-font-family-mono);
+}
+
+.manager-list-pane,
+.editor-main,
+.preview-body {
+  background: var(--tn-color-bg-canvas);
+  padding: 22px;
+}
+
+.manager-list {
+  background: var(--tn-color-bg-surface);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-xl);
+  box-shadow: var(--tn-shadow-xs);
+  overflow: hidden;
+}
+
+.manager-row {
+  background: var(--tn-color-bg-surface);
+  border-top-color: var(--tn-color-border-translucent);
+}
+
+.manager-row:not(.is-header):hover {
+  background: color-mix(in srgb, var(--tn-color-primary-soft) 38%, var(--tn-color-bg-surface));
+}
+
+.manager-row.is-header {
+  background: var(--tn-color-bg-subtle);
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.manager-row > .manager-name,
+.manager-row > .manager-cell,
+.manager-row > .manager-row-actions,
+.manager-row.is-header > span {
+  border-left-color: var(--tn-color-border-translucent);
+}
+
+.manager-kind {
+  color: var(--tn-color-primary-text);
+}
+
+.manager-action,
+.manager-menu {
+  background: var(--tn-color-bg-elevated);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-md);
+}
+
+.manager-menu {
+  box-shadow: var(--tn-shadow-popover);
+}
+
+.manager-empty,
+.preview-empty {
+  color: var(--tn-color-text-tertiary);
+  padding: 44px 22px;
+}
+
+.preview-body pre,
+.preview-body img,
+.preview-body object {
+  background: var(--tn-color-bg-surface);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-xl);
+  box-shadow: var(--tn-shadow-xs);
+  padding: 18px;
+}
+
+/* Storage editor */
+.editor-main {
+  padding-block: 28px;
+}
+
+.editor-form {
+  gap: 16px;
+  margin-inline: auto;
+  max-width: 900px;
+}
+
+.editor-section {
+  background: var(--tn-color-bg-surface);
+  border: 1px solid var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-xl);
+  box-shadow: var(--tn-shadow-xs);
+  gap: 15px;
+  padding: 18px;
+}
+
+.editor-section:first-child {
+  border-top: 1px solid var(--tn-color-border-translucent);
+  padding-top: 18px;
+}
+
+.editor-input:focus,
+.editor-select:focus,
+.editor-textarea:focus {
+  border-color: var(--tn-color-primary-border-strong);
+  box-shadow: var(--tn-focus-ring);
+}
+
+.editor-check {
+  background: var(--tn-color-bg-subtle);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-lg);
+}
+
+.editor-actions {
+  background: color-mix(in srgb, var(--tn-color-bg-subtle) 68%, transparent);
+  border: 1px solid var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-lg);
+  padding: 12px;
+}
+
+/* Snippet launcher */
+:root {
+  --launcher-bg: color-mix(in srgb, var(--tn-color-bg-surface) 96%, transparent);
+  --launcher-text: var(--tn-color-text-primary);
+  --launcher-muted: var(--tn-color-text-tertiary);
+  --launcher-faint: var(--tn-color-border-translucent);
+  --launcher-row: var(--tn-color-bg-subtle);
+  --launcher-row-active: var(--tn-color-primary-soft);
+  --launcher-row-active-text: var(--tn-color-primary-text);
+  --launcher-accent: var(--tn-color-primary-fill);
+  --launcher-code-bg: var(--tn-color-bg-inverse);
+  --launcher-code-text: var(--tn-color-text-inverse);
+  --launcher-shadow: var(--tn-shadow-lg);
+}
+
+.snippet-launcher {
+  border: 1px solid var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-xl);
+}
+
+.snippet-search {
+  border-bottom-color: var(--tn-color-border-translucent);
+  padding-inline: 12px 14px;
+}
+
+.snippet-prompt {
+  color: var(--tn-color-primary-fill);
+  font-family: var(--tn-font-family-mono);
+}
+
+.snippet-input,
+.snippet-input-ghost {
+  font-family: var(--tn-font-family-display);
+  font-size: var(--tn-font-size-3xl);
+}
+
+.snippet-result {
+  border-radius: var(--tn-radius-lg);
+  margin-bottom: 3px;
+}
+
+.snippet-result:hover,
+.snippet-result.is-active {
+  border-color: var(--tn-color-primary-border);
+}
+
+.snippet-result:hover .snippet-meta,
+.snippet-result.is-active .snippet-meta {
+  color: var(--tn-color-primary-text);
+}
+
+.snippet-kind,
+.snippet-result:not(.is-active):not(:hover) .snippet-kind.is-code,
+.snippet-result:not(.is-active):not(:hover) .snippet-kind.is-link {
+  background: var(--tn-color-primary-soft);
+  color: var(--tn-color-primary-text);
+  font-family: var(--tn-font-family-mono);
+}
+
+.snippet-code {
+  border: 1px solid var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-md);
+}
+
+/* Image canvas remains dark so transparent and light artwork stays legible. */
+body.image-preview-page {
+  background: var(--tn-color-brand-ink);
+  color: var(--tn-color-brand-paper);
+  font-family: var(--tn-font-family-body);
+}
+
+.image-preview-page .image-preview-shell {
+  background: #171612;
+}
+
+.image-preview-page .image-preview-toolbar {
+  background: #292722;
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  border-top: 3px solid var(--tn-color-brand-amber);
+}
+
+.image-preview-page .image-preview-title {
+  color: #bdb7ac;
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-xs);
+}
+
+.image-preview-page .image-preview-button:hover,
+.image-preview-page .image-preview-button.is-active,
+.image-preview-page .image-preview-swatch:hover,
+.image-preview-page .image-preview-swatch.is-active {
+  background: rgba(255, 174, 36, 0.16);
+  border-color: rgba(255, 193, 92, 0.34);
+  color: #ffc15c;
+}
+
+.image-preview-page .image-preview-size {
+  accent-color: var(--tn-color-brand-amber);
+}
+
+.image-preview-page .image-preview-stage {
+  background-color: #1f1e1a;
+}
+
+.image-preview-page.is-fixed-window .image-preview-toolbar {
+  box-shadow: inset 0 -2px 0 rgba(255, 174, 36, 0.66);
+}
+
+@media (max-width: 720px) {
+  .settings-shell {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .settings-sidebar {
+    padding-inline: 8px;
+  }
+
+  .settings-brand {
+    display: block;
+    margin-inline: auto;
+  }
+
+  .settings-brand::before {
+    display: block;
+  }
+
+  .settings-title,
+  .settings-subtitle,
+  .settings-nav-button span {
+    display: none;
+  }
+
+  .settings-nav-button {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .settings-main {
+    padding: 20px 14px;
+  }
+
+  .settings-header {
+    display: grid;
+  }
+
+  .settings-grid,
+  .editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-field.is-wide,
+  .editor-field.is-wide {
+    grid-column: auto;
+  }
+
+  .manager-toolbar,
+  .manager-list-pane,
+  .editor-main,
+  .preview-body {
+    padding-inline: 14px;
+  }
+}

@@ -1,0 +1,521 @@
+tn-select,
+tn-project-select,
+tn-date-picker {
+  display: inline-block;
+  width: 100%;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+tn-select.settings-select,
+tn-select.manager-select,
+tn-select.editor-select,
+tn-select.gtd-slim-priority,
+tn-date-picker.gtd-slim-completed-time-input,
+tn-date-picker.gtd-slim-reminder-abs-input {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.memo-select-wrap tn-select,
+.memo-select-wrap tn-project-select {
+  width: auto;
+  min-width: 92px;
+  height: 100%;
+}
+
+.memo-select-wrap .tn-select-root {
+  height: 100%;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.memo-select-wrap .tn-select {
+  padding-left: var(--tn-space-1);
+}
+
+.gtd-slim-completed-time-input {
+  width: 190px;
+}
+
+.tn-select {
+  display: flex;
+  align-items: center;
+  gap: var(--tn-space-2);
+  height: 100%;
+  padding: 0 var(--tn-space-8) 0 var(--tn-space-3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.tn-select__primitive-mount {
+  display: contents;
+}
+
+.tn-select__leading {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.tn-select__leading[hidden] {
+  display: none;
+}
+
+.tn-select__selected-color,
+.tn-select__marker.is-color {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--tn-color-bg-surface);
+}
+
+.tn-select__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tn-select__value.is-placeholder,
+.tn-date-picker__value.is-placeholder {
+  color: var(--tn-control-placeholder);
+}
+
+.tn-select__panel,
+.tn-date-picker__panel {
+  position: absolute;
+  top: calc(100% + var(--tn-space-1-5));
+  left: 0;
+  z-index: var(--tn-z-control-popover);
+  width: max(100%, 220px);
+  max-width: min(320px, calc(100vw - var(--tn-space-6)));
+  overflow: hidden;
+}
+
+.tn-popup--select {
+  border-color: var(--tn-color-border-strong);
+  background:
+    linear-gradient(var(--tn-control-panel-rule) 1px, transparent 1px) 0 39px / 100% 32px,
+    var(--tn-control-panel-bg);
+}
+
+.tn-popup--date-picker {
+  border-color: var(--tn-color-border-strong);
+  background: var(--tn-control-panel-bg);
+}
+
+.t1-popper:has(> .tn-select__panel) {
+  z-index: var(--tn-z-control-popover) !important;
+}
+
+.t1-popper > .tn-select__panel {
+  position: relative;
+  inset: auto;
+}
+
+.tn-select-panel-in {
+  animation: tn-select-panel-enter var(--tn-duration-fast) var(--tn-ease-emphasized) both;
+}
+
+.tn-select-panel-out {
+  animation: tn-select-panel-exit var(--tn-duration-fast) var(--tn-ease-standard) both;
+}
+
+@keyframes tn-select-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+}
+
+@keyframes tn-select-panel-exit {
+  to {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.985);
+  }
+}
+
+.tn-select-root:focus-within,
+.tn-select-root.is-open {
+  border-color: var(--tn-color-primary-border-strong);
+  box-shadow: var(--tn-focus-ring);
+}
+
+.memo-select-wrap:has(.tn-select-root:focus-within),
+.memo-select-wrap:has(.tn-select-root.is-open) {
+  border-color: var(--tn-color-primary-border-strong);
+  box-shadow: var(--tn-focus-ring);
+}
+
+.memo-select-wrap .tn-select-root:focus-within,
+.memo-select-wrap .tn-select-root.is-open {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.tn-select__panel[hidden],
+.tn-date-picker__panel[hidden] {
+  display: none;
+}
+
+.tn-select__list {
+  max-height: min(312px, 45vh);
+  overflow: auto;
+  padding: var(--tn-space-1-5);
+}
+
+.tn-select__group {
+  padding: var(--tn-space-2) var(--tn-space-2) var(--tn-space-1);
+  color: var(--tn-color-text-tertiary);
+  font-size: var(--tn-font-size-2xs);
+  font-weight: var(--tn-font-weight-bold);
+  letter-spacing: var(--tn-letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.tn-select__option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--tn-space-2);
+  width: 100%;
+  min-height: 34px;
+  padding: var(--tn-space-1-5) var(--tn-space-2-5);
+  border: 0;
+  border-radius: var(--tn-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tn-select__option::before {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 var(--tn-radius-full) var(--tn-radius-full) 0;
+  background: transparent;
+  content: "";
+}
+
+.tn-select__option:hover,
+.tn-select__option.is-active {
+  background: var(--tn-color-hover-surface);
+}
+
+.tn-select__option.is-selected {
+  background: var(--tn-color-selection-surface);
+  color: var(--tn-color-selection-text);
+}
+
+.tn-select__option.is-selected::before {
+  background: var(--tn-control-selected-rail);
+}
+
+.tn-select__option.is-disabled {
+  color: var(--tn-color-text-disabled);
+  cursor: not-allowed;
+}
+
+.tn-select__marker {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--tn-color-border-strong);
+  border-radius: 50%;
+}
+
+.tn-select__marker.is-all {
+  border-radius: 2px;
+  background: linear-gradient(135deg, var(--tn-color-primary-fill) 50%, var(--tn-color-bg-strong) 50%);
+}
+
+.tn-select__marker.is-unassigned {
+  border-style: dashed;
+  background: transparent;
+}
+
+.tn-select__option-copy {
+  display: grid;
+  min-width: 0;
+  line-height: var(--tn-line-height-snug);
+}
+
+.tn-select__option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tn-select__option-copy small {
+  overflow: hidden;
+  color: var(--tn-color-text-tertiary);
+  font-size: var(--tn-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tn-select__option-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tn-space-1-5);
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-xs);
+}
+
+.tn-select__option-indicator {
+  color: var(--tn-color-primary-text);
+  font-family: var(--tn-font-family-body);
+  font-weight: var(--tn-font-weight-bold);
+}
+
+.tn-date-picker-root {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: var(--tn-control-height-md);
+  border: var(--tn-border-width) solid var(--tn-color-border);
+  border-radius: var(--tn-radius-md);
+  background: var(--tn-color-bg-surface);
+  box-shadow: var(--tn-shadow-xs);
+  color: var(--tn-color-text-primary);
+  transition: border-color var(--tn-duration-fast) var(--tn-ease-standard), box-shadow var(--tn-duration-fast) var(--tn-ease-standard);
+}
+
+.tn-date-picker-root--sm {
+  height: var(--tn-control-height-sm);
+}
+
+.tn-date-picker-root--lg {
+  height: var(--tn-control-height-lg);
+}
+
+.tn-date-picker-root--filled {
+  background: var(--tn-color-bg-subtle);
+}
+
+.tn-date-picker-root--borderless {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tn-date-picker-root:focus-within,
+.tn-date-picker-root.is-open {
+  border-color: var(--tn-color-primary-border-strong);
+  box-shadow: var(--tn-focus-ring);
+}
+
+.tn-date-picker-root.is-disabled {
+  opacity: var(--tn-opacity-disabled);
+}
+
+.tn-date-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--tn-space-2);
+  width: 100%;
+  height: 100%;
+  padding: 0 var(--tn-space-3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tn-date-picker--sm {
+  font-size: var(--tn-font-size-sm);
+}
+
+.tn-date-picker--lg {
+  font-size: var(--tn-font-size-lg);
+}
+
+.tn-date-picker__value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tn-date-picker__chevron {
+  color: var(--tn-color-text-tertiary);
+}
+
+.tn-date-picker__panel {
+  width: min(288px, calc(100vw - var(--tn-space-6)));
+  max-width: none;
+}
+
+.tn-date-picker-root--time .tn-date-picker__panel {
+  width: 230px;
+}
+
+.tn-date-picker__header {
+  display: grid;
+  grid-template-columns: 30px 1fr 30px;
+  align-items: center;
+  padding: var(--tn-space-2) var(--tn-space-2) var(--tn-space-1);
+}
+
+.tn-date-picker__nav {
+  width: 28px;
+  height: 28px;
+}
+
+.tn-date-picker__month {
+  color: var(--tn-color-text-primary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-sm);
+  letter-spacing: var(--tn-letter-spacing-wide);
+  text-align: center;
+}
+
+.tn-date-picker__weekdays,
+.tn-date-picker__days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 0 var(--tn-space-2);
+}
+
+.tn-date-picker__weekdays {
+  color: var(--tn-color-text-tertiary);
+  font-size: var(--tn-font-size-2xs);
+  text-align: center;
+}
+
+.tn-date-picker__weekdays span {
+  padding: var(--tn-space-1-5) 0 var(--tn-space-1);
+}
+
+.tn-date-picker__days {
+  gap: 2px;
+  padding-bottom: var(--tn-space-2);
+}
+
+.tn-date-picker__day {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--tn-radius-sm);
+  background: transparent;
+  color: var(--tn-color-text-primary);
+  font: inherit;
+  font-size: var(--tn-font-size-xs);
+  cursor: pointer;
+}
+
+.tn-date-picker__day:hover {
+  background: var(--tn-color-hover-surface);
+}
+
+.tn-date-picker__day.is-outside {
+  color: var(--tn-color-text-disabled);
+}
+
+.tn-date-picker__day.is-today {
+  border-color: var(--tn-control-today-ring);
+}
+
+.tn-date-picker__day.is-selected {
+  border-color: var(--tn-color-primary-fill-active);
+  background: var(--tn-color-primary-fill);
+  color: var(--tn-color-on-primary);
+  font-weight: var(--tn-font-weight-bold);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--tn-color-primary-solid) 46%, transparent);
+}
+
+.tn-date-picker__time {
+  display: grid;
+  grid-template-columns: auto 50px auto 50px 1fr;
+  align-items: center;
+  gap: var(--tn-space-2);
+  padding: var(--tn-space-3);
+  border-top: 1px solid var(--tn-control-panel-rule);
+}
+
+.tn-date-picker__time[hidden] {
+  display: none;
+}
+
+.tn-date-picker__time-field {
+  width: 50px;
+  height: 32px;
+  padding: 0 var(--tn-space-1);
+  border: 1px solid var(--tn-color-border);
+  border-radius: var(--tn-radius-sm);
+  background: var(--tn-color-bg-surface);
+  color: var(--tn-color-text-primary);
+  font-family: var(--tn-font-family-mono);
+  text-align: center;
+  outline: 0;
+}
+
+.tn-date-picker__time-field:focus {
+  border-color: var(--tn-color-primary-border-strong);
+  box-shadow: var(--tn-focus-ring);
+}
+
+.tn-date-picker__time-separator {
+  font-family: var(--tn-font-family-mono);
+  font-weight: var(--tn-font-weight-bold);
+}
+
+.tn-date-picker__time-suffix {
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+  letter-spacing: var(--tn-letter-spacing-wide);
+  text-align: right;
+}
+
+.tn-date-picker__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--tn-space-1);
+  padding: var(--tn-space-2);
+  border-top: 1px solid var(--tn-control-panel-rule);
+}
+
+.tn-date-picker__text-action,
+.tn-date-picker__done {
+  height: 28px;
+  font-size: var(--tn-font-size-xs);
+}
+
+.tn-date-picker__done {
+  margin-left: auto;
+}
+
+.tn-date-picker__done[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tn-date-picker-root,
+  .tn-select-root {
+    transition: none;
+  }
+}

@@ -355,11 +355,11 @@ function waitForEvents() {
 
 function chatTemplate() {
   return '<section class="acp-chat-page">'
-    + '<header class="acp-chat-toolbar"><label><span>Agent</span><select data-acp-chat-agent><option value="opencode">OpenCode</option></select></label>'
-    + '<div class="acp-chat-toolbar-actions"><span class="acp-chat-status" data-acp-chat-status></span><button class="memo-secondary-button" type="button" data-acp-chat-action="new">新建对话</button></div></header>'
+    + '<header class="acp-chat-toolbar"><label><span>Agent</span><tn-select data-acp-chat-agent><option value="opencode">OpenCode</option></tn-select></label>'
+    + '<div class="acp-chat-toolbar-actions"><span class="acp-chat-status" data-acp-chat-status></span><button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-acp-chat-action="new">新建对话</button></div></header>'
     + '<div class="acp-chat-messages" data-acp-chat-messages aria-live="polite"></div>'
     + '<div class="acp-chat-error" data-acp-chat-error role="alert"></div>'
     + '<footer class="acp-chat-composer"><textarea rows="3" data-acp-chat-input placeholder="给 ACP Agent 发送消息…"></textarea>'
-    + '<div class="acp-chat-composer-actions"><span>⌘/Ctrl + Enter 发送</span><button class="memo-secondary-button" type="button" data-acp-chat-action="cancel" hidden>取消</button><button class="memo-primary-button" type="button" data-acp-chat-action="send">发送</button></div></footer>'
+    + '<div class="acp-chat-composer-actions"><span>⌘/Ctrl + Enter 发送</span><button class="tn-button tn-button--secondary memo-secondary-button" type="button" data-acp-chat-action="cancel" hidden>取消</button><button class="tn-button tn-button--primary memo-primary-button" type="button" data-acp-chat-action="send">发送</button></div></footer>'
     + "</section>";
 }

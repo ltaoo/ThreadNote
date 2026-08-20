@@ -4,7 +4,7 @@
 import { routes, routesWithPathname } from "./routes.js";
 import { storage } from "./storage.js";
 export { client } from "./http_client.js";
-export { views } from "./views.js";
+export { views } from "./views.js?v=20260820-link-card";
 
 Timeless.NavigatorCore.prefix = "";
 

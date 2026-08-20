@@ -21,6 +21,7 @@ import {
 import { formatShortDate } from "./memo-date.js";
 import { openMemoAgentDialog } from "./memo-agent-dialog.js";
 import { closestElement, escapeHTML } from "./memo-utils.js";
+import { Timeless } from "../../timeless-icons.js";
 
 const EDITOR_SETTINGS_STORAGE_KEY = "demo-desktop:settings:editor:v1";
 const EDITOR_SETTINGS_API = "/api/settings/editor";
@@ -3028,7 +3029,7 @@ function installMemoAgentSelection(host, adapter) {
   toolbar.className = "memo-selection-toolbar";
   toolbar.hidden = true;
   toolbar.innerHTML = '<button type="button" title="用 Agent 对话编辑" aria-label="用 Agent 对话编辑">'
-    + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path><path d="M8 9h8M8 13h5"></path></svg>'
+    + Timeless.Icon({ name: "message-square-more" })
     + "</button>";
   document.body.appendChild(toolbar);
 

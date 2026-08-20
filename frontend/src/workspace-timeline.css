@@ -1,0 +1,175 @@
+/* Detached timeline: a chronological thread, not a generic activity feed. */
+
+body.memo-timeline-page {
+  background: transparent;
+}
+
+.timeline-shell {
+  background: var(--tn-color-bg-canvas);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-xl);
+  box-shadow: var(--tn-shadow-lg);
+}
+
+.timeline-body {
+  background: var(--tn-color-bg-canvas);
+  padding: 0;
+}
+
+.timeline-header {
+  background: color-mix(in srgb, var(--tn-color-bg-subtle) 88%, transparent);
+  border-bottom-color: var(--tn-color-border-translucent);
+  border-top: 3px solid var(--tn-thread-color);
+  gap: 12px;
+  padding: 13px 16px 12px;
+}
+
+.timeline-date-nav {
+  gap: 5px;
+}
+
+.timeline-date-btn {
+  background: var(--tn-color-bg-surface);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-md);
+  color: var(--tn-color-text-secondary);
+  height: 30px;
+  width: 30px;
+}
+
+.timeline-date-btn:hover {
+  background: var(--tn-color-primary-soft);
+  border-color: var(--tn-color-primary-border);
+  color: var(--tn-color-primary-text);
+}
+
+.timeline-date-label {
+  color: var(--tn-color-text-primary);
+  font-family: var(--tn-font-family-display);
+  font-size: var(--tn-font-size-sm);
+  font-weight: var(--tn-font-weight-semibold);
+  min-width: 72px;
+}
+
+.timeline-search {
+  background: var(--tn-color-bg-surface);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-full);
+  color: var(--tn-color-text-primary);
+  height: 32px;
+  padding-inline: 13px;
+}
+
+.timeline-search:focus {
+  border-color: var(--tn-color-primary-border-strong);
+  box-shadow: var(--tn-focus-ring);
+}
+
+.timeline-list {
+  background:
+    linear-gradient(90deg, transparent 27px, color-mix(in srgb, var(--tn-thread-color) 42%, transparent) 27px 29px, transparent 29px),
+    var(--tn-color-bg-canvas);
+  gap: 0;
+  padding: 12px 0 24px;
+}
+
+.timeline-item {
+  gap: 14px;
+  padding: 11px 18px 11px 23px;
+}
+
+.timeline-item + .timeline-item {
+  border-top: 0;
+}
+
+.timeline-item-dot {
+  background: var(--tn-thread-color);
+  border: 2px solid var(--tn-color-bg-canvas);
+  box-shadow: var(--tn-thread-node-ring);
+  height: 10px;
+  margin-top: 5px;
+  width: 10px;
+}
+
+.timeline-item.is-comment .timeline-item-dot {
+  background: var(--tn-color-info);
+  box-shadow: 0 0 0 3px var(--tn-color-info-soft);
+}
+
+.timeline-item.is-task .timeline-item-dot {
+  background: var(--tn-color-success);
+  box-shadow: 0 0 0 3px var(--tn-color-success-soft);
+}
+
+.timeline-item-body {
+  gap: 6px;
+}
+
+.timeline-item-head {
+  gap: 7px;
+}
+
+.timeline-item-type {
+  color: var(--tn-color-text-secondary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+  font-weight: var(--tn-font-weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.timeline-item-head .memo-relative-time {
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+}
+
+.timeline-item-parent {
+  color: var(--tn-color-text-tertiary);
+  font-size: var(--tn-font-size-xs);
+}
+
+.timeline-item-card {
+  background: var(--tn-color-bg-surface);
+  border-color: var(--tn-color-border-translucent);
+  border-left: 2px solid color-mix(in srgb, var(--tn-thread-color) 48%, var(--tn-color-border));
+  border-radius: 0 var(--tn-radius-lg) var(--tn-radius-lg) 0;
+  box-shadow: var(--tn-shadow-xs);
+  padding: 12px 15px;
+}
+
+.timeline-item.is-comment .timeline-item-card {
+  background: color-mix(in srgb, var(--tn-color-info-soft) 36%, var(--tn-color-bg-surface));
+  border-color: var(--tn-color-info-border);
+}
+
+.timeline-item.is-task .timeline-item-card {
+  border-left-color: var(--tn-color-success-border);
+}
+
+.timeline-item-card .memo-content {
+  font-size: var(--tn-font-size-sm);
+  line-height: var(--tn-line-height-reading);
+}
+
+.timeline-state {
+  color: var(--tn-color-text-tertiary);
+  min-height: 240px;
+}
+
+.timeline-load-more {
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+}
+
+@media (max-width: 640px) {
+  .timeline-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .timeline-search {
+    flex: 0 0 32px;
+  }
+}

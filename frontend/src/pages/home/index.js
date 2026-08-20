@@ -1,4 +1,4 @@
-import { mountMemosHome } from "./memos.js";
+import { mountMemosHome } from "./memos.js?v=20260820-compact-finder-thumbnails";
 
 export function HomePageView() {
   let memoApp = null;

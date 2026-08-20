@@ -1,6 +1,8 @@
 /**
  * @file 错误捕获
  */
+import { Timeless } from "../timeless-icons.js";
+
 class ErrorModal {
   constructor() {
     this.mounted = false;
@@ -123,7 +125,7 @@ class ErrorModal {
     <div class="error-modal-content">
         <div class="error-modal-header">
             <h3 class="error-modal-title">错误提示</h3>
-            <button class="error-modal-close">&times;</button>
+            <button class="error-modal-close">${Timeless.Icon({ name: "x" })}</button>
         </div>
         <div class="error-modal-body">
             <p class="error-message">这里显示错误信息</p>
