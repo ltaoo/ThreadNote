@@ -225,11 +225,12 @@
   gap: 3px;
   margin: var(--tn-space-2) 0;
   max-height: min(320px, calc(100vh - 180px));
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 1px;
-  scrollbar-color: var(--tn-color-border-strong) transparent;
-  scrollbar-width: thin;
+  width: 100%;
 }
 
 .project-select-option {
@@ -249,8 +250,7 @@
   text-align: left;
   transition:
     background-color var(--tn-duration-instant) ease,
-    color var(--tn-duration-instant) ease,
-    transform var(--tn-duration-instant) ease;
+    color var(--tn-duration-instant) ease;
   width: 100%;
 }
 
@@ -268,10 +268,6 @@
 .project-select-option:hover,
 .project-select-option.is-active {
   background: var(--tn-color-hover-surface);
-}
-
-.project-select-option.is-active {
-  transform: translateX(2px);
 }
 
 .project-select-option.is-selected {

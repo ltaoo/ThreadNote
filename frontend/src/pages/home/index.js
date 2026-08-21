@@ -1,4 +1,9 @@
 import { HomePageModel } from "./index.model.js";
+import {
+  ErrorFallbackView,
+  LoadingView,
+  renderWithErrorBoundary,
+} from "@/route-status.js";
 
 const FILTERS = Object.freeze([
   { count: "allNavCount", icon: "grid-3x3", id: "all", label: "全部" },
@@ -79,6 +84,12 @@ const COLLECTIONS = Object.freeze([
     id: "chat",
     label: "Chat",
   },
+  {
+    action: "openSettings",
+    icon: "settings",
+    id: "settings",
+    label: "设置",
+  },
 ]);
 
 function filterButtonClass(vm$, filter) {
@@ -118,19 +129,6 @@ function projectButtonClass(vm$, project_id) {
         state.activeProjectId === project_id;
       return "memo-nav-button memo-project-item" +
         (active ? " is-active" : "");
-    },
-  );
-}
-
-function tagButtonClass(vm$, tag) {
-  return Timeless.combine(
-    {
-      activeTag: vm$.state.activeTag,
-      activeView: vm$.state.activeView,
-    },
-    function (state) {
-      const active = state.activeView === "memos" && state.activeTag === tag;
-      return "memo-tag-filter" + (active ? " is-active" : "");
     },
   );
 }
@@ -335,28 +333,22 @@ function SidebarCollections(vm$) {
           For({
             each: COLLECTIONS,
             render(item) {
-              return Timeless.Button(
-                {
-                  class: collectionButtonClass(vm$, item.id),
-                  attributes: {
-                    "data-view": item.id,
-                    n: `memo-navigation-${item.id}`,
-                    type: "button",
+              const children = [
+                Timeless.Icon({
+                  attributes: { n: `memo-navigation-${item.id}-icon` },
+                  name: item.icon,
+                  size: 16,
+                }),
+                View(
+                  {
+                    as: "span",
+                    attributes: { n: `memo-navigation-${item.id}-label` },
                   },
-                },
-                [
-                  Timeless.Icon({
-                    attributes: { n: `memo-navigation-${item.id}-icon` },
-                    name: item.icon,
-                    size: 16,
-                  }),
-                  View(
-                    {
-                      as: "span",
-                      attributes: { n: `memo-navigation-${item.id}-label` },
-                    },
-                    [item.label],
-                  ),
+                  [item.label],
+                ),
+              ];
+              if (item.count) {
+                children.push(
                   View(
                     {
                       as: "strong",
@@ -367,97 +359,20 @@ function SidebarCollections(vm$) {
                     },
                     [vm$.ui[item.element]],
                   ),
-                ],
-              );
-            },
-          }),
-        ],
-      ),
-    ],
-  );
-}
-
-function SidebarTags(vm$) {
-  const empty_ = computed(vm$.ui.tags, function (tags) {
-    return tags.length === 0;
-  });
-  return View(
-    {
-      class: "memo-sidebar-section",
-      attributes: { n: "memo-tag-navigation-section" },
-    },
-    [
-      View(
-        {
-          class: "memo-sidebar-heading",
-          attributes: { n: "memo-tag-navigation-heading" },
-        },
-        [
-          View(
-            {
-              as: "span",
-              attributes: { n: "memo-tag-navigation-title" },
-            },
-            ["标签"],
-          ),
-          View(
-            {
-              as: "span",
-              attributes: {
-                "data-tag-summary": "true",
-                n: "memo-tag-summary",
-              },
-            },
-            [vm$.ui.tagSummary],
-          ),
-        ],
-      ),
-      View(
-        {
-          class: "memo-tag-list",
-          attributes: { n: "memo-tag-list" },
-        },
-        [
-          Show({
-            when: empty_,
-            ok() {
-              return View(
-                {
-                  class: "memo-empty-mini",
-                  attributes: { n: "memo-tag-list-empty" },
-                },
-                ["暂无标签"],
-              );
-            },
-          }),
-          For({
-            each: vm$.ui.tags,
-            render(item) {
+                );
+              }
               return Timeless.Button(
                 {
-                  class: tagButtonClass(vm$, item.tag),
+                  class: collectionButtonClass(vm$, item.id),
                   attributes: {
-                    "data-tag": item.tag,
-                    n: "memo-tag-filter",
+                    ...(item.action
+                      ? { "data-action": item.action }
+                      : { "data-view": item.id }),
+                    n: `memo-navigation-${item.id}`,
                     type: "button",
                   },
                 },
-                [
-                  View(
-                    {
-                      as: "span",
-                      attributes: { n: "memo-tag-filter-label" },
-                    },
-                    ["#" + item.tag],
-                  ),
-                  View(
-                    {
-                      as: "span",
-                      attributes: { n: "memo-tag-filter-count" },
-                    },
-                    [item.count],
-                  ),
-                ],
+                children,
               );
             },
           }),
@@ -523,39 +438,6 @@ function HomeSidebar(vm$) {
           SidebarFilters(vm$),
           SidebarProjects(vm$),
           SidebarCollections(vm$),
-          SidebarTags(vm$),
-        ],
-      ),
-      View(
-        {
-          class: "memo-sidebar-footer",
-          attributes: { n: "home-sidebar-footer" },
-        },
-        [
-          Timeless.Button(
-            {
-              class: "memo-nav-button memo-settings-button",
-              attributes: {
-                "data-action": "openSettings",
-                n: "home-sidebar-settings",
-                type: "button",
-              },
-            },
-            [
-              Timeless.Icon({
-                attributes: { n: "home-sidebar-settings-icon" },
-                name: "settings",
-                size: 16,
-              }),
-              View(
-                {
-                  as: "span",
-                  attributes: { n: "home-sidebar-settings-label" },
-                },
-                ["设置"],
-              ),
-            ],
-          ),
         ],
       ),
     ],
@@ -565,6 +447,16 @@ function HomeSidebar(vm$) {
 /** @param {import("./home.models").HomePageProps} props */
 export function HomePageView(props) {
   const vm$ = HomePageModel(props);
+  const subviews = renderWithErrorBoundary(
+    function () {
+      return Timeless.ui.KeepAliveSubViews({
+        ...props,
+        ErrorFallback: ErrorFallbackView,
+        placeholder: [LoadingView()],
+      });
+    },
+    "home-workspace-content",
+  );
 
   return View(
     {
@@ -591,7 +483,7 @@ export function HomePageView(props) {
           class: "home-page-subviews min-w-0 h-full",
           attributes: { n: "home-workspace-content" },
         },
-        [Timeless.ui.KeepAliveSubViews(props)],
+        [subviews],
       ),
     ],
   );

@@ -62,14 +62,14 @@ func readMemoFile(ctx *VaultContext, path string) (MemoRecord, error) {
 	return memo, nil
 }
 
-func writeMemoRecord(ctx *VaultContext, memo MemoRecord) error {
+func writeMemoRecord(vault_ctx *VaultContext, memo MemoRecord) error {
 	if memo.ID == "" {
 		return fmt.Errorf("memo id is required")
 	}
 	if memo.Path == "" {
 		memo.Path = memoRelativePath(memo)
 	}
-	workspace_fs, err := require_vault_fs(ctx)
+	workspace_fs, err := require_vault_fs(vault_ctx)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,12 @@ func writeMemoRecord(ctx *VaultContext, memo MemoRecord) error {
 	if relative_path != vaultMemoDirName && !strings.HasPrefix(relative_path, vaultMemoDirName+"/") {
 		return fmt.Errorf("memo path must be inside memo directory")
 	}
-	return workspace_fs.write_file_atomic(relative_path, []byte(renderMemoMarkdownFile(memo)), 0644)
+	if err := workspace_fs.write_file_atomic(relative_path, []byte(renderMemoMarkdownFile(memo)), 0644); err != nil {
+		return err
+	}
+	memo.Path = relative_path
+	upsert_cached_memo_query_index(vault_ctx, memo)
+	return nil
 }
 
 func renderMemoMarkdownFile(memo MemoRecord) string {

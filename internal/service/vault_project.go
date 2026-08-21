@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 const globalVeloDirName = ".velo"
@@ -51,14 +53,17 @@ type VaultFile struct {
 	UpdatedAt     string `json:"updatedAt"`
 }
 type VaultContext struct {
-	Entry           VaultEntry `json:"entry"`
-	RootDir         string     `json:"rootDir"`
-	VeloDir         string     `json:"veloDir"`
-	MemoDir         string     `json:"memoDir"`
-	MemoCommentDir  string     `json:"memoCommentDir"`
-	PrivateUnlocked bool       `json:"-"`
-	fs              vault_fs
-	sync_driver     sync_driver
+	Entry            VaultEntry `json:"entry"`
+	RootDir          string     `json:"rootDir"`
+	VeloDir          string     `json:"veloDir"`
+	MemoDir          string     `json:"memoDir"`
+	MemoCommentDir   string     `json:"memoCommentDir"`
+	PrivateUnlocked  bool       `json:"-"`
+	fs               vault_fs
+	logger           *zerolog.Logger
+	memo_query_mutex sync.Mutex
+	memo_query_store MemoQueryStore
+	sync_driver      sync_driver
 }
 
 type VaultOpenRequest struct {
@@ -381,10 +386,14 @@ func registerActiveVault(ctx *VaultContext) (VaultRegistry, error) {
 	return registry, nil
 }
 
-func setActiveVault(ctx *VaultContext) {
+func setActiveVault(vault_ctx *VaultContext) {
 	vaultRuntime.Lock()
-	vaultRuntime.active = ctx
+	previous_vault_ctx := vaultRuntime.active
+	vaultRuntime.active = vault_ctx
 	vaultRuntime.Unlock()
+	if previous_vault_ctx != nil && previous_vault_ctx != vault_ctx {
+		close_cached_memo_query_store(previous_vault_ctx)
+	}
 }
 
 func set_active_vault_sync_driver(vault_ctx *VaultContext, driver sync_driver) error {

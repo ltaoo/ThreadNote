@@ -334,8 +334,9 @@
   min-width: 150px;
 }
 
-.memo-composer-select {
-  min-height: var(--tn-control-height-sm);
+.memo-composer-visibility-control {
+  flex-basis: 144px;
+  min-width: 132px;
 }
 
 .memo-tool-button,
@@ -364,9 +365,59 @@
 }
 
 .memo-composer-toolbar {
+  align-items: center;
   border-top-color: var(--tn-color-border-translucent);
+  display: flex;
+  flex-flow: row nowrap;
+  gap: var(--tn-space-4);
+  justify-content: space-between;
   min-height: 52px;
   padding: 9px 12px 9px 18px;
+}
+
+.memo-composer-status-group,
+.memo-composer-action-group {
+  align-items: center;
+  display: flex;
+  flex-flow: row nowrap;
+  min-width: 0;
+}
+
+.memo-composer-status-group {
+  flex: 1 1 auto;
+  gap: var(--tn-space-3);
+  overflow: hidden;
+}
+
+.memo-composer-vim-status:empty {
+  display: none;
+}
+
+.memo-composer-character-status {
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-composer-action-group {
+  flex: 0 0 auto;
+  gap: var(--tn-space-2);
+  justify-content: flex-end;
+  margin-left: 0;
+  min-width: max-content;
+}
+
+.memo-composer-action-group > .tn-button {
+  flex: 0 0 auto;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+.memo-composer-action-group > .tn-button .tn-button__content {
+  white-space: inherit;
 }
 
 .memo-composer-actions {
@@ -406,12 +457,6 @@
   flex: 0 0 auto;
   height: 5px;
   width: 5px;
-}
-
-.memo-composer-draft-status[hidden] {
-  display: inline-flex !important;
-  opacity: 0;
-  visibility: hidden;
 }
 
 .memo-feed-tools {
@@ -784,5 +829,16 @@
 
   .memo-main {
     padding-inline: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .memo-composer-toolbar {
+    gap: var(--tn-space-2);
+    padding-inline: 12px;
+  }
+
+  .memo-composer-action-group {
+    gap: var(--tn-space-1);
   }
 }

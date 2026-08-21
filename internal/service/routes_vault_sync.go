@@ -83,6 +83,9 @@ func register_vault_sync_routes(b *velo.Box) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
+		if result.Changed {
+			mark_cached_memo_query_index_dirty(vault_ctx)
+		}
 		return c.Ok(velo.H{"result": result, "success": true})
 	})
 

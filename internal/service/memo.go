@@ -331,6 +331,7 @@ func deleteVaultMemoWithOptions(ctx *VaultContext, id string, options MemoDelete
 	if err := workspace_fs.remove_file(path); err != nil {
 		return result, err
 	}
+	delete_cached_memo_query_index(ctx, memo.ID)
 	for _, comment := range comments {
 		if err := workspace_fs.remove_file(comment.Path); err != nil && !is_vault_file_not_exist(err) {
 			return result, err

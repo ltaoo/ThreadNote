@@ -26,6 +26,7 @@ const managed_gitignore_start = "# >>> Velo machine-local files >>>"
 const managed_gitignore_end = "# <<< Velo machine-local files <<<"
 
 var managed_gitignore_patterns = []string{
+	".velo/memo-index.db*",
 	".velo/storage.json",
 	".velo/sync-state.json",
 	".velo-write-test-*",

@@ -1,4 +1,9 @@
-import { DEFAULT_VISIBILITY, normalizeMemoPayload } from "./memos.js";
+import {
+  DEFAULT_VISIBILITY,
+  extractTags,
+  normalizeMemoPayload,
+} from "./memos.js";
+import { logMemoPagination } from "./memo-pagination-log.js";
 import { normalizeProjectID, normalizeProjectPayload } from "./projects.js";
 
 export const MEMOS_STORAGE_KEY = "demo-desktop:memos:items:v1";
@@ -76,13 +81,209 @@ export function loadMemosFromVault() {
   if (typeof globalThis.invoke !== "function") {
     return Promise.resolve(loadMemos());
   }
-  return globalThis.invoke("/api/memos", { method: "GET" }).then(function (resp) {
-    if (!resp || resp.code !== 0) {
-      throw new Error((resp && resp.msg) || "读取 memo 失败");
-    }
-    const data = resp.data || {};
-    return Array.isArray(data.memos) ? data.memos : [];
+  return with_memo_repository_logging(
+    globalThis.invoke("/api/memos", { method: "GET" }).then(function (resp) {
+      if (!resp || resp.code !== 0) {
+        throw new Error((resp && resp.msg) || "读取 memo 失败");
+      }
+      const data = resp.data || {};
+      return Array.isArray(data.memos) ? data.memos : [];
+    }),
+    "list",
+  );
+}
+
+export function loadMemoPageFromVault(options = {}) {
+  if (typeof globalThis.invoke !== "function") {
+    const filtered_memos = filterLocalMemoPage(loadMemos(), options);
+    const offset = Math.max(0, Number(options.cursor) || 0);
+    const limit = Math.min(200, Math.max(1, Number(options.limit) || 40));
+    const memos = filtered_memos.slice(offset, offset + limit);
+    const next_offset = offset + memos.length;
+    const has_more = next_offset < filtered_memos.length;
+    return Promise.resolve({
+      hasMore: has_more,
+      memos,
+      nextCursor: has_more ? String(next_offset) : "",
+      total: filtered_memos.length,
+    });
+  }
+  const query = memoPageQuery(options);
+  const request_url = "/api/memos?" + query.toString();
+  const started_at = Date.now();
+  logMemoPagination("info", "repository-request-start", {
+    cursorLength: String(options.cursor || "").length,
+    cursorPresent: Boolean(options.cursor),
+    limit: Math.min(200, Math.max(1, Number(options.limit) || 40)),
+    url: request_url,
   });
+  return with_memo_repository_logging(
+    Promise.resolve()
+      .then(function () {
+        return globalThis.invoke(request_url, { method: "GET" });
+      })
+      .then(function (resp) {
+        logMemoPagination("info", "repository-response-received", {
+          code: Number(resp?.code),
+          durationMs: Date.now() - started_at,
+          hasData: Boolean(resp?.data),
+          message: String(resp?.msg || ""),
+          url: request_url,
+        });
+        if (!resp || resp.code !== 0) {
+          throw new Error((resp && resp.msg) || "读取 memo 列表失败");
+        }
+        const data = resp.data || {};
+        const page = {
+          hasMore: Boolean(data.hasMore),
+          memos: Array.isArray(data.memos) ? data.memos : [],
+          nextCursor: String(data.nextCursor || ""),
+          total: Math.max(0, Number(data.total) || 0),
+        };
+        logMemoPagination("info", "repository-response-normalized", {
+          durationMs: Date.now() - started_at,
+          hasMore: page.hasMore,
+          memoCount: page.memos.length,
+          nextCursorLength: page.nextCursor.length,
+          total: page.total,
+          url: request_url,
+        });
+        return page;
+      }),
+    "page",
+  );
+}
+
+export function loadMemoStatsFromVault() {
+  if (typeof globalThis.invoke !== "function") {
+    return Promise.resolve(memoStats(loadMemos()));
+  }
+  return with_memo_repository_logging(
+    globalThis.invoke("/api/memos/stats", { method: "GET" }).then(
+      function (resp) {
+        if (!resp || resp.code !== 0 || !resp.data || !resp.data.stats) {
+          throw new Error((resp && resp.msg) || "读取 memo 统计失败");
+        }
+        return resp.data.stats;
+      },
+    ),
+    "stats",
+  );
+}
+
+export function loadMemoFromVault(id) {
+  const memo_id = String(id || "").trim();
+  if (!memo_id) return Promise.reject(new Error("memo id is required"));
+  if (typeof globalThis.invoke !== "function") {
+    const memo = loadMemos().find(function (item) {
+      return item && item.id === memo_id;
+    });
+    return memo
+      ? Promise.resolve(memo)
+      : Promise.reject(new Error("找不到 memo"));
+  }
+  return with_memo_repository_logging(
+    globalThis.invoke(
+      "/api/memos/get?id=" + encodeURIComponent(memo_id),
+      { method: "GET" },
+    ).then(function (resp) {
+      if (!resp || resp.code !== 0 || !resp.data || !resp.data.memo) {
+        throw new Error((resp && resp.msg) || "读取 memo 失败");
+      }
+      return resp.data.memo;
+    }),
+    "get",
+  );
+}
+
+function with_memo_repository_logging(request, operation) {
+  return request.catch(function (err) {
+    const logger = globalThis.FrontendLogger || globalThis.Logger;
+    try {
+      logger
+        ?.Error(err)
+        .Str("component", "memo_repository")
+        .Str("operation", operation)
+        .Msg("memo repository request failed");
+    } catch (_log_err) {
+      // Logging must never replace the original repository error.
+    }
+    throw err;
+  });
+}
+
+function memoPageQuery(options) {
+  const query = new URLSearchParams();
+  query.set(
+    "limit",
+    String(Math.min(200, Math.max(1, Number(options.limit) || 40))),
+  );
+  ["archived", "pinned"].forEach(function (name) {
+    if (Object.prototype.hasOwnProperty.call(options, name)) {
+      query.set(name, String(Boolean(options[name])));
+    }
+  });
+  ["cursor", "projectId", "tag", "visibility"].forEach(function (name) {
+    const value = String(options[name] || "").trim();
+    if (value) query.set(name, value);
+  });
+  return query;
+}
+
+function filterLocalMemoPage(memos, options) {
+  return memos.filter(function (memo) {
+    if (
+      Object.prototype.hasOwnProperty.call(options, "archived") &&
+      Boolean(memo.archived) !== Boolean(options.archived)
+    ) {
+      return false;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(options, "pinned") &&
+      Boolean(memo.pinned) !== Boolean(options.pinned)
+    ) {
+      return false;
+    }
+    if (options.projectId && memo.projectId !== options.projectId) return false;
+    if (
+      options.visibility &&
+      String(memo.visibility || "").toUpperCase() !==
+        String(options.visibility).toUpperCase()
+    ) {
+      return false;
+    }
+    if (options.tag && !extractTags(memo.content).includes(options.tag)) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function memoStats(memos) {
+  const stats = {
+    active: 0,
+    archived: 0,
+    pinned: 0,
+    private: 0,
+    protected: 0,
+    public: 0,
+    secret: 0,
+    total: memos.length,
+  };
+  memos.forEach(function (memo) {
+    if (memo.archived) {
+      stats.archived += 1;
+      return;
+    }
+    stats.active += 1;
+    if (memo.pinned) stats.pinned += 1;
+    if (memo.private) stats.secret += 1;
+    const visibility = String(memo.visibility || "PRIVATE").toUpperCase();
+    if (visibility === "PUBLIC") stats.public += 1;
+    else if (visibility === "PROTECTED") stats.protected += 1;
+    else stats.private += 1;
+  });
+  return stats;
 }
 
 export function createMemoInVault(content, visibility, projectId, isPrivate, meta) {

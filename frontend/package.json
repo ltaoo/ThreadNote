@@ -6,7 +6,7 @@
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test:components": "node --import ./register-import-map.mjs --test src/comment-replies.model.test.js src/component-models.test.js src/components/project-select.model.test.js src/domain/tasks.test.js src/tnui.test.js src/date-picker-model.test.js src/logger.test.js src/memo-card-model.test.js src/no-html-injection.test.js src/pages/home/memo-agent-dialog.model.test.js src/pages/home/memo.model.test.js src/pages/home/memo-view-model.test.js src/pages/home/prosemirror-rich-card.test.js src/pages/vault-picker/index.model.test.js src/settings-sync-model.test.js src/small-calendar-model.test.js"
+    "test:components": "node --import ./register-import-map.mjs --test src/comment-replies.model.test.js src/component-models.test.js src/components/project-select.model.test.js src/components/tag-select.model.test.js src/domain/memo-repository.test.js src/domain/tasks.test.js src/tnui.test.js src/date-picker-model.test.js src/logger.test.js src/memo-card-model.test.js src/no-html-injection.test.js src/pages/home/memo-agent-dialog.model.test.js src/pages/home/memo.model.test.js src/pages/home/memo-view-model.test.js src/pages/home/prosemirror-rich-card.test.js src/pages/vault-picker/index.model.test.js src/route-status.model.test.js src/route-status.test.js src/settings-sync-model.test.js src/small-calendar-model.test.js"
   },
   "devDependencies": {
     "eslint": "^8.56.0",

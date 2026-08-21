@@ -242,6 +242,54 @@ test("ProjectSelectModel exposes project dots and memo counts", () => {
   model.destroy();
 });
 
+test("ProjectSelectModel keeps diagnostics opt-in", () => {
+  const { entries, logger } = create_logger_collector();
+  const original_logger = globalThis.FrontendLogger;
+  globalThis.FrontendLogger = logger;
+  try {
+    const model = create_model();
+    model.setOptions([
+      { count: 3, label: "未归属", value: "" },
+      { color: "#ef4444", count: 8, label: "产品", value: "product" },
+      {
+        color: "#3b82f6",
+        count: 2,
+        label: "研发",
+        value: "engineering",
+      },
+    ]);
+    model.destroy();
+
+    assert.equal(entries.length, 0);
+  } finally {
+    if (original_logger === undefined) delete globalThis.FrontendLogger;
+    else globalThis.FrontendLogger = original_logger;
+  }
+});
+
+test("ProjectSelectModel skips equivalent option updates", () => {
+  const model = create_model();
+  let changes = 0;
+  const unsubscribe = model.onStateChange(() => {
+    changes += 1;
+  });
+
+  model.setOptions([
+    { count: 3, label: "未归属", value: "" },
+    { color: "#ef4444", count: 8, label: "产品", value: "product" },
+    {
+      color: "#3b82f6",
+      count: 2,
+      label: "研发",
+      value: "engineering",
+    },
+  ]);
+
+  assert.equal(changes, 0);
+  unsubscribe();
+  model.destroy();
+});
+
 test("ProjectSelectModel filters projects and reports search results", () => {
   const model = create_model();
 

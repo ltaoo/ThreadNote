@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	"github.com/ltaoo/velo/store"
 )
@@ -34,17 +33,20 @@ func register_memo_capabilities(capability_service *CapabilityService) {
 			if err != nil {
 				return nil, err
 			}
-			memos, err := listVaultMemos(vault_ctx)
+			query_store, err := new_vault_memo_query_store(vault_ctx)
 			if err != nil {
 				return nil, err
 			}
-			memos = filter_capability_memos(memos, request)
-			for memo_index, memo := range memos {
-				if isPrivateAndLocked(vault_ctx, memo.Private) {
-					memos[memo_index] = redactPrivateMemo(memo)
-				}
+			page, err := query_store.List(call_ctx, MemoListQuery{
+				Archived:  request.Archived,
+				ProjectID: request.ProjectID,
+				Tag:       request.Tag,
+			})
+			if err != nil {
+				return nil, err
 			}
-			return map[string]interface{}{"memos": memos}, nil
+			redact_memo_page(vault_ctx, &page)
+			return map[string]interface{}{"memos": page.Memos}, nil
 		},
 	)
 	capability_service.register(
@@ -58,11 +60,11 @@ func register_memo_capabilities(capability_service *CapabilityService) {
 			if err != nil {
 				return nil, err
 			}
-			memo_path, err := findMemoFilePath(vault_ctx, request.ID)
+			query_store, err := new_vault_memo_query_store(vault_ctx)
 			if err != nil {
 				return nil, err
 			}
-			memo, err := readMemoFile(vault_ctx, memo_path)
+			memo, err := query_store.Get(call_ctx, request.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -292,28 +294,6 @@ func register_memo_draft_capabilities(capability_service *CapabilityService) {
 			return map[string]interface{}{"success": true}, nil
 		},
 	)
-}
-
-func filter_capability_memos(memos []MemoRecord, request memo_list_input) []MemoRecord {
-	project_id := sanitizeProjectID(request.ProjectID)
-	tag := strings.TrimSpace(request.Tag)
-	if project_id == "" && tag == "" && request.Archived == nil {
-		return memos
-	}
-	filtered := make([]MemoRecord, 0, len(memos))
-	for _, memo := range memos {
-		if project_id != "" && memo.ProjectID != project_id {
-			continue
-		}
-		if tag != "" && !stringListContainsFold(memo.Tags, tag) {
-			continue
-		}
-		if request.Archived != nil && memo.Archived != *request.Archived {
-			continue
-		}
-		filtered = append(filtered, memo)
-	}
-	return filtered
 }
 
 func capability_memo_delete_options(call_ctx context.Context, vault_ctx *VaultContext, cleanup_assets bool, delete_tasks bool) MemoDeleteOptions {

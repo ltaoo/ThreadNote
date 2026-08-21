@@ -30,10 +30,10 @@ import {
 } from "@/domain/memo-comments.js";
 import {
   errorMessage,
+  loadMemoFromVault,
   loadMemoFromLocal,
   loadMemoHistoryFromVault,
   loadMemoHistoryVersionFromVault,
-  loadMemosFromVault,
   restoreMemoHistoryVersionFromVault,
   updateMemoInVault,
 } from "@/domain/memo-repository.js";
@@ -2478,13 +2478,8 @@ export function mountDetachedMemoWindow(root, options = {}) {
           // Reload memo from vault
           var targetMemoId = state.memo && state.memo.id;
           if (targetMemoId) {
-            loadMemosFromVault({ id: targetMemoId }).then(
-              function (memos) {
-                var updated = Array.isArray(memos)
-                  ? memos.find(function (m) {
-                    return m.id === targetMemoId;
-                  })
-                  : null;
+            loadMemoFromVault(targetMemoId).then(
+              function (updated) {
                 if (updated) state.memo = updated;
                 renderDetachedMemo();
               },

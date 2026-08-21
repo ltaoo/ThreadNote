@@ -9,12 +9,12 @@ import {
 } from "@/domain/boards.js";
 import { errorMessage } from "@/domain/memo-repository.js";
 import { completeTask, createTask, getTask, updateTask } from "@/domain/tasks.js";
-import { setCheckboxControlValue } from "@/checkbox-control.js";
 import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 import {
   renderTimelessView,
   unmountTimelessView,
 } from "@/timeless-view-mount.js";
+import { tn } from "@/tnui.js";
 
 import { HomeBoardPageModel } from "./home_board.model.js";
 import { HomePageHeader, HomePageToast } from "./home_page_header.js";
@@ -114,6 +114,10 @@ export function createHomeBoardController(options) {
             return {
               boardId: task.boardId || board.id,
               complete: task.status === "completed",
+              completionCheckbox: new TimelessPrimitive.vm.CheckboxCore({
+                checked: task.status === "completed",
+                label: "切换任务完成状态",
+              }),
               due,
               id: task.id,
               priority: task.priority || "none",
@@ -740,8 +744,7 @@ export function createHomeBoardController(options) {
         return refresh_tasks().then(render_all);
       })
       .catch(function (error) {
-        setCheckboxControlValue(checkbox, !checked);
-        checkbox.disabled = false;
+        render_all();
         toast("操作失败: " + errorMessage(error));
       });
   }
@@ -1162,7 +1165,7 @@ export function BoardListView(props = {}) {
 }
 
 function BoardCardView(props) {
-  const { Checkbox, View } = props.runtime;
+  const { View } = props.runtime;
   const task = props.task;
   const class_name_ = computed(
     ref({
@@ -1189,15 +1192,26 @@ function BoardCardView(props) {
       },
     },
     [
-      Checkbox({
-        checked: task.complete,
-        class: "memo-board-card-check memo-todo-checkbox",
-        attributes: {
-          "aria-label": "切换任务完成状态",
-          "data-board-card-complete": "true",
-          n: "board-card-completion-checkbox",
+      View(
+        {
+          class: "memo-board-card-check memo-todo-checkbox",
+          attributes: {
+            "data-board-card-complete": "true",
+            n: "board-card-completion-checkbox",
+          },
         },
-      }),
+        [
+          tn.Checkbox({
+            store: task.completionCheckbox,
+            onUnmounted() {
+              task.completionCheckbox?.destroy?.();
+            },
+            attributes: {
+              "aria-label": "切换任务完成状态",
+            },
+          }),
+        ],
+      ),
       View(
         {
           class: "memo-board-card-body-inner",

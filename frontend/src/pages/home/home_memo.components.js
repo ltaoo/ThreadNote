@@ -1,6 +1,7 @@
 import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 import { tn } from "@/tnui.js";
 import { ProjectSelect } from "@/components/project-select.js";
+// import { ClipboardCardView } from "./home_clipboard_card.js";
 
 import {
   iconActionButton,
@@ -127,12 +128,12 @@ export function MemoComposer(vm$) {
           ),
           View(
             {
-              class: "memo-composer-select-control",
+              class:
+                "memo-composer-select-control memo-composer-visibility-control",
               attributes: { n: "home-memo-composer-visibility-control" },
             },
             [
               tn.Select({
-                class: "memo-composer-select",
                 store: vm$.ui.composerVisibilitySelect.store,
                 attributes: {
                   "aria-label": "可见性",
@@ -179,37 +180,91 @@ export function MemoComposer(vm$) {
         },
         [
           View(
-            { as: "span", attributes: { "data-composer-vim-status": "true" } },
-            [],
+            {
+              class: "memo-composer-status-line memo-composer-status-group",
+              attributes: { n: "home-memo-composer-status-group" },
+            },
+            [
+              View(
+                {
+                  as: "span",
+                  class: "memo-composer-vim-status",
+                  attributes: {
+                    "data-composer-vim-status": "true",
+                    n: "home-memo-composer-vim-status",
+                  },
+                },
+                [],
+              ),
+              View(
+                {
+                  as: "span",
+                  class: "memo-composer-character-status",
+                  attributes: {
+                    "data-composer-status": "true",
+                    n: "home-memo-composer-character-status",
+                  },
+                },
+                [vm$.ui.composerStatus],
+              ),
+            ],
           ),
           View(
-            { as: "span", attributes: { "data-composer-status": "true" } },
-            [vm$.ui.composerStatus],
-          ),
-          View(
             {
-              as: "span",
-              hidden: vm$.ui.composerDraftStatusHidden,
-              attributes: { "data-composer-draft-status": "true" },
+              class: "memo-composer-actions memo-composer-action-group",
+              attributes: { n: "home-memo-composer-action-group" },
             },
-            ["已存草稿"],
-          ),
-          tn.Button(
-            {
-              store: vm$.ui.composerPreviewButton,
-              attributes: {
-                "data-action": "toggleComposerPreview",
-                type: "button",
-              },
-            },
-            ["预览"],
-          ),
-          tn.Button(
-            {
-              store: vm$.ui.composerPublishButton,
-              attributes: { "data-action": "createMemo", type: "button" },
-            },
-            ["发布"],
+            [
+              Show({
+                when: computed(
+                  vm$.ui.composerDraftStatusHidden,
+                  function (hidden) {
+                    return !hidden;
+                  },
+                ),
+                ok() {
+                  return View(
+                    {
+                      as: "span",
+                      class: "memo-composer-draft-status",
+                      attributes: {
+                        "data-composer-draft-status": "true",
+                        n: "home-memo-composer-draft-status",
+                      },
+                    },
+                    ["已存草稿"],
+                  );
+                },
+              }),
+              tn.Button(
+                {
+                  store: vm$.ui.composerPreviewButton,
+                  attributes: {
+                    "data-action": "toggleComposerPreview",
+                    type: "button",
+                  },
+                },
+                ["预览"],
+              ),
+              tn.Button(
+                {
+                  prefix: Timeless.Icon({
+                    name: "send",
+                    size: 14,
+                    attributes: {
+                      "aria-hidden": "true",
+                      n: "home-memo-composer-publish-icon",
+                    },
+                  }),
+                  store: vm$.ui.composerPublishButton,
+                  attributes: {
+                    "data-action": "createMemo",
+                    type: "button",
+                  },
+                },
+                ["发布"],
+              ),
+            ],
           ),
         ],
       ),
@@ -222,47 +277,6 @@ export function MemoComposer(vm$) {
           type: "file",
         },
       }),
-    ],
-  );
-}
-
-export function MemoFeedTools(vm$) {
-  return View(
-    {
-      as: "section",
-      class: "memo-feed-tools",
-      hidden: vm$.ui.feedToolsHidden,
-      attributes: {
-        "aria-label": "Memo search",
-        n: "home-memo-feed-tools",
-      },
-    },
-    [
-      tn.Input({
-        rootClass: "memo-search",
-        store: vm$.ui.feedSearchInput,
-        type: "search",
-        placeholder: vm$.ui.searchPlaceholder,
-        attributes: { "data-search-input": "true", type: "search" },
-      }),
-      View(
-        {
-          as: "select",
-          attributes: {
-            "aria-label": "Project filter",
-            "data-project-filter-select": "true",
-            n: "home-memo-project-filter",
-          },
-        },
-        [],
-      ),
-      tn.Button(
-        {
-          store: vm$.ui.feedResetButton,
-          attributes: { "data-action": "clearFilters", type: "button" },
-        },
-        ["重置"],
-      ),
     ],
   );
 }
@@ -567,16 +581,24 @@ export function MemoInspector(vm$) {
         {
           as: "section",
           class: "memo-inspector-section",
+          hidden: vm$.ui.pinnedSectionHidden,
           attributes: { n: "home-memo-pinned-section" },
         },
         [
-          View(
-            {
-              class: "memo-inspector-title",
-              attributes: { n: "home-memo-pinned-title" },
+          Show({
+            when: computed(vm$.ui.pinnedSectionHidden, function (hidden) {
+              return !hidden;
+            }),
+            ok() {
+              return View(
+                {
+                  class: "memo-inspector-title",
+                  attributes: { n: "home-memo-pinned-title" },
+                },
+                ["置顶"],
+              );
             },
-            ["置顶"],
-          ),
+          }),
           View(
             {
               class: "memo-pinned-list",
@@ -596,15 +618,21 @@ export function MemoInspector(vm$) {
 export function MemoOverlays(vm$) {
   return Timeless.Fragment({}, [
     SearchPaletteView({ runtime: Timeless, ui: vm$.ui }),
-    View(
-      {
-        as: "section",
-        class: vm$.ui.clipboardCardClass,
-        hidden: vm$.ui.clipboardCardHidden,
-        attributes: { "data-clipboard-card": "true" },
+    /* 暂停在页面右下角展示自动读取到的粘贴板内容。
+    ClipboardCardView({
+      item: vm$.state.clipboardItem,
+      leaving: vm$.state.clipboardLeaving,
+      onAccept() {
+        vm$.methods.acceptClipboardItem();
       },
-      [],
-    ),
+      onDismiss() {
+        vm$.methods.hideClipboardCard({ forceAppeared: true });
+      },
+      runtime: Timeless,
+      store: vm$.ui.clipboardCardPresence,
+      working: vm$.state.clipboardWorking,
+    }),
+    */
     View(
       {
         class: vm$.ui.toastClass,
@@ -2434,10 +2462,7 @@ export function PinnedMemoListView(props = {}) {
   const runtime = props.runtime || TimelessPrimitive;
   const { Button, For, RichText, View } = runtime;
   if (!props.memos?.length) {
-    return View(
-      { class: "memo-empty-mini", attributes: { n: "memo-pinned-empty" } },
-      ["暂无置顶"],
-    );
+    return runtime.Fragment({}, []);
   }
   return runtime.Fragment({}, [
     For({

@@ -3,6 +3,7 @@ import {
   unmountTimelessView,
 } from "@/timeless-view-mount.js";
 import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
+import { tn } from "@/tnui.js";
 import {
   DEFAULT_VISIBILITY,
   normalizeMemoPayload,
@@ -27,8 +28,6 @@ import {
   saveMemos,
   updateMemoInVault,
 } from "@/domain/memo-repository.js";
-import { setCheckboxControlValue } from "@/checkbox-control.js";
-
 import { HomePageHeader, HomePageToast } from "./home_page_header.js";
 import { formatDateTime } from "./home_memo_helpers.js";
 import { HomeTodoPageModel } from "./home_todo.model.js";
@@ -282,6 +281,10 @@ export function createHomeTodoController(options) {
 
   function task_presentation(task) {
     const complete = task.status === "completed";
+    const completion_checkbox = new TimelessPrimitive.vm.CheckboxCore({
+      checked: complete,
+      label: "切换任务完成状态",
+    });
     const priority_labels = { high: "高", low: "低", medium: "中", none: "" };
     const meta = [];
     if (task.projectId) meta.push({ label: options.projectLabel(task.projectId) });
@@ -328,6 +331,7 @@ export function createHomeTodoController(options) {
       ],
       badge: priority_labels[task.priority || "none"],
       complete,
+      completionCheckbox: completion_checkbox,
       id: task.id,
       meta,
       priority: task.priority || "none",
@@ -491,8 +495,7 @@ export function createHomeTodoController(options) {
         showToast(checked ? "已完成任务" : "已取消完成");
       },
       function (err) {
-        setCheckboxControlValue(checkbox, !checked);
-        checkbox.disabled = false;
+        renderAll();
         showToast(
           (checked ? "完成任务失败: " : "取消完成失败: ") + errorMessage(err),
         );
@@ -1186,7 +1189,7 @@ export default function HomeTodoPageView(props) {
 
 export function TaskCollectionsView(props = {}) {
   const runtime = props.runtime || TimelessPrimitive;
-  const { Button, Checkbox, For, Input, Select, View } = runtime;
+  const { Button, For, Input, Select, View } = runtime;
   function create_form() {
     if (props.mode === "milestones") {
       return View(
@@ -1362,15 +1365,26 @@ export function TaskCollectionsView(props = {}) {
             );
           },
           else() {
-            return Checkbox({
-              checked: item.complete,
-              class: "memo-task-check memo-todo-checkbox",
-              attributes: {
-                "aria-label": "切换任务完成状态",
-                "data-task-complete": "true",
-                n: "task-completion-checkbox",
+            return View(
+              {
+                class: "memo-task-check memo-todo-checkbox",
+                attributes: {
+                  "data-task-complete": "true",
+                  n: "task-completion-checkbox",
+                },
               },
-            });
+              [
+                tn.Checkbox({
+                  store: item.completionCheckbox,
+                  onUnmounted() {
+                    item.completionCheckbox?.destroy?.();
+                  },
+                  attributes: {
+                    "aria-label": "切换任务完成状态",
+                  },
+                }),
+              ],
+            );
           },
         }),
         View(

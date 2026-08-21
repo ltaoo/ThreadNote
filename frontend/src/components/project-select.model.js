@@ -28,6 +28,25 @@ function normalize_options(options) {
   );
 }
 
+function options_equal(left, right) {
+  if (left === right) return true;
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+  return left.every((option, index) => {
+    const candidate = right[index];
+    return Boolean(
+      candidate &&
+        option.color === candidate.color &&
+        option.count === candidate.count &&
+        option.disabled === candidate.disabled &&
+        option.key === candidate.key &&
+        option.label === candidate.label &&
+        option.searchText === candidate.searchText &&
+        option.value === candidate.value,
+    );
+  });
+}
+
 function creation_error_message(error) {
   const message = String(error?.message || error || "").trim();
   return message || "创建 Project 失败，请稍后重试";
@@ -163,8 +182,11 @@ export class ProjectSelectModel extends ComponentModel {
     if (popper_platform) popper_options.platform = popper_platform;
     this.popper = new runtime.vm.PopperCore(popper_options);
     this.presence = new runtime.vm.PresenceCore();
+    const global_logger =
+      globalThis.FrontendLogger || globalThis.Logger || null;
     this._logger =
-      options.logger || globalThis.FrontendLogger || globalThis.Logger || null;
+      options.logger || (options.diagnostics === true ? global_logger : null);
+    this._diagnostics_enabled = Boolean(this._logger);
     this._on_change = options.onChange || null;
     this._on_create_project = options.onCreateProject || null;
     this._active_interaction_id = "";
@@ -200,7 +222,10 @@ export class ProjectSelectModel extends ComponentModel {
     this._unsubscribe_create_dialog_show = this.create_dialog.onShow(() => {
       queueMicrotask(() => this.create_name_input.focus?.());
     });
-    if (typeof this.presence.onStateChange === "function") {
+    if (
+      this._diagnostics_enabled &&
+      typeof this.presence.onStateChange === "function"
+    ) {
       this._diagnostic_unsubscribers.push(
         this.presence.onStateChange((presence_state) => {
           this._log("debug", "presence-state-change", {
@@ -211,7 +236,10 @@ export class ProjectSelectModel extends ComponentModel {
         }),
       );
     }
-    if (typeof this.popper.onStateChange === "function") {
+    if (
+      this._diagnostics_enabled &&
+      typeof this.popper.onStateChange === "function"
+    ) {
       this._diagnostic_unsubscribers.push(
         this.popper.onStateChange((popper_state) => {
           this._log(
@@ -231,7 +259,10 @@ export class ProjectSelectModel extends ComponentModel {
         }),
       );
     }
-    if (typeof this.popper.onReferenceMounted === "function") {
+    if (
+      this._diagnostics_enabled &&
+      typeof this.popper.onReferenceMounted === "function"
+    ) {
       this._diagnostic_unsubscribers.push(
         this.popper.onReferenceMounted(() => {
           this._log("debug", "popper-reference-mounted", {
@@ -240,7 +271,10 @@ export class ProjectSelectModel extends ComponentModel {
         }),
       );
     }
-    if (typeof this.popper.onFloatingMounted === "function") {
+    if (
+      this._diagnostics_enabled &&
+      typeof this.popper.onFloatingMounted === "function"
+    ) {
       this._diagnostic_unsubscribers.push(
         this.popper.onFloatingMounted(() => {
           this._log("debug", "popper-floating-mounted", {
@@ -250,7 +284,10 @@ export class ProjectSelectModel extends ComponentModel {
         }),
       );
     }
-    if (typeof this.popper.onReferenceOutOfView === "function") {
+    if (
+      this._diagnostics_enabled &&
+      typeof this.popper.onReferenceOutOfView === "function"
+    ) {
       this._diagnostic_unsubscribers.push(
         this.popper.onReferenceOutOfView(() => {
           this._log("warn", "popper-reference-out-of-view", {
@@ -328,6 +365,9 @@ export class ProjectSelectModel extends ComponentModel {
 
   setOptions(options) {
     const normalized_options = normalize_options(options);
+    if (options_equal(normalized_options, this.state.options)) {
+      return this.state.options;
+    }
     const filtered_options = this.filteredOptions({
       ...this.state,
       options: normalized_options,
@@ -344,6 +384,7 @@ export class ProjectSelectModel extends ComponentModel {
       selectOpen: this.state.open,
     });
     if (this.state.open) void this.placePopper("options-updated");
+    return normalized_options;
   }
 
   setValue(value, options = {}) {
@@ -370,9 +411,11 @@ export class ProjectSelectModel extends ComponentModel {
 
   setDisabled(disabled) {
     const next_disabled = Boolean(disabled);
+    if (next_disabled === this.state.disabled) return next_disabled;
     this.setState({ disabled: next_disabled });
     this._log("info", "disabled-updated", { disabled: next_disabled });
     if (next_disabled) this.close({ reason: "disabled" });
+    return next_disabled;
   }
 
   setQuery(query) {
@@ -760,7 +803,9 @@ export class ProjectSelectModel extends ComponentModel {
   setTriggerElement(element) {
     const trigger_element = resolve_element(element);
     this._trigger_element = trigger_element || null;
-    const trigger_rect = rect_snapshot(trigger_element);
+    const trigger_rect = this._diagnostics_enabled
+      ? rect_snapshot(trigger_element)
+      : null;
     this._log("info", trigger_element ? "trigger-mounted" : "trigger-unmounted", {
       element: element_snapshot(trigger_element),
       referenceRect: trigger_rect,
@@ -769,7 +814,10 @@ export class ProjectSelectModel extends ComponentModel {
       this.popper.removeReference?.();
       return;
     }
-    if (!trigger_rect?.width || !trigger_rect?.height) {
+    if (
+      this._diagnostics_enabled &&
+      (!trigger_rect?.width || !trigger_rect?.height)
+    ) {
       this._log("error", "trigger-reference-rect-invalid", {
         element: element_snapshot(trigger_element),
         referenceRect: trigger_rect,
@@ -780,12 +828,14 @@ export class ProjectSelectModel extends ComponentModel {
       {
         $el: trigger_element,
         getRect() {
-          const rect = rect_snapshot(trigger_element);
-          model._log("debug", "reference-rect-read", {
-            element: element_snapshot(trigger_element),
-            rect,
-          });
-          return trigger_element.getBoundingClientRect();
+          const rect = trigger_element.getBoundingClientRect();
+          if (model._diagnostics_enabled) {
+            model._log("debug", "reference-rect-read", {
+              element: element_snapshot(trigger_element),
+              rect: rect_snapshot({ getBoundingClientRect: () => rect }),
+            });
+          }
+          return rect;
         },
       },
       { force: true },
@@ -827,7 +877,9 @@ export class ProjectSelectModel extends ComponentModel {
     this._search_element = resolve_element(element);
     this._log("debug", this._search_element ? "search-mounted" : "search-unmounted", {
       element: element_snapshot(this._search_element),
-      rect: rect_snapshot(this._search_element),
+      rect: this._diagnostics_enabled
+        ? rect_snapshot(this._search_element)
+        : null,
       selectOpen: this.state.open,
     });
     if (this._search_element && this.state.open) this._focus_search();
@@ -864,14 +916,16 @@ export class ProjectSelectModel extends ComponentModel {
 
   handlePopperContentMounted(element) {
     this._floating_element = resolve_element(element);
-    this._log("info", "popper-content-mounted", {
-      floatingElement: element_snapshot(this._floating_element),
-      floatingRect: this._floating_rect(),
-      floatingStyle: style_snapshot(this._floating_element),
-      popper: { ...this.popper.state },
-      referenceRect: this._reference_rect("content-mounted"),
-      viewport: this._viewport_snapshot(),
-    });
+    if (this._diagnostics_enabled) {
+      this._log("info", "popper-content-mounted", {
+        floatingElement: element_snapshot(this._floating_element),
+        floatingRect: this._floating_rect(),
+        floatingStyle: style_snapshot(this._floating_element),
+        popper: { ...this.popper.state },
+        referenceRect: this._reference_rect("content-mounted"),
+        viewport: this._viewport_snapshot(),
+      });
+    }
     this._schedule_diagnostic("popper-content-mounted", { place: true });
   }
 
@@ -893,6 +947,7 @@ export class ProjectSelectModel extends ComponentModel {
   }
 
   diagnosticSnapshot() {
+    if (!this._diagnostics_enabled) return null;
     return {
       floatingElement: element_snapshot(this._floating_element),
       floatingRect: this._floating_rect(),
@@ -1012,6 +1067,7 @@ export class ProjectSelectModel extends ComponentModel {
   }
 
   _reference_rect(reason) {
+    if (!this._diagnostics_enabled) return null;
     if (!this.popper.reference?.getRect) return null;
     try {
       const rect = this.popper.reference.getRect();
@@ -1026,6 +1082,7 @@ export class ProjectSelectModel extends ComponentModel {
   }
 
   _floating_rect() {
+    if (!this._diagnostics_enabled) return null;
     if (this.popper.floating?.getRect) {
       try {
         const rect = this.popper.floating.getRect();
@@ -1038,6 +1095,7 @@ export class ProjectSelectModel extends ComponentModel {
   }
 
   _viewport_snapshot() {
+    if (!this._diagnostics_enabled) return null;
     try {
       const viewport = this.popper.platform?.getViewportSize?.();
       return viewport
@@ -1052,16 +1110,21 @@ export class ProjectSelectModel extends ComponentModel {
   }
 
   _schedule_diagnostic(stage, options = {}) {
+    const should_place = Boolean(options.place && this.state.open);
+    if (!this._diagnostics_enabled && !should_place) return;
     const interaction_id =
       options.interactionId || this._active_interaction_id;
     queueMicrotask(() => {
       if (this._destroyed) return;
-      this._log("debug", `${stage}-microtask`, {
-        snapshot: this.diagnosticSnapshot(),
-      }, interaction_id);
+      if (this._diagnostics_enabled) {
+        this._log("debug", `${stage}-microtask`, {
+          snapshot: this.diagnosticSnapshot(),
+        }, interaction_id);
+      }
       if (options.place && this.state.open) {
         void this.placePopper(`${stage}-microtask`);
       }
+      if (!this._diagnostics_enabled) return;
       const schedule_frame = globalThis.requestAnimationFrame || ((callback) => {
         return globalThis.setTimeout(callback, 0);
       });

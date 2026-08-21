@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MemoListModel, filterMemoList } from "./memo.model.js";
+import {
+  MemoFeedPaginationModel,
+  MemoListModel,
+  filterMemoList,
+} from "./memo.model.js";
 
 /** @type {import("./home.models").HomeMemoRecord[]} */
 const memos = [
   {
     alias: "release",
     archived: false,
-    content: "Public memo #work",
+    content: "Public memo #work #shared",
     createdAt: "2026-08-21T09:00:00Z",
     id: "memo-public",
     kind: "",
@@ -23,7 +27,7 @@ const memos = [
   {
     alias: "",
     archived: false,
-    content: "Private memo #home",
+    content: "Private memo #home #shared",
     createdAt: "2026-08-20T09:00:00Z",
     id: "memo-private",
     kind: "",
@@ -114,4 +118,83 @@ test("memo list filtering supports project, date, comment query, and sorting", f
     ),
     ["memo-private", "memo-public"],
   );
+});
+
+test("memo list filtering requires every selected tag", function () {
+  assert.deepEqual(
+    filterMemoList(memos, {
+      activeFilter: "all",
+      activeTags: ["work", "shared", "work"],
+    }).map((memo) => memo.id),
+    ["memo-public"],
+  );
+  assert.deepEqual(
+    filterMemoList(memos, {
+      activeFilter: "all",
+      activeTags: ["work", "home"],
+    }),
+    [],
+  );
+});
+
+test("memo feed pagination resets and requests the next cursor", async function () {
+  const requests = [];
+  const vm$ = MemoFeedPaginationModel({
+    pageSize: 2,
+    services: {
+      async loadMemoPageFromVault(options) {
+        requests.push(options);
+        if (!options.cursor) {
+          return {
+            hasMore: true,
+            memos: [memos[0], memos[1]],
+            nextCursor: "cursor-2",
+            total: 3,
+          };
+        }
+        return {
+          hasMore: false,
+          memos: [memos[1], memos[2]],
+          nextCursor: "",
+          total: 3,
+        };
+      },
+    },
+  });
+
+  const first_page = await vm$.reset({ archived: false });
+  const second_page = await vm$.loadMore();
+
+  assert.deepEqual(requests, [
+    { archived: false, cursor: "", limit: 2 },
+    { archived: false, cursor: "cursor-2", limit: 2 },
+  ]);
+  assert.equal(first_page.hasMore, true);
+  assert.equal(second_page.hasMore, false);
+  assert.deepEqual(
+    second_page.memos.map((memo) => memo.id),
+    ["memo-public", "memo-private", "memo-archived"],
+  );
+});
+
+test("memo feed pagination ignores load-more while a request is active", async function () {
+  let resolve_page;
+  const vm$ = MemoFeedPaginationModel({
+    services: {
+      loadMemoPageFromVault() {
+        return new Promise(function (resolve) {
+          resolve_page = resolve;
+        });
+      },
+    },
+  });
+
+  const reset_request = vm$.reset();
+  const skipped_page = await vm$.loadMore();
+  assert.equal(skipped_page.changed, false);
+  assert.equal(skipped_page.loading, true);
+
+  resolve_page({ hasMore: false, memos: [], nextCursor: "", total: 0 });
+  await reset_request;
+  assert.equal(vm$.snapshot().loading, false);
 });

@@ -24,15 +24,25 @@ import {
 } from "./home_view_shared.js";
 
 const CLIPBOARD_AUTO_HIDE_MS = 5000;
-const CLIPBOARD_EXIT_MS = 180;
 const CLIPBOARD_MIN_VISIBLE_MS = 1500;
+
+function clipboard_type_label(type) {
+  if (type === "link") return "链接";
+  if (type === "image") return "图片";
+  return "文本";
+}
+
+function clipboard_action_label(type) {
+  if (type === "link") return "保存链接";
+  if (type === "image") return "上传文件";
+  return "创建 memo";
+}
 
 export function createHomeClipboardState() {
   return {
     clipboardDisplayedId: "",
     clipboardItem: null,
     clipboardLastAppearedId: "",
-    clipboardLeaveTimer: null,
     clipboardLeaving: false,
     clipboardShownAt: 0,
     clipboardTimer: null,
@@ -43,6 +53,12 @@ export function createHomeClipboardState() {
 
 export function createHomeClipboardController(options) {
   const { elements, state, ui } = options;
+  const unsubscribe_card_hidden = ui.clipboardCardPresence.onHidden(
+    function () {
+      state.clipboardVisible = false;
+      state.clipboardLeaving = false;
+    },
+  );
 
   function normalize_item(item) {
     if (!item || typeof item !== "object") return null;
@@ -75,6 +91,7 @@ export function createHomeClipboardController(options) {
         if (!response || response.code !== 0 || !response.data) return;
         if (!response.data.found) {
           state.clipboardItem = null;
+          hide_card({ forceAppeared: true });
           if (state.activeView === "clipboard") options.renderMainContent();
           options.renderViewButtons();
           return;
@@ -95,7 +112,7 @@ export function createHomeClipboardController(options) {
   }
 
   function show_card() {
-    if (!state.clipboardItem || !elements.clipboardCard) return;
+    if (!state.clipboardItem) return;
     const item_id = String(state.clipboardItem.id || "");
     const same_active_item = Boolean(
       (state.clipboardVisible || state.clipboardLeaving) &&
@@ -105,14 +122,10 @@ export function createHomeClipboardController(options) {
     if (item_id && state.clipboardLastAppearedId === item_id) return;
     if (same_active_item) {
       if (state.clipboardLeaving) {
-        if (state.clipboardLeaveTimer) {
-          window.clearTimeout(state.clipboardLeaveTimer);
-          state.clipboardLeaveTimer = null;
-        }
         state.clipboardLeaving = false;
         state.clipboardVisible = true;
         state.clipboardShownAt = Date.now();
-        render_card();
+        sync_card_presence();
         schedule_auto_hide();
       }
       return;
@@ -120,13 +133,9 @@ export function createHomeClipboardController(options) {
     state.clipboardDisplayedId = item_id;
     state.clipboardLastAppearedId = "";
     state.clipboardShownAt = Date.now();
-    if (state.clipboardLeaveTimer) {
-      window.clearTimeout(state.clipboardLeaveTimer);
-      state.clipboardLeaveTimer = null;
-    }
     state.clipboardLeaving = false;
     state.clipboardVisible = true;
-    render_card();
+    sync_card_presence();
     schedule_auto_hide();
   }
 
@@ -152,49 +161,27 @@ export function createHomeClipboardController(options) {
       state.clipboardTimer = null;
     }
     if (!state.clipboardVisible && !state.clipboardLeaving) {
-      render_card();
+      sync_card_presence();
       return;
     }
     mark_appeared_if_ready(hide_options);
     state.clipboardLeaving = true;
-    render_card();
-    if (state.clipboardLeaveTimer) {
-      window.clearTimeout(state.clipboardLeaveTimer);
-    }
-    state.clipboardLeaveTimer = window.setTimeout(function () {
-      state.clipboardVisible = false;
-      state.clipboardLeaving = false;
-      state.clipboardLeaveTimer = null;
-      render_card();
-    }, CLIPBOARD_EXIT_MS);
+    sync_card_presence();
   }
 
-  function render_card() {
-    if (!elements.clipboardCard) return;
+  function sync_card_presence() {
     if (
       (!state.clipboardVisible && !state.clipboardLeaving) ||
       !state.clipboardItem
     ) {
-      ui.clipboardCardHidden.as(true);
-      renderTimelessView(elements.clipboardCard, null);
+      ui.clipboardCardPresence.hide();
       return;
     }
-    ui.clipboardCardHidden.as(false);
-    let class_name = "memo-clipboard-card";
-    if (state.clipboardLeaving) class_name += " is-leaving";
-    ui.clipboardCardClass.as(class_name);
-  }
-
-  function type_label(type) {
-    if (type === "link") return "链接";
-    if (type === "image") return "图片";
-    return "文本";
-  }
-
-  function action_label(type) {
-    if (type === "link") return "保存链接";
-    if (type === "image") return "上传文件";
-    return "创建 memo";
+    if (state.clipboardLeaving) {
+      ui.clipboardCardPresence.hide();
+      return;
+    }
+    ui.clipboardCardPresence.show();
   }
 
   function render_clipboard_view() {
@@ -205,7 +192,7 @@ export function createHomeClipboardController(options) {
       captured_at = formatDateTime(new Date(item.capturedAt));
     }
     const meta = [
-      type_label(item && item.type),
+      clipboard_type_label(item && item.type),
       captured_at,
       (item && item.rawType) || "",
     ]
@@ -214,7 +201,7 @@ export function createHomeClipboardController(options) {
     renderTimelessView(
       elements.memoList,
       ClipboardCurrentView({
-        actionLabel: action_label(item && item.type),
+        actionLabel: clipboard_action_label(item && item.type),
         item,
         meta,
         working: state.clipboardWorking,
@@ -345,7 +332,7 @@ export function createHomeClipboardController(options) {
         options.rememberComposerProject(state.composerProjectId);
         state.activeView = "memos";
         state.activeFilter = "all";
-        state.activeTag = "";
+        options.clearActiveTags();
         options.clearSelectedDate();
         state.visibility = DEFAULT_VISIBILITY;
         options.renderAll();
@@ -359,7 +346,6 @@ export function createHomeClipboardController(options) {
     const item = state.clipboardItem;
     if (!item || state.clipboardWorking) return;
     state.clipboardWorking = true;
-    render_card();
     if (state.activeView === "clipboard") render_clipboard_view();
     let task = create_memo_from_content(item.content, "已创建 memo");
     if (item.type === "image") task = upload_image(item);
@@ -377,21 +363,21 @@ export function createHomeClipboardController(options) {
       )
       .finally(function () {
         state.clipboardWorking = false;
-        render_card();
         if (state.activeView === "clipboard") render_clipboard_view();
       });
   }
 
   function destroy() {
     if (state.clipboardTimer) window.clearTimeout(state.clipboardTimer);
-    if (state.clipboardLeaveTimer) window.clearTimeout(state.clipboardLeaveTimer);
+    unsubscribe_card_hidden?.();
+    ui.clipboardCardPresence.unmount();
   }
 
   return {
     acceptClipboardItem: accept_item,
     destroy,
     hideClipboardCard: hide_card,
-    renderClipboardCard: render_card,
+    renderClipboardCard: sync_card_presence,
     renderClipboardView: render_clipboard_view,
     requestClipboardLatest: request_latest,
     showClipboardCard: show_card,
@@ -509,107 +495,6 @@ export default function HomeClipboardPageView(props) {
     ],
   );
 }
-
-export function ClipboardCardView(props = {}) {
-  const runtime = props.runtime || TimelessPrimitive;
-  const { Button, Img, View } = runtime;
-  if (!props.item) return null;
-  return runtime.Fragment({}, [
-    View(
-      {
-        as: "header",
-        class: "memo-clipboard-head",
-        attributes: { n: "memo-clipboard-header" },
-      },
-      [
-        View(
-          {
-            as: "span",
-            class: "memo-clipboard-type",
-            attributes: { n: "memo-clipboard-type" },
-          },
-          [props.typeLabel],
-        ),
-        Button(
-          {
-            class: "memo-clipboard-close",
-            attributes: {
-              "aria-label": "关闭",
-              "data-action": "clipboardDismiss",
-              n: "memo-clipboard-close-button",
-              title: "关闭",
-              type: "button",
-            },
-          },
-          [
-            Timeless.Icon({
-              name: "x",
-              attributes: { n: "memo-clipboard-close-icon" },
-            }),
-          ],
-        ),
-      ],
-    ),
-    Show({
-      when: reactiveWhen(
-        props.item.type === "image" && props.item.dataURL,
-      ),
-      ok() {
-        return Img({
-          class: "memo-clipboard-image",
-          attributes: {
-            alt: "Clipboard image preview",
-            n: "memo-clipboard-image",
-            src: props.item.dataURL,
-          },
-        });
-      },
-      else() {
-        return View(
-          {
-            as: "p",
-            class: "memo-clipboard-text",
-            attributes: { n: "memo-clipboard-text" },
-          },
-          [props.preview],
-        );
-      },
-    }),
-    View(
-      {
-        as: "footer",
-        class: "memo-clipboard-actions",
-        attributes: { n: "memo-clipboard-actions" },
-      },
-      [
-        Button(
-          {
-            class: "tn-button tn-button--secondary memo-secondary-button",
-            attributes: {
-              "data-action": "clipboardDismiss",
-              n: "memo-clipboard-ignore-button",
-              type: "button",
-            },
-          },
-          ["忽略"],
-        ),
-        Button(
-          {
-            class: "tn-button tn-button--primary memo-primary-button",
-            attributes: {
-              "data-action": "clipboardAccept",
-              n: "memo-clipboard-accept-button",
-              type: "button",
-            },
-            disabled: props.working,
-          },
-          [props.actionLabel],
-        ),
-      ],
-    ),
-  ]);
-}
-
 
 export function ClipboardCurrentView(props = {}) {
   const runtime = props.runtime || TimelessPrimitive;

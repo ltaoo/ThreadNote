@@ -19,6 +19,7 @@ import {
 } from "@/domain/memos.js";
 import { normalizeProjectID } from "@/domain/projects.js";
 import { parseAssetReference } from "@/domain/storage.js";
+import { logMemoPagination } from "@/domain/memo-pagination-log.js";
 import {
   loadTasks,
   normalizeTaskSummary,
@@ -46,10 +47,11 @@ import {
   createMemoInVault,
   deleteMemoInVault,
   errorMessage,
+  loadMemoFromVault,
   loadMemoHistoryFromVault,
   loadMemoHistoryVersionFromVault,
+  loadMemoStatsFromVault,
   loadMemos,
-  loadMemosFromVault,
   restoreMemoHistoryVersionFromVault,
   saveMemos,
   updateMemoInVault,
@@ -75,6 +77,7 @@ import {
 } from "@/todo-detail-model.js";
 import { openImagePreviewFromElement } from "@/components/image-preview.js";
 import { ProjectSelectModel } from "@/components/project-select.model.js";
+import { TagSelectModel } from "@/components/tag-select.model.js";
 import {
   renderTimelessView,
   unmountTimelessView,
@@ -128,7 +131,10 @@ import {
   memoDocumentsWithComments,
   scrollMemoTocLine,
 } from "./home_memo_helpers.js";
-import { MemoListModel } from "./memo.model.js";
+import {
+  MemoFeedPaginationModel,
+  MemoListModel,
+} from "./memo.model.js";
 import {
   activeViewMeta,
   applyContentOpsToString,
@@ -191,9 +197,10 @@ import { mountACPChat } from "./chat.js";
 /** @typedef {import("./home.models").MemoListModelInstance} MemoListModelInstance */
 
 const SHORTCUTS_STORAGE_KEY = "demo-desktop:settings:shortcuts:v1";
-const CLIPBOARD_FOREGROUND_MAX_AGE_MS = 60 * 1000;
+// const CLIPBOARD_FOREGROUND_MAX_AGE_MS = 60 * 1000;
 const FEED_PAGE_SIZE = 10;
 const COMMENT_HOVER_HANDOFF_MS = 120;
+const COMPOSER_DRAFT_STATUS_DURATION_MS = 2000;
 const MEMO_COMPOSER_COMMANDS = Object.freeze([
   "bold",
   "italic",
@@ -319,6 +326,7 @@ export function createMemosPageState(initial_view = "memos") {
     activeCommentId: "",
     activeFilter: "all",
     activeTag: "",
+    activeTags: [],
     activeView: initial_view,
     commentDraft: "",
     commentEditDraft: "",
@@ -339,7 +347,8 @@ export function createMemosPageState(initial_view = "memos") {
     openCommentReactionMenuId: "",
     tocVisibleMemoIds: new Set(),
     expandedCommentListMemoIds: new Set(),
-    feedPage: 1,
+    feedHasMore: false,
+    feedLoading: false,
     ...createHomeLinkState(),
     draftsLoaded: false,
     editorSettings: loadEditorSettings(),
@@ -349,6 +358,7 @@ export function createMemosPageState(initial_view = "memos") {
     composerPreviewVisible: false,
     ...createHomeBoardState(),
     memoRefIndex: null,
+    memoStats: null,
     memoDrafts: [],
     memoDialog: null,
     memos: loadMemos(),
@@ -427,8 +437,7 @@ export function createMemosPageUIState() {
   return {
     allNavCount: ref("0"),
     boardNavCount: ref(""),
-    clipboardCardClass: ref("memo-clipboard-card"),
-    clipboardCardHidden: ref(true),
+    clipboardCardPresence: new TimelessPrimitive.vm.PresenceCore(),
     clipboardNavCount: ref(""),
     codeBlocksShowAllChecked: ref(false),
     codeBlocksShowAllHidden: ref(true),
@@ -465,6 +474,19 @@ export function createMemosPageUIState() {
     feedResetButton: new TimelessPrimitive.vm.ButtonCore({
       variant: "ghost",
     }),
+    feedProjectSelect: createSelectControl({
+      defaultValue: "all",
+      options: [
+        { label: "全部", value: "all" },
+        { label: "未归属", value: "unassigned" },
+      ],
+      placeholder: "全部",
+    }),
+    feedTagSelect: new TagSelectModel({
+      defaultValues: [],
+      options: [],
+      placeholder: "标签",
+    }),
     feedSearchInput: new TimelessPrimitive.vm.InputCore({
       defaultValue: "",
       type: "search",
@@ -477,6 +499,7 @@ export function createMemosPageUIState() {
     mainSubtitle: ref("捕捉、整理、回看"),
     mainTitle: ref("Inbox"),
     memoFeedHasMore: ref(false),
+    memoFeedLoading: ref(false),
     memoFeedMemos: ref([]),
     memoFeedProjects: ref([]),
     memoInspectorHidden: ref(false),
@@ -493,6 +516,7 @@ export function createMemosPageUIState() {
     memoSearchQuery: ref(""),
     memoShellClass: ref("memo-shell"),
     milestoneNavCount: ref(""),
+    pinnedSectionHidden: ref(true),
     rulesNavCount: ref(""),
     searchPlaceholder: ref("搜索 memos"),
     tagSummary: ref(""),
@@ -525,6 +549,9 @@ export function mountMemosHome(root, options = {}) {
   const owns_active_comment_id_ref = !options.stateRefs?.activeCommentId;
   const memo_card_view_models = new Map();
   let comment_hover_handoff_timer = null;
+  let memo_expand_frame = 0;
+  let render_all_frame = 0;
+  let destroyed = false;
 
   function cancelCommentHoverHandoff() {
     if (!comment_hover_handoff_timer) return;
@@ -656,6 +683,39 @@ export function mountMemosHome(root, options = {}) {
     });
   }
 
+  function normalizeActiveTags(tags) {
+    return Array.from(
+      new Set(
+        (Array.isArray(tags) ? tags : [tags])
+          .map(function (tag) {
+            return String(tag || "").trim();
+          })
+          .filter(Boolean),
+      ),
+    );
+  }
+
+  function setActiveTags(tags) {
+    const next_tags = normalizeActiveTags(tags);
+    state.activeTags = next_tags;
+    state.activeTag = next_tags[0] || "";
+  }
+
+  function clearActiveTags() {
+    setActiveTags([]);
+  }
+
+  function toggleActiveTag(tag) {
+    const next_tag = String(tag || "").trim();
+    if (!next_tag) return;
+    const active_tags = normalizeActiveTags(state.activeTags);
+    if (active_tags.includes(next_tag)) {
+      setActiveTags(active_tags.filter((item) => item !== next_tag));
+      return;
+    }
+    setActiveTags(active_tags.concat(next_tag));
+  }
+
   const smallCalendarModel = new SmallCalendarModel({
     getDayInfo: calendarDayInfo,
     onChange: handleSmallCalendarChange,
@@ -664,6 +724,9 @@ export function mountMemosHome(root, options = {}) {
   const memoCardExpansionModel = new MemoCardExpansionModel();
   /** @type {MemoListModelInstance} */
   const memoListModel = MemoListModel();
+  const memo_feed_model = MemoFeedPaginationModel({
+    pageSize: FEED_PAGE_SIZE,
+  });
 
   let composerEditor = null;
   let composerAutoSaveTimer = null;
@@ -677,6 +740,8 @@ export function mountMemosHome(root, options = {}) {
   let memoDialogEditor = null;
   let memoDialogController = null;
   let acpChatController = null;
+  let memo_feed_view_mounted = false;
+  let memo_feed_render_key = "";
   let source_edit_visibility_ = DEFAULT_VISIBILITY;
   let source_edit_flags_ = {
     archived: false,
@@ -709,7 +774,16 @@ export function mountMemosHome(root, options = {}) {
       renderAll();
     },
   );
-
+  const unsubscribe_feed_tag_select = ui.feedTagSelect.onValueChange(
+    function (tags) {
+      state.activeView = "memos";
+      state.activeProjectId = "";
+      state.activeFilter = "all";
+      setActiveTags(tags);
+      smallCalendarModel.setSelectedDate("", { silent: true });
+      renderAll();
+    },
+  );
   if (els.composerHost) composerEditor = createComposerEditor("");
   const imageContextMenu = bindMemoImageContextMenu(root, {
     notify: showToast,
@@ -775,6 +849,7 @@ export function mountMemosHome(root, options = {}) {
   });
   project_controller = createHomeProjectController({
     boardView: board_controller.boardView,
+    clearActiveTags,
     clearRetainedCompletedTasks: todo_controller.clearRetainedCompletedTasks,
     clearSelectedDate() {
       smallCalendarModel.setSelectedDate("", { silent: true });
@@ -784,6 +859,7 @@ export function mountMemosHome(root, options = {}) {
       publishSidebar({ projects });
     },
     renderAll,
+    scheduleRenderAll,
     safeMemoView,
     showPrompt: showInlinePrompt,
     showToast,
@@ -891,6 +967,11 @@ export function mountMemosHome(root, options = {}) {
     selectProjectFilter,
     selectProjectTab,
   } = project_controller;
+  const unsubscribe_feed_project_select = ui.feedProjectSelect.onValueChange(
+    function (project_id) {
+      selectProjectFilter(project_id || "all");
+    },
+  );
   const unsubscribe_composer_project_select =
     ui.composerProjectSelect.onValueChange(function (value) {
       const project_id = normalizeProjectID(value);
@@ -954,6 +1035,7 @@ export function mountMemosHome(root, options = {}) {
     clearSelectedDate() {
       smallCalendarModel.setSelectedDate("", { silent: true });
     },
+    clearActiveTags,
     elements: els,
     isForeground: isClipboardForeground,
     parseDisplayTime,
@@ -1003,6 +1085,7 @@ export function mountMemosHome(root, options = {}) {
   bindGoMessages();
   refreshProjectsFromVault();
   refreshMemosFromVault();
+  refreshMemoStatsFromVault();
   refreshMemoCommentsFromVault();
   refreshMemoDraftsFromVault();
   refreshTasksFromVault();
@@ -1038,16 +1121,22 @@ export function mountMemosHome(root, options = {}) {
   root.addEventListener("change", handleBoardTaskSelect);
 
   return {
+    acceptClipboardItem,
     activateView(active_view) {
       const already_active = state.activeView === active_view;
       activateWorkspaceView(active_view);
       if (already_active) renderAll();
     },
     activateFilter(filter) {
+      const next_filter = filter || "all";
+      logMemoPagination("info", "controller-filter-changed", {
+        nextFilter: next_filter,
+        previousFilter: state.activeFilter,
+      });
       state.activeView = "memos";
       state.activeProjectId = "";
-      state.activeFilter = filter || "all";
-      state.activeTag = "";
+      state.activeFilter = next_filter;
+      clearActiveTags();
       smallCalendarModel.setSelectedDate("", { silent: true });
       renderAll();
     },
@@ -1058,7 +1147,16 @@ export function mountMemosHome(root, options = {}) {
       state.activeView = "memos";
       state.activeProjectId = "";
       state.activeFilter = "all";
-      state.activeTag = state.activeTag === tag ? "" : tag;
+      toggleActiveTag(tag);
+      smallCalendarModel.setSelectedDate("", { silent: true });
+      renderAll();
+    },
+    hideClipboardCard,
+    toggleTagFilter(tag) {
+      state.activeView = "memos";
+      state.activeProjectId = "";
+      state.activeFilter = "all";
+      toggleActiveTag(tag);
       smallCalendarModel.setSelectedDate("", { silent: true });
       renderAll();
     },
@@ -1071,8 +1169,9 @@ export function mountMemosHome(root, options = {}) {
     memoCardViewModel(memo_id) {
       return memo_card_view_models.get(String(memo_id || "").trim()) || null;
     },
-    loadMoreMemos() {
-      return loadNextMemoFeedPage();
+    requestClipboardLatest,
+    loadMoreMemos(source) {
+      return loadNextMemoFeedPage(source);
     },
     openProject(project_id) {
       openProjectDetail(project_id);
@@ -1081,6 +1180,11 @@ export function mountMemosHome(root, options = {}) {
       openSettings();
     },
     destroy() {
+      destroyed = true;
+      if (render_all_frame) window.cancelAnimationFrame(render_all_frame);
+      if (memo_expand_frame) window.cancelAnimationFrame(memo_expand_frame);
+      render_all_frame = 0;
+      memo_expand_frame = 0;
       window.removeEventListener("click", handleExternalLinkClick, true);
       root.removeEventListener("click", handleClick);
       root.removeEventListener("copy", handleMemoRenderedCopy);
@@ -1128,12 +1232,15 @@ export function mountMemosHome(root, options = {}) {
       if (memoDialogEditor) memoDialogEditor.destroy();
       if (memoDialogController) memoDialogController.destroy();
       if (acpChatController) acpChatController.destroy();
+      unmountTimelessView(els.memoList);
       disconnectProjectScrollObserver();
       unmountTimelessView(els.calendar);
       smallCalendarModel.destroy();
       unsubscribe_composer_project_select?.();
       unsubscribe_composer_visibility_select?.();
+      unsubscribe_feed_project_select?.();
       unsubscribe_feed_search_clear?.();
+      unsubscribe_feed_tag_select?.();
       unsubscribe_memo_search_dialog?.();
       commentEditEditorCommentId = "";
       commentEditorMemoId = "";
@@ -1217,7 +1324,8 @@ export function mountMemosHome(root, options = {}) {
   function handleWindowFocus() {
     state.clipboardForeground = true;
     refreshEditorSettings();
-    requestClipboardLatest({ maxAgeMs: CLIPBOARD_FOREGROUND_MAX_AGE_MS });
+    // 暂停窗口聚焦时自动读取粘贴板并触发右下角预览。
+    // requestClipboardLatest({ maxAgeMs: CLIPBOARD_FOREGROUND_MAX_AGE_MS });
   }
 
   function handleWindowBlur() {
@@ -1620,7 +1728,7 @@ export function mountMemosHome(root, options = {}) {
   function refreshStorageForRender() {
     refreshCloudStorageSettings().then(
       function () {
-        renderAll();
+        scheduleRenderAll();
       },
       function () {},
     );
@@ -1633,7 +1741,7 @@ export function mountMemosHome(root, options = {}) {
     state.activeView = active_view;
     state.activeProjectId = "";
     state.activeFilter = "all";
-    state.activeTag = "";
+    clearActiveTags();
     state.editingId = "";
     state.editPreviewVisible = false;
     state.commentPreviewVisible = false;
@@ -1691,7 +1799,7 @@ export function mountMemosHome(root, options = {}) {
       state.activeView = "memos";
       state.activeProjectId = "";
       state.activeFilter = filter.dataset.filter;
-      state.activeTag = "";
+      clearActiveTags();
       smallCalendarModel.setSelectedDate("", { silent: true });
       renderAll();
       navigateHomeView("memos");
@@ -1727,8 +1835,7 @@ export function mountMemosHome(root, options = {}) {
 
     const tag = closestElement(event.target, "[data-tag]");
     if (tag && root.contains(tag)) {
-      state.activeTag =
-        state.activeTag === tag.dataset.tag ? "" : tag.dataset.tag;
+      toggleActiveTag(tag.dataset.tag);
       state.activeFilter = "all";
       smallCalendarModel.setSelectedDate("", { silent: true });
       renderAll();
@@ -1813,7 +1920,7 @@ export function mountMemosHome(root, options = {}) {
       break;
     case "clearFilters":
       state.activeFilter = "all";
-      state.activeTag = "";
+      clearActiveTags();
       state.activeProjectFilter = "all";
       state.composerProjectId = state.lastComposerProjectId || "";
       state.commentingMemoId = "";
@@ -2211,7 +2318,8 @@ export function mountMemosHome(root, options = {}) {
       if (!payload) return;
       if (payload.type === "main_window_focus") {
         state.clipboardForeground = true;
-        requestClipboardLatest({ maxAgeMs: CLIPBOARD_FOREGROUND_MAX_AGE_MS });
+        // 暂停桌面窗口聚焦时自动读取粘贴板并触发右下角预览。
+        // requestClipboardLatest({ maxAgeMs: CLIPBOARD_FOREGROUND_MAX_AGE_MS });
       }
       if (payload.type === "edit_memo_request" && payload.memoId) {
         startEdit(payload.memoId);
@@ -2649,7 +2757,7 @@ export function mountMemosHome(root, options = {}) {
     if (options.reveal !== false) {
       state.activeView = "memos";
       state.activeFilter = memo.archived ? "archive" : "all";
-      state.activeTag = "";
+      clearActiveTags();
       state.activeProjectFilter = "all";
       state.editingId = "";
       state.editPreviewVisible = false;
@@ -2903,14 +3011,19 @@ export function mountMemosHome(root, options = {}) {
       return;
     }
 
-    if (event.target.matches("[data-task-complete]")) {
-      const taskNode = closestElement(event.target, "[data-task-id]");
+    const task_completion = closestElement(event.target, "[data-task-complete]");
+    if (task_completion) {
+      const taskNode = closestElement(task_completion, "[data-task-id]");
       if (!taskNode) return;
       toggleExistingTaskCompletion(taskNode.dataset.taskId, event.target);
       return;
     }
 
-    if (event.target.matches("[data-board-card-complete]")) {
+    const board_completion = closestElement(
+      event.target,
+      "[data-board-card-complete]",
+    );
+    if (board_completion) {
       toggleBoardCardCompletion(event.target);
       return;
     }
@@ -3165,14 +3278,16 @@ export function mountMemosHome(root, options = {}) {
           state.visibility = DEFAULT_VISIBILITY;
           composerEditor.setText("");
           removeDraftFromState(COMPOSER_DRAFT_ID);
+          hideComposerDraftStatus();
           state.composerPreviewVisible = false;
           state.activeView = "memos";
           state.activeFilter = "all";
-          state.activeTag = "";
+          clearActiveTags();
           smallCalendarModel.setSelectedDate("", { silent: true });
           renderAll();
           renderComposerStatus("");
           refreshTasksFromVault();
+          refreshMemoStatsFromVault();
           showToast(
             "已发布到 " + projectLabel(normalized && normalized.projectId),
           );
@@ -3198,6 +3313,23 @@ export function mountMemosHome(root, options = {}) {
       });
   }
 
+  function hideComposerDraftStatus() {
+    if (composerDraftStatusTimer)
+      window.clearTimeout(composerDraftStatusTimer);
+    composerDraftStatusTimer = null;
+    ui.composerDraftStatusHidden.as(true);
+  }
+
+  function showComposerDraftStatus() {
+    if (composerDraftStatusTimer)
+      window.clearTimeout(composerDraftStatusTimer);
+    ui.composerDraftStatusHidden.as(false);
+    composerDraftStatusTimer = window.setTimeout(function () {
+      ui.composerDraftStatusHidden.as(true);
+      composerDraftStatusTimer = null;
+    }, COMPOSER_DRAFT_STATUS_DURATION_MS);
+  }
+
   function scheduleComposerAutoSave() {
     if (composerAutoSaveTimer) window.clearTimeout(composerAutoSaveTimer);
     composerAutoSaveTimer = window.setTimeout(function () {
@@ -3214,13 +3346,7 @@ export function mountMemosHome(root, options = {}) {
       }).then(
         function (draft) {
           upsertDraftInState(draft);
-          ui.composerDraftStatusHidden.as(false);
-          if (composerDraftStatusTimer)
-            window.clearTimeout(composerDraftStatusTimer);
-          composerDraftStatusTimer = window.setTimeout(function () {
-            ui.composerDraftStatusHidden.as(true);
-            composerDraftStatusTimer = null;
-          }, 2000);
+          showComposerDraftStatus();
         },
         function () {
           // silent fail for auto-save
@@ -3250,13 +3376,7 @@ export function mountMemosHome(root, options = {}) {
       function (draft) {
         upsertDraftInState(draft);
         showToast("草稿已保存");
-        ui.composerDraftStatusHidden.as(false);
-        if (composerDraftStatusTimer)
-          window.clearTimeout(composerDraftStatusTimer);
-        composerDraftStatusTimer = window.setTimeout(function () {
-          ui.composerDraftStatusHidden.as(true);
-          composerDraftStatusTimer = null;
-        }, 2000);
+        showComposerDraftStatus();
         return { ok: true, message: "draft written" };
       },
       function (err) {
@@ -3267,6 +3387,7 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function clearComposerDraft(options = {}) {
+    hideComposerDraftStatus();
     removeDraftFromState(COMPOSER_DRAFT_ID);
     if (options.clearEditor && composerEditor) {
       composerEditor.setText("");
@@ -3882,11 +4003,8 @@ export function mountMemosHome(root, options = {}) {
   function reloadMemoFromVault(memoId) {
     const id = String(memoId || "").trim();
     if (!id) return Promise.reject(new Error("memo id is required"));
-    return loadMemosFromVault().then(function (memos) {
-      const normalized = (Array.isArray(memos) ? memos : [])
-        .map(normalizeMemoPayload)
-        .filter(Boolean);
-      const memo = normalized.find((item) => item.id === id);
+    return loadMemoFromVault(id).then(function (loaded_memo) {
+      const memo = normalizeMemoPayload(loaded_memo);
       if (!memo) throw new Error("找不到更新后的 memo");
       upsertMemoInState(memo);
       saveMemos(state.memos);
@@ -4497,6 +4615,13 @@ export function mountMemosHome(root, options = {}) {
           if (Object.prototype.hasOwnProperty.call(patch, "content")) {
             refreshTasksFromVault();
           }
+          if (
+            ["archived", "pinned", "private", "visibility"].some(
+              (field) => Object.prototype.hasOwnProperty.call(patch, field),
+            )
+          ) {
+            refreshMemoStatsFromVault();
+          }
           return { ok: true, message: "已保存" };
         },
         function (err) {
@@ -4745,6 +4870,7 @@ export function mountMemosHome(root, options = {}) {
             saveMemos(state.memos);
             renderAll();
             refreshTasksFromVault();
+            refreshMemoStatsFromVault();
             if (
               result &&
               Array.isArray(result.assetErrors) &&
@@ -4967,6 +5093,7 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function renderAll() {
+    if (destroyed) return;
     root
       .querySelectorAll(
         '[data-n="board-rule-condition-row"], [data-n="board-rule-action-row"]',
@@ -4991,6 +5118,14 @@ export function mountMemosHome(root, options = {}) {
       syncMemoQuickSearchSources();
       renderMemoSearchPalette();
     }
+  }
+
+  function scheduleRenderAll() {
+    if (destroyed || render_all_frame) return;
+    render_all_frame = window.requestAnimationFrame(function () {
+      render_all_frame = 0;
+      renderAll();
+    });
   }
 
   function renderMainChrome() {
@@ -5043,6 +5178,10 @@ export function mountMemosHome(root, options = {}) {
     if (state.activeView !== "chat" && acpChatController) {
       acpChatController.destroy();
       acpChatController = null;
+    }
+    if (state.activeView !== "memos") {
+      memo_feed_view_mounted = false;
+      memo_feed_render_key = "";
     }
     if (state.activeView !== "memos" && commentEditor) {
       commentEditor.destroy();
@@ -5185,9 +5324,13 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function renderFilterButtons() {
-    const activeMemoCount = scopedMemos().filter(
-      (memo) => !memo.archived,
-    ).length;
+    const indexed_active_count = Number(state.memoStats?.active);
+    const can_use_indexed_count =
+      !state.activeProjectFilter || state.activeProjectFilter === "all";
+    const activeMemoCount =
+      can_use_indexed_count && Number.isFinite(indexed_active_count)
+        ? indexed_active_count
+        : scopedMemos().filter((memo) => !memo.archived).length;
     ui.allNavCount.as(String(activeMemoCount));
     publishSidebar({ allNavCount: String(activeMemoCount) });
   }
@@ -5214,23 +5357,37 @@ export function mountMemosHome(root, options = {}) {
       return { count, tag };
     });
     ui.tagSummary.as(tag_summary);
+    ui.feedTagSelect.setOptions(
+      tag_presentations.map(function (item) {
+        return {
+          count: item.count,
+          label: "#" + item.tag,
+          value: item.tag,
+        };
+      }),
+    );
+    ui.feedTagSelect.setValues(state.activeTags, { silent: true });
     publishSidebar({ tagSummary: tag_summary, tags: tag_presentations });
     if (!els.tagList) return;
     renderTimelessView(
       els.tagList,
       TagListView({
         tags: tag_presentations.map(function (item) {
-          return { ...item, active: state.activeTag === item.tag };
+          return {
+            ...item,
+            active: normalizeActiveTags(state.activeTags).includes(item.tag),
+          };
         }),
       }),
     );
   }
 
   function renderPinned() {
-    if (!els.pinnedList) return;
     const pinned = scopedMemos()
       .filter((memo) => memo.pinned && !memo.archived)
       .slice(0, 3);
+    ui.pinnedSectionHidden.as(pinned.length === 0);
+    if (!els.pinnedList) return;
     renderTimelessView(
       els.pinnedList,
       PinnedMemoListView({
@@ -5270,28 +5427,63 @@ export function mountMemosHome(root, options = {}) {
     }
   }
 
-  function loadNextMemoFeedPage() {
-    if (state.activeView !== "memos") return false;
-    const memos = visibleMemos();
-    const max_page = Math.ceil(memos.length / FEED_PAGE_SIZE);
-    if (state.feedPage >= max_page) return false;
-    state.feedPage++;
-    appendFeedPage();
-    return true;
-  }
-
-  function appendFeedPage() {
-    const memos = visibleMemos();
-    const start = (state.feedPage - 1) * FEED_PAGE_SIZE;
-    const end = state.feedPage * FEED_PAGE_SIZE;
-    const page = memos.slice(start, end);
-    if (page.length === 0) return;
-    renderFeedCollection();
-    syncMemoExpandControls();
+  async function loadNextMemoFeedPage(source = "unknown") {
+    if (state.activeView !== "memos") {
+      logMemoPagination("warn", "controller-load-more-blocked-view", {
+        activeView: state.activeView,
+        source,
+      });
+      return false;
+    }
+    memo_feed_model.replaceMemos(state.memos);
+    const before_request = memo_feed_model.snapshot();
+    logMemoPagination("info", "controller-load-more-called", {
+      activeFilter: state.activeFilter,
+      hasMore: before_request.hasMore,
+      loadedMemoCount: before_request.memos.length,
+      loading: before_request.loading,
+      nextCursorLength: String(before_request.nextCursor || "").length,
+      source,
+    });
+    if (before_request.loading || !before_request.hasMore) {
+      logMemoPagination("warn", "controller-load-more-blocked-state", {
+        hasMore: before_request.hasMore,
+        loading: before_request.loading,
+        source,
+      });
+      return false;
+    }
+    state.feedLoading = true;
+    ui.memoFeedLoading.as(true);
+    try {
+      const page = await memo_feed_model.loadMore();
+      syncMemoFeedPage(page);
+      saveMemos(state.memos);
+      renderAll();
+      logMemoPagination("info", "controller-load-more-complete", {
+        activeFilter: state.activeFilter,
+        changed: page.changed,
+        hasMore: page.hasMore,
+        loadedMemoCount: page.memos.length,
+        source,
+      });
+      return page.changed;
+    } catch (err) {
+      logMemoPagination(
+        "error",
+        "controller-load-more-failed",
+        { source },
+        err,
+      );
+      showToast("加载更多 memo 失败: " + errorMessage(err));
+      return false;
+    } finally {
+      state.feedLoading = false;
+      ui.memoFeedLoading.as(false);
+    }
   }
 
   function renderFeed() {
-    state.feedPage = 1;
     if (commentEditor) {
       if (
         state.commentingMemoId &&
@@ -5548,35 +5740,76 @@ export function mountMemosHome(root, options = {}) {
 
   function renderFeedCollection() {
     const memos = visibleMemos();
-    const visible_count = state.feedPage * FEED_PAGE_SIZE;
-    const paginated = memos.slice(0, visible_count);
-    const has_more = paginated.length < memos.length;
-    const memo_presentations = paginated.map(safeMemoView);
+    const memo_presentations = memos.map(safeMemoView);
     const visible_memo_ids = new Set(
       memo_presentations.map((memo) => String(memo.id || "").trim()),
     );
-    Array.from(memo_card_view_models.entries()).forEach(function ([
-      memo_id,
-      view_model,
-    ]) {
-      if (visible_memo_ids.has(memo_id)) return;
-      view_model.destroy();
+    const stale_view_models = Array.from(
+      memo_card_view_models.entries(),
+    ).filter(function ([memo_id]) {
+      return !visible_memo_ids.has(memo_id);
     });
     const project_presentations = projectOptionsPresentation();
     if (options.section === "memos") {
+      const next_render_key = JSON.stringify({
+        activeFilter: state.activeFilter,
+        activeProjectFilter: state.activeProjectFilter,
+        activeTags: normalizeActiveTags(state.activeTags),
+        query: state.query,
+        selectedDate: smallCalendarModel.state.selectedDate,
+        sortDesc: state.sortDesc,
+      });
+      if (
+        memo_feed_view_mounted &&
+        memo_feed_render_key !== next_render_key
+      ) {
+        logMemoPagination("info", "controller-feed-filter-remount", {
+          activeFilter: state.activeFilter,
+          memoCount: memo_presentations.length,
+        });
+        unmountTimelessView(els.memoList);
+        memo_feed_view_mounted = false;
+      }
       ui.memoFeedProjects.as(project_presentations);
-      ui.memoFeedHasMore.as(has_more);
+      ui.memoFeedHasMore.as(state.feedHasMore);
+      ui.memoFeedLoading.as(state.feedLoading);
       ui.memoFeedMemos.as(memo_presentations);
+      if (!memo_feed_view_mounted) {
+        renderTimelessView(
+          els.memoList,
+          MemoFeedView({
+            hasMore: ui.memoFeedHasMore,
+            loading: ui.memoFeedLoading,
+            memos: ui.memoFeedMemos,
+            onLoadMore: options.loadMoreMemos || loadNextMemoFeedPage,
+            onLoadMoreSentinelMounted:
+              options.observeMemoLoadMoreSentinel,
+            onLoadMoreSentinelUnmounted:
+              options.unobserveMemoLoadMoreSentinel,
+            projects: ui.memoFeedProjects,
+          }),
+        );
+        memo_feed_view_mounted = true;
+      }
+      memo_feed_render_key = next_render_key;
+      stale_view_models.forEach(function ([, view_model]) {
+        view_model.destroy();
+      });
       return;
     }
     renderTimelessView(
       els.memoList,
       MemoFeedView({
-        hasMore: has_more,
+        hasMore: state.feedHasMore,
+        loading: state.feedLoading,
         memos: memo_presentations,
+        onLoadMore: loadNextMemoFeedPage,
         projects: project_presentations,
       }),
     );
+    stale_view_models.forEach(function ([, view_model]) {
+      view_model.destroy();
+    });
   }
 
   function memoStatsPresentation(memo) {
@@ -5984,18 +6217,28 @@ export function mountMemosHome(root, options = {}) {
     };
   }
 
-  function syncMemoExpandControls() {
-    const collapsibleItems = root.querySelectorAll("[data-memo-collapse]");
-    collapsibleItems.forEach(function (item) {
-      const content = item.querySelector(".memo-content");
-      if (!content) return;
+  function applyMemoExpandControls() {
+    memo_expand_frame = 0;
+    if (destroyed) return;
+    const measurements = Array.from(
+      root.querySelectorAll("[data-memo-collapse]"),
+    )
+      .map(function (item) {
+        const content = item.querySelector(".memo-content");
+        if (!content) return null;
+        const collapsed = item.classList.contains("is-collapsed");
+        const measurement = collapsed
+          ? memoCardExpansionModel.measureContent(
+            content.scrollHeight,
+            parseFloat(getComputedStyle(content).lineHeight),
+          )
+          : null;
+        return { collapsed, content, item, measurement };
+      })
+      .filter(Boolean);
 
-      if (item.classList.contains("is-collapsed")) {
-        const lineHeight = parseFloat(getComputedStyle(content).lineHeight);
-        const measurement = memoCardExpansionModel.measureContent(
-          content.scrollHeight,
-          lineHeight,
-        );
+    measurements.forEach(function ({ collapsed, content, item, measurement }) {
+      if (collapsed) {
         item.classList.toggle("is-short", !measurement.hasOverflow);
         item.dataset.memoOverflow = String(measurement.hasOverflow);
         content.style.maxHeight = measurement.hasOverflow
@@ -6014,6 +6257,11 @@ export function mountMemosHome(root, options = {}) {
         image.addEventListener("load", syncMemoExpandControls, { once: true });
       });
     });
+  }
+
+  function syncMemoExpandControls() {
+    if (destroyed || memo_expand_frame) return;
+    memo_expand_frame = window.requestAnimationFrame(applyMemoExpandControls);
   }
 
   function renderPinDialog() {
@@ -6112,15 +6360,53 @@ export function mountMemosHome(root, options = {}) {
     });
   }
 
+  function syncMemoFeedPage(page) {
+    state.memos = Array.isArray(page?.memos) ? page.memos : [];
+    state.feedHasMore = Boolean(page?.hasMore);
+    state.memoRefIndex = null;
+  }
+
   function refreshMemosFromVault() {
-    memoListModel.loadList().then(
-      function (memos) {
-        state.memos = memos;
+    logMemoPagination("info", "controller-initial-page-start");
+    state.feedLoading = true;
+    ui.memoFeedLoading.as(true);
+    memo_feed_model.reset().then(
+      function (page) {
+        syncMemoFeedPage(page);
+        logMemoPagination("info", "controller-initial-page-complete", {
+          hasMore: page.hasMore,
+          memoCount: page.memos.length,
+          nextCursorLength: String(page.nextCursor || "").length,
+          total: page.total,
+        });
         saveMemos(state.memos);
-        renderAll();
+        scheduleRenderAll();
       },
       function (err) {
+        logMemoPagination(
+          "error",
+          "controller-initial-page-failed",
+          {},
+          err,
+        );
         showToast("读取 vault memo 失败: " + errorMessage(err));
+      },
+    ).finally(function () {
+      state.feedLoading = false;
+      ui.memoFeedLoading.as(false);
+    });
+  }
+
+  function refreshMemoStatsFromVault() {
+    loadMemoStatsFromVault().then(
+      function (stats) {
+        state.memoStats = stats || null;
+        scheduleRenderAll();
+      },
+      function (err) {
+        if (typeof globalThis.invoke === "function") {
+          showToast("读取 memo 统计失败: " + errorMessage(err));
+        }
       },
     );
   }
@@ -6132,7 +6418,7 @@ export function mountMemosHome(root, options = {}) {
           .map(normalizeMemoCommentPayload)
           .filter(Boolean);
         state.commentsLoaded = true;
-        renderAll();
+        scheduleRenderAll();
       },
       function (err) {
         if (typeof globalThis.invoke === "function") {
@@ -6225,6 +6511,9 @@ export function mountMemosHome(root, options = {}) {
     renderComposerProjectSelect();
     ui.composerVisibilitySelect.setValue(state.visibility);
     composerEditor.setText(draft.content || "");
+    if (composerAutoSaveTimer) window.clearTimeout(composerAutoSaveTimer);
+    composerAutoSaveTimer = null;
+    hideComposerDraftStatus();
     renderComposerStatus(draft.content || "");
   }
 
@@ -6235,8 +6524,6 @@ export function mountMemosHome(root, options = {}) {
       .then(
         function (payload) {
           state.tasks = payload.tasks.map(normalizeTaskSummary).filter(Boolean);
-          if (renderFeedContent) renderAll();
-          else renderTaskChromeWithoutFeed();
         },
         function (err) {
           if (typeof globalThis.invoke === "function") {
@@ -6246,7 +6533,7 @@ export function mountMemosHome(root, options = {}) {
       )
       .finally(function () {
         state.tasksLoading = false;
-        if (renderFeedContent) renderAll();
+        if (renderFeedContent) scheduleRenderAll();
         else renderTaskChromeWithoutFeed();
       });
   }
@@ -6263,7 +6550,6 @@ export function mountMemosHome(root, options = {}) {
           state.gtdMilestones = milestones
             .map(normalizeGTDMilestone)
             .filter(Boolean);
-          renderAll();
         },
         function (err) {
           if (typeof globalThis.invoke === "function") {
@@ -6273,7 +6559,7 @@ export function mountMemosHome(root, options = {}) {
       )
       .finally(function () {
         state.milestonesLoading = false;
-        renderAll();
+        scheduleRenderAll();
       });
   }
 
@@ -6284,6 +6570,7 @@ export function mountMemosHome(root, options = {}) {
       activeFilter: state.activeFilter,
       activeProjectFilter: state.activeProjectFilter,
       activeTag: state.activeTag,
+      activeTags: state.activeTags,
       comments: state.comments,
       query: state.query,
       selectedDate,
@@ -6319,7 +6606,7 @@ export function mountMemosHome(root, options = {}) {
     if (change.action === "selectDate" || change.action === "today") {
       state.activeView = "memos";
       state.activeFilter = "all";
-      state.activeTag = "";
+      clearActiveTags();
       state.query = "";
       state.editingId = "";
       state.editPreviewVisible = false;

@@ -282,6 +282,7 @@ export interface HomeTaskPresentation {
   actions: HomeActionPresentation[];
   badge: string;
   complete: boolean;
+  completionCheckbox: unknown;
   id: string;
   meta: HomeMetaPresentation[];
   note?: string;
@@ -380,6 +381,7 @@ export interface MemoListConditions {
   activeFilter?: MemoListFilter;
   activeProjectFilter?: ProjectFilter;
   activeTag?: string;
+  activeTags?: string[];
   comments?: ReadonlyArray<Pick<HomeMemoCommentRecord, "content" | "memoId">>;
   date?: string;
   filter?: MemoListFilter;
@@ -433,6 +435,7 @@ export interface HomeElementRegistry {
 
 export interface HomeSectionController {
   [method: string]: unknown;
+  acceptClipboardItem(): void;
   activateFilter(filter: MemoListFilter | string): void;
   activateMemo(
     memoId: MemoID | string,
@@ -448,9 +451,12 @@ export interface HomeSectionController {
   clearActiveMemo(): boolean;
   createProject(): void;
   destroy(): void;
-  loadMoreMemos(): boolean;
+  hideClipboardCard(options?: { forceAppeared?: boolean }): void;
+  loadMoreMemos(): boolean | Promise<boolean>;
   memoCardViewModel(memoId: MemoID | string): MemoCardViewModel | null;
+  requestClipboardLatest(options?: { maxAgeMs?: number }): void;
   showSettings(): void;
+  toggleTagFilter(tag: string): void;
 }
 
 export interface HomeWorkspaceModelInstance {

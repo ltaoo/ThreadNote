@@ -77,7 +77,12 @@ function select_entry(select_store, entry) {
 }
 
 export function Select(props = {}) {
-  const { store: provided_store, onUnmounted, ...rest } = props;
+  const {
+    contentClass: content_class,
+    store: provided_store,
+    onUnmounted,
+    ...rest
+  } = props;
   const store = require_store("Select", provided_store);
   const {
     class: trigger_class,
@@ -129,18 +134,8 @@ export function Select(props = {}) {
     Boolean(state.allowClear && state.value != null && !state.loading && !state.disabled),
   );
 
-  return ui.SelectPrimitive.Root(
-    semantic_props(
-      {
-        store,
-        onUnmounted: destroy_with(observation, function () {
-          consume_click_suppression();
-          onUnmounted?.();
-        }),
-      },
-      "tn-select-root",
-      "select-root",
-    ),
+  const primitive_select = ui.SelectPrimitive.Root(
+    { store },
     [
       ui.SelectPrimitive.Trigger(
         semantic_props(
@@ -194,8 +189,25 @@ export function Select(props = {}) {
               );
             },
             else() {
-              return ui.SelectPrimitive.Value(
-                semantic_props({ store }, "tn-select__value", "select-value"),
+              return View(
+                semantic_props(
+                  {
+                    class: computed(observation.state_, (state) =>
+                      state.selectedOption ? "" : "is-placeholder",
+                    ),
+                  },
+                  "tn-select__value",
+                  "select-value",
+                ),
+                [
+                  computed(observation.state_, (state) => {
+                    const selected_option = state.selectedOption;
+                    return selected_option?.label
+                      ?? selected_option?.value
+                      ?? state.placeholder
+                      ?? "Select...";
+                  }),
+                ],
               );
             },
           }),
@@ -210,7 +222,7 @@ export function Select(props = {}) {
                 ),
                 [
                   Timeless.Icon({
-                    name: "circle-x",
+                    name: "x",
                     class: "tn-icon",
                     size: 14,
                     attributes: { n: "select-clear-icon" },
@@ -241,6 +253,7 @@ export function Select(props = {}) {
             semantic_props(
               {
                 store,
+                class: content_class,
                 attributes: { role: "listbox" },
                 animation: { in: "is-entering", out: "is-exiting" },
               },
@@ -286,5 +299,24 @@ export function Select(props = {}) {
         },
       }),
     ],
+  );
+
+  return View(
+    semantic_props(
+      {
+        as: "span",
+        class: computed(observation.state_, (state) => [
+          state.open ? "is-open" : "",
+          state.disabled ? "is-disabled" : "",
+        ].filter(Boolean).join(" ")),
+        onUnmounted: destroy_with(observation, function () {
+          consume_click_suppression();
+          onUnmounted?.();
+        }),
+      },
+      "tn-select-root",
+      "select-root",
+    ),
+    [primitive_select],
   );
 }

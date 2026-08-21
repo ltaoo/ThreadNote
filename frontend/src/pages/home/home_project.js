@@ -106,6 +106,27 @@ export function createHomeProjectController(options) {
       name: project.name,
     }));
     options.publishSidebarProjects?.(project_presentations);
+    ui.feedProjectSelect.setOptions([
+      {
+        count: state.memos.filter((memo) => !memo.archived).length,
+        label: "全部",
+        value: "all",
+      },
+      {
+        count: state.memos.filter(
+          (memo) => !memo.projectId && !memo.archived,
+        ).length,
+        label: "未归属",
+        value: "unassigned",
+      },
+      ...projects.map((project) => ({
+        color: projectThemeColor(project.color),
+        count: project_memo_count(project.id),
+        label: project.name,
+        value: project.id,
+      })),
+    ]);
+    ui.feedProjectSelect.setValue(state.activeProjectFilter || "all");
     if (elements.projectList) {
       renderTimelessView(
         elements.projectList,
@@ -265,7 +286,9 @@ export function createHomeProjectController(options) {
       });
       const available_tasks = selection.allTasks
         .filter((task) => !board_task_ids.has(task.id))
-        .map(options.taskPresentation);
+        .map(function (task) {
+          return { id: task.id, title: task.title };
+        });
       return {
         columnCount: board.columns.length,
         id: board.id,
@@ -309,7 +332,7 @@ export function createHomeProjectController(options) {
     state.activeView = "memos";
     state.activeProjectId = "";
     state.activeProjectFilter = next;
-    state.activeTag = "";
+    options.clearActiveTags();
     options.clearSelectedDate();
     if (next === "unassigned") state.composerProjectId = "";
     else if (next !== "all") {
@@ -324,7 +347,7 @@ export function createHomeProjectController(options) {
     state.activeView = "project-detail";
     state.activeProjectId = project_id;
     state.activeFilter = "all";
-    state.activeTag = "";
+    options.clearActiveTags();
     state.editingId = "";
     state.editPreviewVisible = false;
     state.projectActiveTab = "memos";
@@ -388,7 +411,8 @@ export function createHomeProjectController(options) {
           .map(normalizeProjectPayload)
           .filter(Boolean);
         saveProjects(state.projects);
-        render_all();
+        if (options.scheduleRenderAll) options.scheduleRenderAll();
+        else render_all();
       },
       (error) => toast("读取 project 失败: " + errorMessage(error)),
     );

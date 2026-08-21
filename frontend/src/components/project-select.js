@@ -445,7 +445,7 @@ export function ProjectSelect(props = {}) {
               semantic_props(
                 runtime,
                 {
-                  class: "project-select-list",
+                  class: "project-select-list tn-scrollbar-hidden",
                   attributes: { id: store.list_id, role: "listbox" },
                 },
                 "",

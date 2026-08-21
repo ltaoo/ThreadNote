@@ -1,0 +1,83 @@
+.route-loading,
+.route-error {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 240px;
+  width: 100%;
+}
+
+.route-error-card {
+  background: var(--tn-color-bg-elevated);
+  border: 1px solid var(--tn-color-danger-border, var(--tn-color-border-strong));
+  border-radius: var(--tn-radius-xl);
+  box-shadow: var(--tn-shadow-md);
+  display: grid;
+  gap: var(--tn-space-4);
+  grid-template-columns: 40px minmax(0, 1fr);
+  max-width: 720px;
+  padding: var(--tn-space-5);
+  width: min(100%, 720px);
+}
+
+.route-error-card__icon {
+  align-items: center;
+  background: var(--tn-color-danger-soft, var(--tn-color-bg-subtle));
+  border-radius: var(--tn-radius-lg);
+  color: var(--tn-color-danger, #dc2626);
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.route-error-card__content {
+  display: grid;
+  gap: var(--tn-space-1);
+  min-width: 0;
+}
+
+.route-error-card__title {
+  color: var(--tn-color-text-primary);
+  font-size: var(--tn-font-size-lg);
+}
+
+.route-error-card__context {
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-xs);
+}
+
+.route-error-card__detail,
+.route-error-card__stack {
+  grid-column: 1 / -1;
+}
+
+.route-error-card__detail,
+.route-error-card__stack pre {
+  background: var(--tn-color-bg-subtle);
+  border: 1px solid var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-md);
+  color: var(--tn-color-text-secondary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-xs);
+  line-height: var(--tn-line-height-body);
+  margin: 0;
+  overflow: auto;
+  padding: var(--tn-space-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.route-error-card__stack {
+  color: var(--tn-color-text-tertiary);
+  font-size: var(--tn-font-size-xs);
+}
+
+.route-error-card__stack summary {
+  cursor: pointer;
+  margin-bottom: var(--tn-space-2);
+}
+
+.route-error-card__stack pre {
+  max-height: 280px;
+}

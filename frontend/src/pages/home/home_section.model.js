@@ -4,6 +4,7 @@ import {
   destroyMemosPageUIState,
   mountMemosHome,
 } from "./memos.js";
+import { logMemoPagination } from "@/domain/memo-pagination-log.js";
 import { HomeWorkspaceModel } from "./home_workspace.model.js";
 
 /** @typedef {import("./home.models").HomeElementRegistry} HomeElementRegistry */
@@ -35,6 +36,13 @@ export function HomeSectionPageModel(props, section) {
   /** @type {(() => void) | null} */
   let unregister_controller_ = null;
   let destroyed_ = false;
+  let scroll_event_count_ = 0;
+  let last_scroll_log_at_ = 0;
+  let memo_main_scroll_element_ = null;
+  let memo_main_scroll_handler_ = null;
+  let memo_load_more_sentinel_ = null;
+  let memo_load_more_observer_ = null;
+  let memo_load_more_intersected_ = false;
 
   function mounted_element(event) {
     const target = event?.target || event;
@@ -42,11 +50,35 @@ export function HomeSectionPageModel(props, section) {
     return target;
   }
 
+  function detach_memo_main_scroll() {
+    if (memo_main_scroll_element_ && memo_main_scroll_handler_) {
+      memo_main_scroll_element_.removeEventListener(
+        "scroll",
+        memo_main_scroll_handler_,
+      );
+    }
+    memo_main_scroll_element_ = null;
+    memo_main_scroll_handler_ = null;
+  }
+
+  function disconnect_memo_load_more_observer() {
+    memo_load_more_observer_?.disconnect();
+    memo_load_more_observer_ = null;
+    memo_load_more_sentinel_ = null;
+    memo_load_more_intersected_ = false;
+  }
+
+  function observe_memo_load_more_sentinel() {
+    const sentinel = memo_load_more_sentinel_;
+    const observer = memo_load_more_observer_;
+    if (!sentinel || !observer || destroyed_) return;
+    observer.observe(sentinel);
+  }
+
   function collect_page_elements(root) {
     const selectors = {
       attachInput: "[data-attach-input]",
       calendar: "[data-calendar]",
-      clipboardCard: "[data-clipboard-card]",
       composerHost: "[data-composer-host]",
       composerVimStatus: "[data-composer-vim-status]",
       memoList: "[data-memo-list]",
@@ -95,7 +127,11 @@ export function HomeSectionPageModel(props, section) {
   const methods = {
     init(event) {
       const root = mounted_element(event);
-      if (!root) return;
+      if (!root) {
+        logMemoPagination("error", "page-model-init-missing-root");
+        return;
+      }
+      logMemoPagination("info", "page-model-init", { section });
       mounted_ = true;
       activate();
       queueMicrotask(function () {
@@ -107,6 +143,15 @@ export function HomeSectionPageModel(props, section) {
           isSidebarActive() {
             return workspace$.state.activeSection.value === section;
           },
+          loadMoreMemos(source) {
+            return methods.loadMoreMemos(source);
+          },
+          observeMemoLoadMoreSentinel(event) {
+            methods.observeMemoLoadMoreSentinel(event);
+          },
+          unobserveMemoLoadMoreSentinel() {
+            methods.unobserveMemoLoadMoreSentinel();
+          },
           routeView: props.view,
           section,
           sidebar: workspace$.sidebar,
@@ -117,6 +162,7 @@ export function HomeSectionPageModel(props, section) {
           },
           ui,
         });
+        logMemoPagination("info", "page-controller-mounted", { section });
         unregister_controller_ = workspace$.methods.register(
           section,
           controller_,
@@ -129,12 +175,167 @@ export function HomeSectionPageModel(props, section) {
         }
       });
     },
-    loadMoreMemos() {
+    async loadMoreMemos(source = "unknown") {
+      logMemoPagination("info", "page-model-load-more-called", {
+        controllerReady: Boolean(controller_),
+        source,
+      });
       try {
-        return Boolean(controller_?.loadMoreMemos());
+        const changed = Boolean(await controller_?.loadMoreMemos(source));
+        logMemoPagination("info", "page-model-load-more-complete", {
+          changed,
+          source,
+        });
+        return changed;
+      } catch (error) {
+        logMemoPagination(
+          "error",
+          "page-model-load-more-failed",
+          { source },
+          error,
+        );
+        throw error;
       } finally {
         ui.memoMainScroll.finishLoadingMore();
+        logMemoPagination("debug", "scroll-core-finished", { source });
       }
+    },
+    mountMemoMainScroll(event) {
+      const scroll_element = mounted_element(event);
+      detach_memo_main_scroll();
+      if (typeof scroll_element?.addEventListener !== "function") {
+        logMemoPagination("error", "native-scroll-mount-failed", {
+          targetFound: Boolean(scroll_element),
+        });
+        return;
+      }
+      memo_main_scroll_element_ = scroll_element;
+      memo_main_scroll_handler_ = function (scroll_event) {
+        methods.handleMemoMainScroll(scroll_event);
+      };
+      scroll_element.addEventListener("scroll", memo_main_scroll_handler_, {
+        passive: true,
+      });
+      const styles = globalThis.getComputedStyle?.(scroll_element);
+      logMemoPagination("info", "native-scroll-mounted", {
+        clientHeight: Number(scroll_element.clientHeight) || 0,
+        nodeName: String(scroll_element.nodeName || ""),
+        overflowY: String(styles?.overflowY || ""),
+        scrollHeight: Number(scroll_element.scrollHeight) || 0,
+        semanticName: String(
+          scroll_element.getAttribute?.("data-n") ||
+            scroll_element.getAttribute?.("n") ||
+            "",
+        ),
+      });
+    },
+    unmountMemoMainScroll() {
+      detach_memo_main_scroll();
+    },
+    handleMemoMainScroll(event) {
+      let target = event?.currentTarget || event?.target || event;
+      if (typeof target?.get$elm === "function") target = target.get$elm();
+      const scroll_top = Math.max(0, Number(target?.scrollTop) || 0);
+      const client_height = Math.max(0, Number(target?.clientHeight) || 0);
+      const scroll_height = Math.max(0, Number(target?.scrollHeight) || 0);
+      const distance_to_bottom = Math.max(
+        0,
+        scroll_height - client_height - scroll_top,
+      );
+      scroll_event_count_ += 1;
+      const now = Date.now();
+      const near_bottom = distance_to_bottom <= 240;
+      if (
+        scroll_event_count_ === 1 ||
+        near_bottom ||
+        now - last_scroll_log_at_ >= 2000
+      ) {
+        last_scroll_log_at_ = now;
+        logMemoPagination(near_bottom ? "info" : "debug", "native-scroll", {
+          clientHeight: client_height,
+          distanceToBottom: distance_to_bottom,
+          eventCount: scroll_event_count_,
+          scrollHeight: scroll_height,
+          scrollTop: scroll_top,
+          targetFound: Boolean(target),
+        });
+      }
+      if (
+        scroll_top > 0 &&
+        distance_to_bottom <= 160 &&
+        !Boolean(ui.memoFeedLoading.value)
+      ) {
+        logMemoPagination("info", "native-scroll-threshold-reached", {
+          distanceToBottom: distance_to_bottom,
+          scrollTop: scroll_top,
+        });
+        return methods.loadMoreMemos("native-scroll");
+      }
+      return false;
+    },
+    observeMemoLoadMoreSentinel(event) {
+      const sentinel = mounted_element(event);
+      disconnect_memo_load_more_observer();
+      if (!sentinel || typeof globalThis.IntersectionObserver !== "function") {
+        logMemoPagination("error", "load-more-sentinel-mount-failed", {
+          intersectionObserverAvailable:
+            typeof globalThis.IntersectionObserver === "function",
+          targetFound: Boolean(sentinel),
+        });
+        return;
+      }
+      memo_load_more_sentinel_ = sentinel;
+      memo_load_more_observer_ = new globalThis.IntersectionObserver(
+        function (entries) {
+          const entry = entries.find(function (candidate) {
+            return candidate.target === memo_load_more_sentinel_;
+          });
+          if (!entry) return;
+          logMemoPagination(
+            entry.isIntersecting ? "info" : "debug",
+            "load-more-sentinel-intersection",
+            {
+              intersectionRatio: Number(entry.intersectionRatio) || 0,
+              isIntersecting: Boolean(entry.isIntersecting),
+            },
+          );
+          if (!entry.isIntersecting) {
+            memo_load_more_intersected_ = false;
+            return;
+          }
+          if (
+            destroyed_ ||
+            Boolean(ui.memoFeedLoading.value) ||
+            memo_load_more_intersected_
+          ) {
+            return;
+          }
+          memo_load_more_intersected_ = true;
+          methods.loadMoreMemos("intersection-observer");
+        },
+        {
+          root: null,
+          rootMargin: "0px 0px 240px 0px",
+          threshold: 0.01,
+        },
+      );
+      logMemoPagination("info", "load-more-sentinel-mounted");
+      observe_memo_load_more_sentinel();
+    },
+    unobserveMemoLoadMoreSentinel() {
+      disconnect_memo_load_more_observer();
+    },
+    acceptClipboardItem() {
+      controller_?.acceptClipboardItem();
+    },
+    hideClipboardCard(options) {
+      controller_?.hideClipboardCard(options);
+    },
+    requestClipboardLatest(options) {
+      controller_?.requestClipboardLatest(options);
+    },
+    toggleTagFilter(tag) {
+      controller_?.toggleTagFilter(String(tag || ""));
     },
   };
 
@@ -153,6 +354,8 @@ export function HomeSectionPageModel(props, section) {
       if (destroyed_) return;
       destroyed_ = true;
       mounted_ = false;
+      detach_memo_main_scroll();
+      disconnect_memo_load_more_observer();
       listeners.forEach(function (unsubscribe) {
         unsubscribe?.();
       });

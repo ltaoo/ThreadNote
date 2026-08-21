@@ -194,6 +194,7 @@ func Run(assets Assets) {
 	if startupVault, err := loadStartupVault(); err != nil {
 		logger.Warn().Msgf("Active vault unavailable: %v", err)
 	} else if startupVault != nil {
+		startupVault.logger = logger
 		setActiveVault(startupVault)
 		if _, err := registerActiveVault(startupVault); err != nil {
 			logger.Warn().Msgf("Failed to update active vault registry: %v", err)

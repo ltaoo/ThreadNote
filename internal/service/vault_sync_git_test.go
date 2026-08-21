@@ -36,6 +36,13 @@ func TestGitHubGitSyncPushAndPull(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create first memo: %v", err)
 	}
+	query_store, err := new_vault_memo_query_store(first_ctx)
+	if err != nil {
+		t.Fatalf("create memo query store: %v", err)
+	}
+	if _, err := query_store.Stats(context.Background()); err != nil {
+		t.Fatalf("build memo index: %v", err)
+	}
 	if err := first_ctx.fs.write_file(".velo/storage.json", []byte(`{"secretAccessKey":"must-not-sync"}`), 0600); err != nil {
 		t.Fatalf("write machine-local settings: %v", err)
 	}
@@ -57,8 +64,10 @@ func TestGitHubGitSyncPushAndPull(t *testing.T) {
 			t.Fatalf("remote files do not contain %q:\n%s", expected_path, remote_files)
 		}
 	}
-	if contains_git_path(remote_files, ".velo/storage.json") {
-		t.Fatalf("machine-local storage settings were pushed:\n%s", remote_files)
+	for _, excluded_path := range []string{".velo/memo-index.db", ".velo/storage.json"} {
+		if contains_git_path(remote_files, excluded_path) {
+			t.Fatalf("machine-local file %q was pushed:\n%s", excluded_path, remote_files)
+		}
 	}
 
 	second_parent := t.TempDir()
@@ -153,7 +162,9 @@ func TestGitHubGitSyncValidationAndStatusParsing(t *testing.T) {
 	}
 
 	merged := merge_managed_gitignore("custom.tmp\n")
-	if !strings.Contains(merged, "custom.tmp") || !strings.Contains(merged, ".velo/storage.json") {
+	if !strings.Contains(merged, "custom.tmp") ||
+		!strings.Contains(merged, ".velo/memo-index.db*") ||
+		!strings.Contains(merged, ".velo/storage.json") {
 		t.Fatalf("managed gitignore = %q", merged)
 	}
 	if updated := merge_managed_gitignore(merged); updated != merged {

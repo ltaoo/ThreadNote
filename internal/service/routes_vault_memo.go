@@ -1,16 +1,20 @@
 package service
 
 import (
+	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"example/simple/internal/desktopapp/platform"
 
 	"github.com/ltaoo/velo"
 	"github.com/ltaoo/velo/store"
+	"github.com/rs/zerolog"
 )
 
-func registerVaultProjectMemoRoutes(b *velo.Box) {
+func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 	b.Get("/api/ping", func(c *velo.BoxContext) interface{} {
 		return c.Ok(velo.H{"message": "pong"})
 	})
@@ -55,6 +59,7 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
+		ctx.logger = logger
 		registry, err := registerActiveVault(ctx)
 		if err != nil {
 			return c.Error(err.Error())
@@ -137,20 +142,104 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 	})
 
 	b.Get("/api/memos", func(c *velo.BoxContext) interface{} {
-		ctx, err := requireActiveVault()
+		started_at := time.Now()
+		request_id := fmt.Sprintf("memo-page-%d", started_at.UnixNano())
+		vault_ctx, err := requireActiveVault()
+		if err != nil {
+			logger.Error().Err(err).
+				Str("component", "memo_pagination").
+				Str("paginationStage", "route.vault").
+				Str("requestId", request_id).
+				Msg("memo page request failed before query")
+			return c.Error(err.Error())
+		}
+		query, err := memo_list_query_from_context(c)
+		if err != nil {
+			logger.Error().Err(err).
+				Str("component", "memo_pagination").
+				Str("paginationStage", "route.parse").
+				Str("requestId", request_id).
+				Msg("memo page query parameters rejected")
+			return c.Error(err.Error())
+		}
+		logger.Info().
+			Str("component", "memo_pagination").
+			Str("paginationStage", "route.start").
+			Str("requestId", request_id).
+			Int("limit", query.Limit).
+			Bool("cursorPresent", strings.TrimSpace(query.Cursor) != "").
+			Int("cursorLength", len(query.Cursor)).
+			Msg("memo page request received")
+		query_store, err := new_vault_memo_query_store(vault_ctx)
+		if err != nil {
+			log_memo_query_failure(logger, vault_ctx, "list.open", err)
+			return c.Error(err.Error())
+		}
+		page, err := query_store.List(c.Context(), query)
+		if err != nil {
+			log_memo_query_failure(logger, vault_ctx, "list.query", err)
+			return c.Error(err.Error())
+		}
+		redact_memo_page(vault_ctx, &page)
+		logger.Info().
+			Str("component", "memo_pagination").
+			Str("paginationStage", "route.complete").
+			Str("requestId", request_id).
+			Int("memoCount", len(page.Memos)).
+			Int("total", page.Total).
+			Bool("hasMore", page.HasMore).
+			Int("nextCursorLength", len(page.NextCursor)).
+			Int64("durationMs", time.Since(started_at).Milliseconds()).
+			Msg("memo page response returned")
+		return c.Ok(velo.H{
+			"hasMore":    page.HasMore,
+			"memos":      page.Memos,
+			"nextCursor": page.NextCursor,
+			"total":      page.Total,
+		})
+	})
+
+	b.Get("/api/memos/stats", func(c *velo.BoxContext) interface{} {
+		vault_ctx, err := requireActiveVault()
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		memos, err := listVaultMemos(ctx)
+		query_store, err := new_vault_memo_query_store(vault_ctx)
+		if err != nil {
+			log_memo_query_failure(logger, vault_ctx, "stats.open", err)
+			return c.Error(err.Error())
+		}
+		stats, err := query_store.Stats(c.Context())
+		if err != nil {
+			log_memo_query_failure(logger, vault_ctx, "stats.query", err)
+			return c.Error(err.Error())
+		}
+		return c.Ok(velo.H{"stats": stats})
+	})
+
+	b.Get("/api/memos/get", func(c *velo.BoxContext) interface{} {
+		vault_ctx, err := requireActiveVault()
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		for i, memo := range memos {
-			if isPrivateAndLocked(ctx, memo.Private) {
-				memos[i] = redactPrivateMemo(memo)
-			}
+		memo_id := strings.TrimSpace(c.Query("id"))
+		if memo_id == "" {
+			return c.Error("id is required")
 		}
-		return c.Ok(velo.H{"memos": memos})
+		query_store, err := new_vault_memo_query_store(vault_ctx)
+		if err != nil {
+			log_memo_query_failure(logger, vault_ctx, "get.open", err)
+			return c.Error(err.Error())
+		}
+		memo, err := query_store.Get(c.Context(), memo_id)
+		if err != nil {
+			log_memo_query_failure(logger, vault_ctx, "get.query", err)
+			return c.Error(err.Error())
+		}
+		if isPrivateAndLocked(vault_ctx, memo.Private) {
+			memo = redactPrivateMemo(memo)
+		}
+		return c.Ok(velo.H{"memo": memo})
 	})
 
 	b.Post("/api/memos/create", func(c *velo.BoxContext) interface{} {
@@ -679,4 +768,79 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 		}
 		return c.Ok(velo.H{"success": true, "file": local_path})
 	})
+}
+
+func log_memo_query_failure(logger *zerolog.Logger, vault_ctx *VaultContext, operation string, err error) {
+	if logger == nil || err == nil {
+		return
+	}
+	vault_path := ""
+	if vault_ctx != nil {
+		vault_path = vault_ctx.RootDir
+	}
+	logger.Error().
+		Err(err).
+		Str("component", "memo_query").
+		Str("operation", operation).
+		Str("vault", vault_path).
+		Msg("memo query failed")
+}
+
+const memo_page_limit_max = 200
+
+func memo_list_query_from_context(box_ctx *velo.BoxContext) (MemoListQuery, error) {
+	archived, err := optional_memo_bool_query("archived", box_ctx.Query("archived"))
+	if err != nil {
+		return MemoListQuery{}, err
+	}
+	pinned, err := optional_memo_bool_query("pinned", box_ctx.Query("pinned"))
+	if err != nil {
+		return MemoListQuery{}, err
+	}
+	limit := 0
+	if raw_limit := strings.TrimSpace(box_ctx.Query("limit")); raw_limit != "" {
+		limit, err = strconv.Atoi(raw_limit)
+		if err != nil || limit < 0 {
+			return MemoListQuery{}, fmt.Errorf("limit must be a non-negative integer")
+		}
+		if limit > memo_page_limit_max {
+			limit = memo_page_limit_max
+		}
+	}
+	visibility := strings.ToUpper(strings.TrimSpace(box_ctx.Query("visibility")))
+	if visibility != "" && visibility != "PUBLIC" && visibility != "PRIVATE" && visibility != "PROTECTED" {
+		return MemoListQuery{}, fmt.Errorf("visibility must be PRIVATE, PROTECTED, or PUBLIC")
+	}
+	return MemoListQuery{
+		Archived:   archived,
+		Cursor:     strings.TrimSpace(box_ctx.Query("cursor")),
+		Limit:      limit,
+		Pinned:     pinned,
+		ProjectID:  strings.TrimSpace(box_ctx.Query("projectId")),
+		Tag:        strings.TrimSpace(box_ctx.Query("tag")),
+		Visibility: visibility,
+	}, nil
+}
+
+func optional_memo_bool_query(name string, value string) (*bool, error) {
+	raw_value := strings.TrimSpace(value)
+	if raw_value == "" {
+		return nil, nil
+	}
+	parsed_value, err := strconv.ParseBool(raw_value)
+	if err != nil {
+		return nil, fmt.Errorf("%s must be true or false", name)
+	}
+	return &parsed_value, nil
+}
+
+func redact_memo_page(vault_ctx *VaultContext, page *MemoPage) {
+	if page == nil {
+		return
+	}
+	for memo_index, memo := range page.Memos {
+		if isPrivateAndLocked(vault_ctx, memo.Private) {
+			page.Memos[memo_index] = redactPrivateMemo(memo)
+		}
+	}
 }
