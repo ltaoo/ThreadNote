@@ -106,7 +106,7 @@ import {
   DetachedMemoShellView,
   EditorPreviewView,
   HistoryDialogView,
-} from "./home_memo.js";
+} from "./home_memo.components.js";
 import {
   appendTimelessHost,
   ConfirmDeleteView,
@@ -116,6 +116,15 @@ import {
 
 const DETACHED_WINDOW_STATE_POLL_INTERVAL = 250;
 const DETACHED_WINDOW_STATE_SNAPSHOT_DEBOUNCE = 800;
+const MEMO_REACTIONS = Object.freeze([
+  ["👍", "赞"],
+  ["👎", "不赞"],
+  ["😄", "开心"],
+  ["🎉", "庆祝"],
+  ["❤️", "喜欢"],
+  ["🚀", "起飞"],
+  ["👀", "关注"],
+]);
 
 export function mountDetachedMemoWindow(root, options = {}) {
   const params = new URLSearchParams(window.location.search);
@@ -781,19 +790,72 @@ export function mountDetachedMemoWindow(root, options = {}) {
 
   /* ── Detached Window: Emoji Reactions ── */
 
-  function detachedCloseAllReactionPickers() {
-    root.querySelectorAll("[data-reactions-picker]").forEach(function (el) {
-      el.hidden = true;
+  function toggleDetachedMemoReaction(memo_id, emoji) {
+    if (!memo_id || !emoji) return;
+    const memo =
+      state.memo?.id === memo_id
+        ? state.memo
+        : state.memos.find(function (item) {
+          return item.id === memo_id;
+        });
+    if (!memo) return;
+    const reactions = Array.isArray(memo.reactions) ? memo.reactions : [];
+    const reaction_index = reactions.indexOf(emoji);
+    const next_reactions =
+      reaction_index >= 0
+        ? reactions
+          .slice(0, reaction_index)
+          .concat(reactions.slice(reaction_index + 1))
+        : reactions.concat([emoji]);
+    memo.reactions = next_reactions;
+    const listed_memo = state.memos.find(function (item) {
+      return item.id === memo_id;
     });
+    if (listed_memo) listed_memo.reactions = next_reactions;
+    updateMemoInVault(memo_id, { reactions: next_reactions }).catch(
+      function () {},
+    );
+    renderDetachedMemo();
+  }
+
+  function toggleDetachedCommentReaction(comment_id, emoji) {
+    if (!comment_id || !emoji) return;
+    const comment = state.comments.find(function (item) {
+      return item && item.id === comment_id;
+    });
+    if (!comment) return;
+    const reactions = Array.isArray(comment.reactions) ? comment.reactions : [];
+    const reaction_index = reactions.indexOf(emoji);
+    const next_reactions =
+      reaction_index >= 0
+        ? reactions
+          .slice(0, reaction_index)
+          .concat(reactions.slice(reaction_index + 1))
+        : reactions.concat([emoji]);
+    comment.reactions = next_reactions;
+    updateMemoCommentInVault(comment_id, { reactions: next_reactions }).catch(
+      function () {},
+    );
+    renderDetachedMemo();
+  }
+
+  function reactionMenuStore(reactions, on_click) {
+    const active_reactions = new Set(
+      Array.isArray(reactions) ? reactions : [],
+    );
+    const items = MEMO_REACTIONS.map(function ([emoji, label]) {
+      return new TimelessPrimitive.vm.MenuItemCore({
+        label: emoji + " " + label,
+        onClick() {
+          on_click(emoji);
+        },
+        shortcut: active_reactions.has(emoji) ? "已选择" : "",
+      });
+    });
+    return new TimelessPrimitive.vm.DropdownMenuCore({ items });
   }
 
   function handleClick(event) {
-    // Close reaction pickers on clicks outside reaction elements
-    if (
-      !event.target.closest(".memo-reactions-add-wrap, .memo-reactions-picker")
-    ) {
-      detachedCloseAllReactionPickers();
-    }
     // Find bar buttons
     if (event.target.closest("[data-find-close]")) {
       closeFindBar();
@@ -932,9 +994,6 @@ export function mountDetachedMemoWindow(root, options = {}) {
           openDetachedCommentHistory(cn.getAttribute("data-comment-id"));
       }
       break;
-    case "closeHistoryDialog":
-      closeDetachedHistoryDialog();
-      break;
     case "previewHistoryVersion":
       previewDetachedHistoryVersion(parseInt(action.dataset.version, 10));
       break;
@@ -957,81 +1016,17 @@ export function mountDetachedMemoWindow(root, options = {}) {
       event.stopPropagation();
       copyInlineLinkFromAction(action, showToast);
       break;
-    case "toggleMemoReactions":
-      event.stopPropagation();
-      detachedCloseAllReactionPickers();
-      {
-        var wrap = action.closest(".memo-reactions-add-wrap");
-        if (wrap) {
-          var picker = wrap.querySelector("[data-reactions-picker]");
-          if (picker) picker.hidden = !picker.hidden;
-        }
-      }
-      break;
-    case "pickMemoReaction":
     case "toggleMemoReaction":
       {
-        var memoId = action.dataset.memoId || (state.memo && state.memo.id);
-        var emoji = action.dataset.emoji;
-        if (memoId && emoji) {
-          var memo = state.memos.find(function (m) {
-            return m.id === memoId;
-          });
-          if (memo) {
-            var rx = Array.isArray(memo.reactions) ? memo.reactions : [];
-            var idx = rx.indexOf(emoji);
-            var next =
-                idx >= 0
-                  ? rx.slice(0, idx).concat(rx.slice(idx + 1))
-                  : rx.concat([emoji]);
-            memo.reactions = next;
-            updateMemoInVault(memoId, { reactions: next }).catch(
-              function () {},
-            );
-            renderDetachedMemo();
-          }
-        }
-        detachedCloseAllReactionPickers();
+        const memo_id = action.dataset.memoId || state.memo?.id;
+        toggleDetachedMemoReaction(memo_id, action.dataset.emoji);
       }
       break;
-    case "toggleCommentReactions":
-      event.stopPropagation();
-      detachedCloseAllReactionPickers();
-      {
-        var wrap2 = action.closest(".memo-reactions-add-wrap");
-        if (wrap2) {
-          var picker2 = wrap2.querySelector("[data-reactions-picker]");
-          if (picker2) picker2.hidden = !picker2.hidden;
-        }
-      }
-      break;
-    case "pickCommentReaction":
     case "toggleCommentReaction":
-      {
-        var commentId = action.dataset.commentId;
-        var emoji2 = action.dataset.emoji;
-        if (commentId && emoji2) {
-          var comment = state.comments.find(function (c) {
-            return c && c.id === commentId;
-          });
-          if (comment) {
-            var rx2 = Array.isArray(comment.reactions)
-              ? comment.reactions
-              : [];
-            var idx2 = rx2.indexOf(emoji2);
-            var next2 =
-                idx2 >= 0
-                  ? rx2.slice(0, idx2).concat(rx2.slice(idx2 + 1))
-                  : rx2.concat([emoji2]);
-            comment.reactions = next2;
-            updateMemoCommentInVault(commentId, { reactions: next2 }).catch(
-              function () {},
-            );
-            renderDetachedMemo();
-          }
-        }
-        detachedCloseAllReactionPickers();
-      }
+      toggleDetachedCommentReaction(
+        action.dataset.commentId,
+        action.dataset.emoji,
+      );
       break;
     default:
       break;
@@ -1085,13 +1080,6 @@ export function mountDetachedMemoWindow(root, options = {}) {
     ) {
       event.preventDefault();
       openFindBar();
-      return;
-    }
-    if (
-      event.key === "Escape" &&
-      root.querySelector("[data-reactions-picker]:not([hidden])")
-    ) {
-      detachedCloseAllReactionPickers();
       return;
     }
     if (
@@ -2126,6 +2114,9 @@ export function mountDetachedMemoWindow(root, options = {}) {
       html,
       id: memo.id,
       pinned: Boolean(memo.pinned),
+      reactionMenu: reactionMenuStore(memo.reactions, function (emoji) {
+        toggleDetachedMemoReaction(memo.id, emoji);
+      }),
       reactions: Array.isArray(memo.reactions) ? memo.reactions.slice() : [],
       relativeTime: formatRelativeDate(memo.createdAt),
       stats,
@@ -2183,6 +2174,9 @@ export function mountDetachedMemoWindow(root, options = {}) {
         highlighted: false,
         html,
         id: comment.id,
+        reactionMenu: reactionMenuStore(comment.reactions, function (emoji) {
+          toggleDetachedCommentReaction(comment.id, emoji);
+        }),
         reactions: Array.isArray(comment.reactions)
           ? comment.reactions.slice()
           : [],
@@ -2525,21 +2519,18 @@ export function mountDetachedMemoWindow(root, options = {}) {
           n: "detached-memo-history-dialog-host",
         },
       });
-      host.addEventListener("click", function (event) {
-        var backdrop = closestElement(event.target, "[data-history-backdrop]");
-        var close_button = closestElement(event.target, "[data-action]");
-        if (
-          (close_button &&
-            close_button.dataset.action === "closeHistoryDialog") ||
-          (backdrop && event.target === backdrop)
-        ) {
-          closeDetachedHistoryDialog();
-        }
-      });
     }
     renderTimelessView(
       host,
-      HistoryDialogView(historyDialogPresentation(state)),
+      HistoryDialogView({
+        ...historyDialogPresentation(state),
+        store: new TimelessPrimitive.vm.DialogCore({
+          footer: false,
+          onCancel: closeDetachedHistoryDialog,
+          open: true,
+          title: "",
+        }),
+      }),
     );
   }
 

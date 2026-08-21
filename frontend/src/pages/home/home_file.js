@@ -1,4 +1,4 @@
-import { TimelessPrimitive } from "@/timeless-icons.js";
+import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 import { extractTags } from "@/domain/memos.js";
 import {
   collectResources,
@@ -211,11 +211,24 @@ export function FileGridView(props = {}) {
                       class: "memo-finder-file-icon",
                       attributes: {
                         "aria-hidden": "true",
-                        "data-file-badge": item.badge,
                         n: "finder-file-icon",
                       },
                     },
-                    [],
+                    [
+                      Timeless.Icon({
+                        name: "file",
+                        size: 32,
+                        attributes: { n: "finder-file-symbol" },
+                      }),
+                      View(
+                        {
+                          as: "small",
+                          class: "memo-finder-file-badge",
+                          attributes: { n: "finder-file-type-label" },
+                        },
+                        [item.badge],
+                      ),
+                    ],
                   );
                 },
               }),

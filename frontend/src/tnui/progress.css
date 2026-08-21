@@ -1,0 +1,2 @@
+.tn-progress { width: 100%; height: 8px; overflow: hidden; border-radius: var(--tn-radius-full); background: var(--tn-color-bg-subtle); }
+.tn-progress__indicator { height: 100%; border-radius: inherit; background: var(--tn-color-primary-fill); transition: width var(--tn-duration-base) var(--tn-ease-standard); }

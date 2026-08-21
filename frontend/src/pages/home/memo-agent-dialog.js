@@ -6,13 +6,6 @@ import { MemoAgentDialogModel } from "./memo-agent-dialog.model.js";
 
 let active_dialog = null;
 
-function icon(name, meaning) {
-  return Timeless.Icon({
-    name,
-    attributes: { n: meaning },
-  });
-}
-
 function dom_node(element$) {
   return element$?.$elm?.get$elm?.() || null;
 }
@@ -254,7 +247,12 @@ export function MemoAgentDialogView(props) {
                     vm$.methods.requestClose("close-button");
                   },
                 },
-                [icon("x", "memo-agent-close-icon")],
+                [
+                  Timeless.Icon({
+                    name: "x",
+                    attributes: { n: "memo-agent-close-icon" },
+                  }),
+                ],
               ),
             ],
           ),

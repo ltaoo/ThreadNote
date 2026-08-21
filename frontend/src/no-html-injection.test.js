@@ -14,6 +14,13 @@ const forbidden_tokens_ = [
   ["create", "Timeless", "HTML", "Nodes"].join(""),
   ["unmount", "Timeless", "HTML"].join(""),
 ];
+const legacy_icon_tokens_ = [
+  ["memo", "Icon"].join(""),
+  ["SVG", "."].join(""),
+  ["data", "timeless", "icon"].join("-"),
+  ["timeless", "icon", "runtime"].join("-"),
+  ["<", "svg"].join(""),
+];
 
 async function javascript_files(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -28,7 +35,6 @@ async function javascript_files(directory) {
 test("application JavaScript has no direct HTML injection API", async function () {
   const files = (await javascript_files(source_root_)).concat([
     path.resolve(source_root_, "../public/prosemirror-editor.umd.js"),
-    path.resolve(source_root_, "../public/timeless-icon-runtime.js"),
   ]);
   const violations = [];
   for (const file of files) {
@@ -36,6 +42,28 @@ test("application JavaScript has no direct HTML injection API", async function (
     forbidden_tokens_.forEach(function (token) {
       if (source.includes(token)) {
         violations.push(path.relative(source_root_, file) + ": " + token);
+      }
+    });
+  }
+  assert.deepEqual(violations, []);
+});
+
+test("application icons use the native Timeless icon component", async function () {
+  const application_root = path.resolve(source_root_, "..");
+  const html_files = (await readdir(application_root, { withFileTypes: true }))
+    .filter(function (entry) {
+      return entry.isFile() && entry.name.endsWith(".html");
+    })
+    .map(function (entry) {
+      return path.join(application_root, entry.name);
+    });
+  const files = (await javascript_files(source_root_)).concat(html_files);
+  const violations = [];
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    legacy_icon_tokens_.forEach(function (token) {
+      if (source.includes(token)) {
+        violations.push(path.relative(application_root, file) + ": " + token);
       }
     });
   }

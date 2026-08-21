@@ -25,6 +25,236 @@ export function detachedMemoRenderContext(state, source_id, options = {}) {
   };
 }
 
+const MEMO_CARD_VIEW_MODEL_RESERVED_KEYS = new Set([
+  "active",
+  "clearActive",
+  "destroy",
+  "isActiveSource",
+  "moreMenuDestroy",
+  "onMoreMenuMouseEnter",
+  "onMoreMenuMouseLeave",
+  "onMouseEnter",
+  "onMouseLeave",
+  "reactionMenuDestroy",
+  "setActive",
+  "setMoreMenuOpen",
+  "setReactionMenuOpen",
+  "updatePresentation",
+]);
+
+export class MemoCardViewModel {
+  constructor(options = {}) {
+    const create_ref = options.createRef || globalThis.Timeless?.ref;
+    if (typeof create_ref !== "function") {
+      throw new TypeError("MemoCardViewModel requires a reactive ref factory");
+    }
+
+    this.active = create_ref(false);
+    this._active_sources = new Set();
+    this._destroy_more_menu = null;
+    this._destroy_reaction_menu = null;
+    this._destroyed = false;
+    this._more_menu_destroyed = true;
+    this._reaction_menu_destroyed = true;
+    this._on_destroy =
+      typeof options.onDestroy === "function" ? options.onDestroy : null;
+    this._presentation_keys = new Set();
+    this._unsubscribe_more_menu = null;
+    this._unsubscribe_reaction_menu = null;
+
+    this.onMouseEnter = MemoCardViewModel.prototype.onMouseEnter.bind(this);
+    this.onMouseLeave = MemoCardViewModel.prototype.onMouseLeave.bind(this);
+    this.onMoreMenuMouseEnter =
+      MemoCardViewModel.prototype.onMoreMenuMouseEnter.bind(this);
+    this.onMoreMenuMouseLeave =
+      MemoCardViewModel.prototype.onMoreMenuMouseLeave.bind(this);
+    this.moreMenuDestroy =
+      MemoCardViewModel.prototype.moreMenuDestroy.bind(this);
+    this.reactionMenuDestroy =
+      MemoCardViewModel.prototype.reactionMenuDestroy.bind(this);
+
+    this.updatePresentation(options.presentation);
+    if (options.active) this.setActive(true);
+  }
+
+  updatePresentation(presentation = {}) {
+    if (this._destroyed) return this;
+    const current_more_menu = this.moreMenu;
+    const next_more_menu = presentation?.moreMenu;
+    const next_more_menu_destroy = presentation?.moreMenuDestroy;
+    const reuse_more_menu = Boolean(
+      current_more_menu &&
+      next_more_menu &&
+      (current_more_menu === next_more_menu ||
+        typeof current_more_menu.setItems === "function"),
+    );
+    if (reuse_more_menu && current_more_menu !== next_more_menu) {
+      current_more_menu.setItems(
+        next_more_menu.state?.items || next_more_menu.items || [],
+      );
+      next_more_menu_destroy?.();
+      presentation = {
+        ...presentation,
+        moreMenu: current_more_menu,
+        moreMenuDestroy: this._destroy_more_menu,
+      };
+    } else {
+      this._releaseMoreMenu();
+    }
+
+    const current_reaction_menu = this.reactionMenu;
+    const next_reaction_menu = presentation?.reactionMenu;
+    const next_reaction_menu_destroy = presentation?.reactionMenuDestroy;
+    const reuse_reaction_menu = Boolean(
+      current_reaction_menu &&
+      next_reaction_menu &&
+      (current_reaction_menu === next_reaction_menu ||
+        typeof current_reaction_menu.setItems === "function"),
+    );
+    if (reuse_reaction_menu && current_reaction_menu !== next_reaction_menu) {
+      current_reaction_menu.setItems(
+        next_reaction_menu.state?.items || next_reaction_menu.items || [],
+      );
+      next_reaction_menu_destroy?.();
+      presentation = {
+        ...presentation,
+        reactionMenu: current_reaction_menu,
+        reactionMenuDestroy: this._destroy_reaction_menu,
+      };
+    } else {
+      this._releaseReactionMenu();
+    }
+    this._presentation_keys.forEach((key) => delete this[key]);
+    this._presentation_keys.clear();
+
+    Object.entries(presentation || {}).forEach(([key, value]) => {
+      if (
+        (key === "moreMenuDestroy" || key === "reactionMenuDestroy") ||
+        key.startsWith("_") ||
+        MEMO_CARD_VIEW_MODEL_RESERVED_KEYS.has(key)
+      ) {
+        return;
+      }
+      this[key] = value;
+      this._presentation_keys.add(key);
+    });
+
+    this._destroy_more_menu =
+      typeof presentation?.moreMenuDestroy === "function"
+        ? presentation.moreMenuDestroy
+        : null;
+    this._more_menu_destroyed = false;
+    if (
+      !reuse_more_menu &&
+      typeof this.moreMenu?.onStateChange === "function"
+    ) {
+      this._unsubscribe_more_menu = this.moreMenu.onStateChange(
+        (menu_state) => this.setMoreMenuOpen(Boolean(menu_state?.visible)),
+      );
+      this.setMoreMenuOpen(Boolean(this.moreMenu.state?.visible));
+    }
+    this._destroy_reaction_menu =
+      typeof presentation?.reactionMenuDestroy === "function"
+        ? presentation.reactionMenuDestroy
+        : null;
+    this._reaction_menu_destroyed = false;
+    if (
+      !reuse_reaction_menu &&
+      typeof this.reactionMenu?.onStateChange === "function"
+    ) {
+      this._unsubscribe_reaction_menu = this.reactionMenu.onStateChange(
+        (menu_state) => this.setReactionMenuOpen(Boolean(menu_state?.visible)),
+      );
+      this.setReactionMenuOpen(Boolean(this.reactionMenu.state?.visible));
+    }
+    return this;
+  }
+
+  setActive(active, source = "external") {
+    if (this._destroyed) return false;
+    const active_source = String(source || "external").trim() || "external";
+    if (active) this._active_sources.add(active_source);
+    else this._active_sources.delete(active_source);
+    const next_active = this._active_sources.size > 0;
+    if (this.active.value !== next_active) this.active.as(next_active);
+    return next_active;
+  }
+
+  clearActive() {
+    if (this._destroyed) return false;
+    this._active_sources.clear();
+    if (this.active.value) this.active.as(false);
+    return false;
+  }
+
+  isActiveSource(source) {
+    return this._active_sources.has(String(source || "").trim());
+  }
+
+  setMoreMenuOpen(open) {
+    return this.setActive(Boolean(open), "menu-open");
+  }
+
+  setReactionMenuOpen(open) {
+    return this.setActive(Boolean(open), "reaction-menu-open");
+  }
+
+  onMouseEnter() {
+    return this.setActive(true, "pointer");
+  }
+
+  onMouseLeave() {
+    return this.setActive(false, "pointer");
+  }
+
+  onMoreMenuMouseEnter() {
+    return this.setActive(true, "menu-pointer");
+  }
+
+  onMoreMenuMouseLeave() {
+    return this.setActive(false, "menu-pointer");
+  }
+
+  moreMenuDestroy() {
+    this._releaseMoreMenu();
+  }
+
+  reactionMenuDestroy() {
+    this._releaseReactionMenu();
+  }
+
+  _releaseMoreMenu() {
+    if (this._more_menu_destroyed) return;
+    this._more_menu_destroyed = true;
+    this._unsubscribe_more_menu?.();
+    this._unsubscribe_more_menu = null;
+    this.setMoreMenuOpen(false);
+    this._destroy_more_menu?.();
+    this._destroy_more_menu = null;
+  }
+
+  _releaseReactionMenu() {
+    if (this._reaction_menu_destroyed) return;
+    this._reaction_menu_destroyed = true;
+    this._unsubscribe_reaction_menu?.();
+    this._unsubscribe_reaction_menu = null;
+    this.setReactionMenuOpen(false);
+    this._destroy_reaction_menu?.();
+    this._destroy_reaction_menu = null;
+  }
+
+  destroy() {
+    if (this._destroyed) return;
+    this.moreMenuDestroy();
+    this.reactionMenuDestroy();
+    this._destroyed = true;
+    this._active_sources.clear();
+    this.active.destroy?.();
+    this._on_destroy?.(this);
+    this._on_destroy = null;
+  }
+}
+
 const VIEW_META = Object.freeze({
   boards: {
     eyebrow: "WORKFLOW / BOARDS",
@@ -68,13 +298,6 @@ const VIEW_META = Object.freeze({
     subtitle: "从所有 memo 中汇总图片，瀑布流展示",
     title: "图片",
   },
-  items: {
-    eyebrow: "GTD / TRIAGE",
-    hideComposer: true,
-    searchPlaceholder: "搜索开放事项、标签或决策",
-    subtitle: "像 Issue 一样管理 open loops",
-    title: "Open Loops",
-  },
   links: {
     eyebrow: "LIBRARY / LINKS",
     hideComposer: true,
@@ -114,8 +337,8 @@ const VIEW_META = Object.freeze({
   todos: {
     eyebrow: "GTD / TASKS",
     hideComposer: true,
-    searchPlaceholder: "搜索任务、清单或上下文",
-    subtitle: "Inbox、Today、Scheduled 与任务 notes",
+    searchPlaceholder: "搜索任务、标签、清单或上下文",
+    subtitle: "需求池、Inbox、Today、Scheduled 与任务 notes",
     title: "GTD",
   },
 });

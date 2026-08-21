@@ -6,12 +6,13 @@
  * aliases remain available while components are migrated incrementally.
  */
 @import url("../public/index.css");
-@import url("./components.css");
+@import url("./tnui.css");
+@import url("./components/project-select.css?v=20260821-custom-project-picker");
 @import url("./form-controls.css");
 @import url("./memo-card.css");
 @import url("./small-calendar.css?v=20260820-date-highlight-fill");
 @import url("./workspace-shell.css?v=20260820-fixed-settings-footer");
-@import url("./workspace-memos.css?v=20260820-project-tag-subtle");
+@import url("./workspace-memos.css?v=20260821-memo-icon-own-opacity");
 @import url("./memo-code.css?v=20260820-code-snippet-workbench");
 @import url("./workspace-collections.css");
 @import url("./workspace-windows.css?v=20260820-fixed-comment-dialog-width");
@@ -78,7 +79,7 @@
   --tn-radius-sm: 5px;
   --tn-radius-md: 8px;
   --tn-radius-lg: 12px;
-  --tn-radius-xl: 16px;
+  --tn-radius-xl: 14px;
   --tn-radius-full: 9999px;
   --tn-control-height-xs: 26px;
   --tn-control-height-sm: 30px;

@@ -143,6 +143,15 @@
   overflow-y: auto;
 }
 
+.tn-scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.tn-scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 .tn-relative {
   position: relative;
 }

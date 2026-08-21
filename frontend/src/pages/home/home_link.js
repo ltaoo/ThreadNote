@@ -1,4 +1,4 @@
-import { TimelessPrimitive } from "@/timeless-icons.js";
+import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 import { callNativeAPI } from "@/domain/native.js";
 import { extractTags } from "@/domain/memos.js";
 import {
@@ -19,7 +19,6 @@ import {
   appendTimelessHost,
   EmptyStateView,
   iconActionButton,
-  memoIcon,
   reactiveWhen,
 } from "./home_view_shared.js";
 
@@ -68,7 +67,12 @@ export function FetchTitleLogView(props = {}) {
                     type: "button",
                   },
                 },
-                [memoIcon("x", "fetch-title-log-close-icon")],
+                [
+                  Timeless.Icon({
+                    name: "x",
+                    attributes: { n: "fetch-title-log-close-icon" },
+                  }),
+                ],
               ),
             ],
           ),
@@ -126,6 +130,17 @@ export function FetchTitleLogView(props = {}) {
                               attributes: { n: "fetch-title-log-row-value" },
                             },
                             [
+                              Show({
+                                when: reactiveWhen(row.icon),
+                                ok() {
+                                  return Timeless.Icon({
+                                    name: row.icon,
+                                    attributes: {
+                                      n: "fetch-title-log-row-status-icon",
+                                    },
+                                  });
+                                },
+                              }),
                               row.value,
                               Show({
                                 when: reactiveWhen(row.path),
@@ -142,10 +157,12 @@ export function FetchTitleLogView(props = {}) {
                                       },
                                     },
                                     [
-                                      memoIcon(
-                                        "copy",
-                                        "fetch-title-log-copy-path-icon",
-                                      ),
+                                      Timeless.Icon({
+                                        name: "copy",
+                                        attributes: {
+                                          n: "fetch-title-log-copy-path-icon",
+                                        },
+                                      }),
                                     ],
                                   );
                                 },
@@ -220,16 +237,8 @@ export function createHomeLinkController(options) {
         inputValue: input_value,
         links: paginated.map(function (link) {
           const fetched = state.linkTitles[link.url] || "";
-          const host = parseHost(link.url).host;
-          let favicon = "↗";
-          if (host) {
-            favicon = host.slice(0, 2).replace(/^./, function (char) {
-              return char.toUpperCase();
-            });
-          }
           return {
             compactUrl: compactFileURL(link.url),
-            favicon,
             fetched: Boolean(fetched),
             href: safeUrl(link.url),
             memoId: link.memoId,
@@ -376,11 +385,16 @@ export function createHomeLinkController(options) {
     const preview = data.html_preview || "";
     const html_path = data.html_path || "";
     const raw_path = data.raw_path || "";
-    let status_value = "✗ " + (error || "请求失败");
-    if (ok) status_value = "✓ 请求成功";
+    let status_value = error || "请求失败";
+    if (ok) status_value = "请求成功";
     const rows = [
       { label: "URL", value: url },
-      { label: "状态", ok, value: status_value },
+      {
+        icon: ok ? "check" : "circle-x",
+        label: "状态",
+        ok,
+        value: status_value,
+      },
     ];
     if (status_code) {
       rows.push({
@@ -397,12 +411,17 @@ export function createHomeLinkController(options) {
     }
     if (ok) {
       let extract_message =
-        "✗ 未找到任何标题标签 (<title>, og:title, twitter:title)";
+        "未找到任何标题标签 (<title>, og:title, twitter:title)";
       if (title_found) {
-        extract_message = "✓ 找到标题";
+        extract_message = "找到标题";
         if (title_source) extract_message += " (" + title_source + ")";
       }
-      rows.push({ label: "标题提取", ok: title_found, value: extract_message });
+      rows.push({
+        icon: title_found ? "check" : "circle-x",
+        label: "标题提取",
+        ok: title_found,
+        value: extract_message,
+      });
       if (title) rows.push({ label: "标题内容", value: title });
       if (preview) rows.push({ label: "HTML 预览", mono: true, value: preview });
       if (html_path) {
@@ -616,7 +635,14 @@ export function LinksView(props = {}) {
                           type: "button",
                         },
                       },
-                      [memoIcon("x", "memo-domain-filter-chip-remove-icon")],
+                      [
+                        Timeless.Icon({
+                          name: "x",
+                          attributes: {
+                            n: "memo-domain-filter-chip-remove-icon",
+                          },
+                        }),
+                      ],
                     ),
                   ],
                 );
@@ -691,7 +717,12 @@ export function LinksView(props = {}) {
                           n: "link-card-favicon",
                         },
                       },
-                      [link.favicon],
+                      [
+                        Timeless.Icon({
+                          name: "external-link",
+                          attributes: { n: "link-card-favicon-icon" },
+                        }),
+                      ],
                     ),
                     View(
                       {
@@ -727,7 +758,12 @@ export function LinksView(props = {}) {
                           n: "link-card-open-cue",
                         },
                       },
-                      [memoIcon("external-link", "link-card-open-icon")],
+                      [
+                        Timeless.Icon({
+                          name: "external-link",
+                          attributes: { n: "link-card-open-icon" },
+                        }),
+                      ],
                     ),
                   ],
                 ),
@@ -761,7 +797,7 @@ export function LinksView(props = {}) {
                       action: "openSourceMemo",
                       class:
                         "tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-link-source-button",
-                      icon: "eye",
+                      icon: "search",
                       label: "来源 memo",
                       meaning: "link-card-open-source",
                     }),

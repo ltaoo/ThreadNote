@@ -15,6 +15,20 @@ export const TASK_PRIORITY = {
   NONE: "none",
 };
 
+export const TASK_BACKLOG_TAG = "stage:backlog";
+
+export function taskHasTag(task, expectedTag) {
+  const expected = String(expectedTag || "").trim().toLowerCase();
+  if (!expected || !task || typeof task !== "object") return false;
+  return normalizeStringList(task.tags).some(function (tag) {
+    return tag.toLowerCase() === expected;
+  });
+}
+
+export function isTaskInBacklog(task) {
+  return taskHasTag(task, TASK_BACKLOG_TAG);
+}
+
 export function normalizeTaskPayload(task) {
   if (!task || typeof task !== "object") return null;
   const id = normalizeTaskID(task.id);

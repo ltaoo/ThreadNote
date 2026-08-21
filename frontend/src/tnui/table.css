@@ -1,0 +1,4 @@
+.tn-table { width: 100%; border-collapse: collapse; color: var(--tn-color-text-primary); font-size: var(--tn-font-size-sm); }
+.tn-table__head, .tn-table__cell { padding: var(--tn-space-2-5) var(--tn-space-3); border-bottom: var(--tn-border-width) solid var(--tn-color-border-translucent); text-align: left; }
+.tn-table__head { background: var(--tn-color-bg-subtle); color: var(--tn-color-text-secondary); font-weight: var(--tn-font-weight-semibold); }
+.tn-table__row:hover .tn-table__cell { background: var(--tn-color-hover-surface); }

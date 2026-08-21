@@ -24,9 +24,7 @@ import {
   normalizeTaskSummary,
 } from "@/domain/tasks.js";
 import {
-  loadGTDItems,
   loadGTDMilestones,
-  normalizeGTDItem,
   normalizeGTDMilestone,
 } from "@/domain/gtd.js";
 import {
@@ -64,12 +62,9 @@ import {
   normalizeMemoDraftPayload,
   upsertMemoDraftInVault,
 } from "@/domain/memo-drafts.js";
-import {
-  MemoCardExpansionModel,
-  MemoCardMenuModel,
-  setCheckboxControlValue,
-  SmallCalendarModel,
-} from "@/components.js";
+import { setCheckboxControlValue } from "@/checkbox-control.js";
+import { MemoCardExpansionModel } from "@/memo-card-model.js";
+import { SmallCalendarModel } from "@/small-calendar-model.js";
 import {
   buildCommentDetailPayload,
   writeCommentDetailPayload,
@@ -79,10 +74,12 @@ import {
   writeTodoDetailPayload,
 } from "@/todo-detail-model.js";
 import { openImagePreviewFromElement } from "@/components/image-preview.js";
+import { ProjectSelectModel } from "@/components/project-select.model.js";
 import {
   renderTimelessView,
   unmountTimelessView,
 } from "@/timeless-view-mount.js";
+import { TimelessPrimitive } from "@/timeless-icons.js";
 
 import {
   createHomeBoardController,
@@ -103,10 +100,6 @@ import {
   bindMemoImageContextMenu,
   createHomeImageController,
 } from "./home_image.js";
-import {
-  createHomeItemController,
-  createHomeItemState,
-} from "./home_item.js";
 import {
   copyInlineLinkFromAction,
   createHomeLinkController,
@@ -139,6 +132,7 @@ import { MemoListModel } from "./memo.model.js";
 import {
   activeViewMeta,
   applyContentOpsToString,
+  MemoCardViewModel,
   stripMemoFrontmatter,
 } from "./memo-view-model.js";
 import {
@@ -178,14 +172,15 @@ import {
   HistoryDialogView,
   InlinePromptView,
   MemoDialogView,
-  MemoFeedView,
   MemoSearchResultsView,
   PinnedMemoListView,
   PinDialogView,
+  SmallCalendarView,
   SourceMemoDialogView,
   SourceEditDialogView,
   TagListView,
-} from "./home_memo.js";
+} from "./home_memo.components.js";
+import { MemoFeedView } from "./home_memo.js";
 import {
   appendTimelessHost,
   ConfirmDeleteView,
@@ -198,6 +193,28 @@ import { mountACPChat } from "./chat.js";
 const SHORTCUTS_STORAGE_KEY = "demo-desktop:settings:shortcuts:v1";
 const CLIPBOARD_FOREGROUND_MAX_AGE_MS = 60 * 1000;
 const FEED_PAGE_SIZE = 10;
+const COMMENT_HOVER_HANDOFF_MS = 120;
+const MEMO_COMPOSER_COMMANDS = Object.freeze([
+  "bold",
+  "italic",
+  "code",
+  "list",
+  "checklist",
+  "tag",
+  "link",
+  "image",
+  "attach",
+  "date",
+]);
+const MEMO_REACTIONS = Object.freeze([
+  ["👍", "赞"],
+  ["👎", "不赞"],
+  ["😄", "开心"],
+  ["🎉", "庆祝"],
+  ["❤️", "喜欢"],
+  ["🚀", "起飞"],
+  ["👀", "关注"],
+]);
 const HOME_VIEW_ROUTE_KEYS = Object.freeze({
   boards: "board",
   chat: "chat",
@@ -205,7 +222,6 @@ const HOME_VIEW_ROUTE_KEYS = Object.freeze({
   codeblocks: "codeblock",
   files: "file",
   images: "image",
-  items: "item",
   links: "link",
   memos: "memo",
   milestones: "milestone",
@@ -217,8 +233,90 @@ function homeRouteName(active_view) {
   return `root.home_layout.index.${route_key}`;
 }
 
+function createButtonStoreGroup(names, options = {}) {
+  const stores = Object.fromEntries(
+    names.map(function (name) {
+      return [name, new TimelessPrimitive.vm.ButtonCore(options)];
+    }),
+  );
+  return {
+    stores,
+    destroy() {
+      Object.values(stores).forEach(function (store) {
+        store.destroy?.();
+      });
+    },
+  };
+}
+
+function createSelectControl(options = {}) {
+  let option_stores = [];
+  let options_key = "";
+  const store = new TimelessPrimitive.vm.SelectCore({
+    defaultValue: options.defaultValue ?? null,
+    options: [],
+    platform: TimelessPrimitive.DOM?.platform,
+    placeholder: options.placeholder,
+    position: "popper",
+  });
+
+  function set_options(next_options) {
+    const normalized_options = Array.isArray(next_options) ? next_options : [];
+    const next_options_key = JSON.stringify(
+      normalized_options.map(function (option) {
+        return [option.value, option.label, Boolean(option.disabled)];
+      }),
+    );
+    if (next_options_key === options_key) return;
+
+    const previous_option_stores = option_stores;
+    option_stores = normalized_options.map(function (option) {
+      return new TimelessPrimitive.vm.SelectItemCore(option);
+    });
+    options_key = next_options_key;
+    store.setOptions(option_stores);
+    store.selected_item$ =
+      option_stores.find(function (option) {
+        return option.value === store.value;
+      }) || null;
+    store.focused_item$ = null;
+    store.refresh?.();
+    previous_option_stores.forEach(function (option_store) {
+      option_store.destroy?.();
+    });
+  }
+
+  set_options(options.options);
+  if (store.value !== options.defaultValue) {
+    store.setValue(options.defaultValue ?? null);
+  }
+
+  return {
+    store,
+    get value() {
+      return store.value;
+    },
+    destroy() {
+      option_stores.forEach(function (option_store) {
+        option_store.destroy?.();
+      });
+      option_stores = [];
+      store.destroy?.();
+    },
+    onValueChange(handler) {
+      return store.onValueChange(handler);
+    },
+    setOptions: set_options,
+    setValue(value) {
+      if (store.value === value) return;
+      store.setValue(value);
+    },
+  };
+}
+
 export function createMemosPageState(initial_view = "memos") {
   const initial_state = {
+    activeCommentId: "",
     activeFilter: "all",
     activeTag: "",
     activeView: initial_view,
@@ -235,8 +333,10 @@ export function createMemosPageState(initial_view = "memos") {
     editDraft: "",
     editProjectId: "",
     editVisibility: DEFAULT_VISIBILITY,
-    highlightMemoId: "",
-    highlightTimer: null,
+    externalActiveMemoId: "",
+    hoveredCommentId: "",
+    hoveredCommentReactionMenuId: "",
+    openCommentReactionMenuId: "",
     tocVisibleMemoIds: new Set(),
     expandedCommentListMemoIds: new Set(),
     feedPage: 1,
@@ -244,7 +344,6 @@ export function createMemosPageState(initial_view = "memos") {
     draftsLoaded: false,
     editorSettings: loadEditorSettings(),
     editPreviewVisible: false,
-    ...createHomeItemState(),
     ...createHomeMilestoneState(),
     ...createHomeProjectState(),
     composerPreviewVisible: false,
@@ -336,20 +435,61 @@ export function createMemosPageUIState() {
     codeNavCount: ref(""),
     composerClass: ref("memo-composer"),
     composerDraftStatusHidden: ref(true),
+    composerPreviewButton: new TimelessPrimitive.vm.ButtonCore({
+      size: "sm",
+      variant: "secondary",
+    }),
+    composerProjectSelect: new ProjectSelectModel({
+      defaultValue: "",
+      options: [{ count: 0, label: "未归属", value: "" }],
+      placeholder: "未归属",
+    }),
+    composerPublishButton: new TimelessPrimitive.vm.ButtonCore({
+      disabled: true,
+      size: "sm",
+      variant: "primary",
+    }),
     composerStatus: ref(""),
-    createButtonDisabled: ref(true),
+    composerToolButtons: createButtonStoreGroup(MEMO_COMPOSER_COMMANDS, {
+      size: "icon-sm",
+      variant: "ghost",
+    }),
+    composerVisibilitySelect: createSelectControl({
+      defaultValue: DEFAULT_VISIBILITY,
+      options: [
+        { label: "仅自己", value: "PRIVATE" },
+        { label: "公开", value: "PUBLIC" },
+      ],
+      placeholder: "可见性",
+    }),
+    feedResetButton: new TimelessPrimitive.vm.ButtonCore({
+      variant: "ghost",
+    }),
+    feedSearchInput: new TimelessPrimitive.vm.InputCore({
+      defaultValue: "",
+      type: "search",
+    }),
     feedToolsHidden: ref(false),
     fileNavCount: ref(""),
     imageNavCount: ref(""),
-    itemNavCount: ref(""),
     linkNavCount: ref(""),
     mainEyebrow: ref("THREAD / INBOX"),
     mainSubtitle: ref("捕捉、整理、回看"),
     mainTitle: ref("Inbox"),
+    memoFeedHasMore: ref(false),
+    memoFeedMemos: ref([]),
+    memoFeedProjects: ref([]),
     memoInspectorHidden: ref(false),
     memoListClass: ref("memo-list"),
     memoMainClass: ref("memo-main"),
-    memoSearchPaletteHidden: ref(true),
+    memoMainScroll: new TimelessPrimitive.vm.ScrollViewCore({
+      horizontal: "hidden",
+      vertical: "auto",
+    }),
+    memoSearchDialog: new TimelessPrimitive.vm.DialogCore({
+      footer: false,
+      title: "",
+    }),
     memoSearchQuery: ref(""),
     memoShellClass: ref("memo-shell"),
     milestoneNavCount: ref(""),
@@ -377,13 +517,151 @@ export function mountMemosHome(root, options = {}) {
   if (!root || !state || !ui || !els) {
     throw new Error("mountMemosHome requires a page root and reactive state");
   }
+  const event_document = root.ownerDocument;
+  const owns_memo_search_palette = options.section === "memos";
+  const sidebar = options.sidebar;
+  const active_comment_id_ref =
+    options.stateRefs?.activeCommentId || ref(state.activeCommentId || "");
+  const owns_active_comment_id_ref = !options.stateRefs?.activeCommentId;
+  const memo_card_view_models = new Map();
+  let comment_hover_handoff_timer = null;
+
+  function cancelCommentHoverHandoff() {
+    if (!comment_hover_handoff_timer) return;
+    window.clearTimeout(comment_hover_handoff_timer);
+    comment_hover_handoff_timer = null;
+  }
+
+  function scheduleCommentHoverHandoff() {
+    cancelCommentHoverHandoff();
+    comment_hover_handoff_timer = window.setTimeout(function () {
+      comment_hover_handoff_timer = null;
+      syncActiveComment();
+    }, COMMENT_HOVER_HANDOFF_MS);
+  }
+
+  function setExternalActiveMemo(memo_id) {
+    const next_memo_id = String(memo_id || "").trim();
+    const previous_memo_id = state.externalActiveMemoId;
+    if (previous_memo_id === next_memo_id) {
+      memo_card_view_models.get(next_memo_id)?.setActive(true);
+      return false;
+    }
+    memo_card_view_models.get(previous_memo_id)?.setActive(false);
+    state.externalActiveMemoId = next_memo_id;
+    memo_card_view_models.get(next_memo_id)?.setActive(true);
+    return true;
+  }
+
+  function syncActiveComment() {
+    const hovered_reaction_menu_id =
+      state.hoveredCommentReactionMenuId === state.openCommentReactionMenuId
+        ? state.hoveredCommentReactionMenuId
+        : "";
+    const next_comment_id =
+      state.hoveredCommentId || hovered_reaction_menu_id || "";
+    if (state.activeCommentId === next_comment_id) return false;
+    state.activeCommentId = next_comment_id;
+    if (owns_active_comment_id_ref) {
+      active_comment_id_ref.as(next_comment_id);
+    }
+    return true;
+  }
+
+  function handleCommentMouseEnter(comment_id) {
+    cancelCommentHoverHandoff();
+    state.hoveredCommentId = comment_id;
+    syncActiveComment();
+  }
+
+  function handleCommentMouseLeave(comment_id) {
+    if (state.hoveredCommentId !== comment_id) return;
+    state.hoveredCommentId = "";
+    if (state.openCommentReactionMenuId === comment_id) {
+      scheduleCommentHoverHandoff();
+      return;
+    }
+    syncActiveComment();
+  }
+
+  function handleCommentReactionMenuOpenChange(comment_id, open) {
+    if (!open) cancelCommentHoverHandoff();
+    if (open) {
+      state.openCommentReactionMenuId = comment_id;
+    } else if (state.openCommentReactionMenuId === comment_id) {
+      state.openCommentReactionMenuId = "";
+      if (state.hoveredCommentReactionMenuId === comment_id) {
+        state.hoveredCommentReactionMenuId = "";
+      }
+    }
+    syncActiveComment();
+  }
+
+  function handleCommentReactionMenuMouseEnter(comment_id) {
+    cancelCommentHoverHandoff();
+    state.hoveredCommentReactionMenuId = comment_id;
+    syncActiveComment();
+  }
+
+  function handleCommentReactionMenuMouseLeave(comment_id) {
+    if (state.hoveredCommentReactionMenuId !== comment_id) return;
+    state.hoveredCommentReactionMenuId = "";
+    if (state.openCommentReactionMenuId === comment_id) {
+      scheduleCommentHoverHandoff();
+      return;
+    }
+    syncActiveComment();
+  }
+
+  function openDialogStore(dialog_options = {}) {
+    return new TimelessPrimitive.vm.DialogCore({
+      footer: false,
+      open: true,
+      ...dialog_options,
+    });
+  }
+
+  function selectStore(select_options, value, placeholder, on_value_change) {
+    const options_ = select_options.map(function (option) {
+      return new TimelessPrimitive.vm.SelectItemCore(option);
+    });
+    const store = new TimelessPrimitive.vm.SelectCore({
+      defaultValue: value,
+      options: options_,
+      placeholder,
+    });
+    store.onValueChange(on_value_change);
+    return store;
+  }
+
+  function checkboxStore(checked, on_change) {
+    const store = new TimelessPrimitive.vm.CheckboxCore({ checked });
+    store.onChange(on_change);
+    return store;
+  }
+
+  function publishSidebar(values) {
+    if (!sidebar || options.isSidebarActive?.() === false) return;
+    Object.entries(values).forEach(function ([key, value]) {
+      sidebar[key]?.as(value);
+    });
+  }
+
+  function publishSidebarSelection() {
+    if (options.isSidebarActive?.() === false) return;
+    options.syncSidebarSelection?.({
+      activeFilter: state.activeFilter,
+      activeProjectId: state.activeProjectId,
+      activeTag: state.activeTag,
+    });
+  }
+
   const smallCalendarModel = new SmallCalendarModel({
     getDayInfo: calendarDayInfo,
     onChange: handleSmallCalendarChange,
     weekStart: state.editorSettings.calendarWeekStart,
   });
   const memoCardExpansionModel = new MemoCardExpansionModel();
-  const memoCardMenuModel = new MemoCardMenuModel();
   /** @type {MemoListModelInstance} */
   const memoListModel = MemoListModel();
 
@@ -399,6 +677,12 @@ export function mountMemosHome(root, options = {}) {
   let memoDialogEditor = null;
   let memoDialogController = null;
   let acpChatController = null;
+  let source_edit_visibility_ = DEFAULT_VISIBILITY;
+  let source_edit_flags_ = {
+    archived: false,
+    pinned: false,
+    private: false,
+  };
   const memoQuickSearchModel = new MemoQuickSearchModel({
     formatDate: formatRelativeDate,
     openResult(context) {
@@ -415,8 +699,16 @@ export function mountMemosHome(root, options = {}) {
     },
   });
 
-  const unsubscribeMemoCardMenu =
-    memoCardMenuModel.subscribe(syncMemoCardMenus);
+  const unsubscribe_memo_search_dialog = ui.memoSearchDialog.onCancel(
+    closeMemoSearchPalette,
+  );
+  const unsubscribe_feed_search_clear = ui.feedSearchInput.onClear(
+    function () {
+      state.query = "";
+      clearTimeout(state._searchTimer);
+      renderAll();
+    },
+  );
 
   if (els.composerHost) composerEditor = createComposerEditor("");
   const imageContextMenu = bindMemoImageContextMenu(root, {
@@ -488,6 +780,9 @@ export function mountMemosHome(root, options = {}) {
       smallCalendarModel.setSelectedDate("", { silent: true });
     },
     elements: els,
+    publishSidebarProjects(projects) {
+      publishSidebar({ projects });
+    },
     renderAll,
     safeMemoView,
     showPrompt: showInlinePrompt,
@@ -596,6 +891,19 @@ export function mountMemosHome(root, options = {}) {
     selectProjectFilter,
     selectProjectTab,
   } = project_controller;
+  const unsubscribe_composer_project_select =
+    ui.composerProjectSelect.onValueChange(function (value) {
+      const project_id = normalizeProjectID(value);
+      if (project_id === state.composerProjectId) return;
+      state.composerProjectId = project_id;
+      rememberComposerProject(project_id);
+    });
+  const unsubscribe_composer_visibility_select =
+    ui.composerVisibilitySelect.onValueChange(function (value) {
+      const visibility = value || DEFAULT_VISIBILITY;
+      if (visibility === state.visibility) return;
+      state.visibility = visibility;
+    });
   const {
     addTaskNote,
     clearRetainedCompletedTasks,
@@ -665,24 +973,6 @@ export function mountMemosHome(root, options = {}) {
     renderClipboardView,
     requestClipboardLatest,
   } = clipboard_controller;
-  const item_controller = createHomeItemController({
-    beforeRender() {
-      if (!editEditor) return;
-      syncEditDraftFromEditor();
-      editEditor.destroy();
-      editEditor = null;
-      editEditorMemoId = "";
-    },
-    clearControlGroup,
-    controlGroupValue,
-    elements: els,
-    projectLabel,
-    refreshGTD: refreshGTDFromVault,
-    renderAll,
-    showToast,
-    state,
-    taskTimeValue,
-  });
   const milestone_controller = createHomeMilestoneController({
     beforeRender() {
       if (!editEditor) return;
@@ -694,7 +984,7 @@ export function mountMemosHome(root, options = {}) {
     clearControlGroup,
     controlGroupValue,
     elements: els,
-    refreshGTD: refreshGTDFromVault,
+    refreshMilestones: refreshMilestonesFromVault,
     renderAll,
     showToast,
     state,
@@ -702,18 +992,9 @@ export function mountMemosHome(root, options = {}) {
     taskTimeValue,
   });
   const {
-    closeExistingGTDItem,
-    createGTDItemFromForm,
-    deleteExistingGTDItem,
-    renderGTDItems,
-    scopedGTDItems,
-    scopedGTDMilestones,
-    toggleExistingGTDItemCompletion,
-    updateExistingGTDItem,
-  } = item_controller;
-  const {
     createGTDMilestoneFromForm,
     renderGTDMilestones,
+    scopedGTDMilestones,
     updateExistingGTDMilestone,
   } = milestone_controller;
 
@@ -726,7 +1007,7 @@ export function mountMemosHome(root, options = {}) {
   refreshMemoDraftsFromVault();
   refreshTasksFromVault();
   refreshBoardsFromVault();
-  refreshGTDFromVault();
+  refreshMilestonesFromVault();
   refreshEditorSettings({ silent: true });
   refreshStorageForRender();
   refreshLinksDomainFilter();
@@ -734,12 +1015,15 @@ export function mountMemosHome(root, options = {}) {
   checkPrivacyStatus();
 
   window.addEventListener("click", handleExternalLinkClick, true);
-  window.addEventListener("pointerdown", handleMemoMorePointerDown, true);
   root.addEventListener("click", handleClick);
   root.addEventListener("copy", handleMemoRenderedCopy);
   root.addEventListener("input", handleInput);
   root.addEventListener("change", handleChange);
   root.addEventListener("submit", handleSubmit);
+  if (owns_memo_search_palette) {
+    event_document.addEventListener("click", handleMemoSearchPaletteClick);
+    event_document.addEventListener("input", handleMemoSearchPaletteInput);
+  }
   const memo_scroll_container = els.memoList.parentElement;
   memo_scroll_container?.addEventListener("scroll", handleMemoListScroll);
   window.addEventListener("focus", handleWindowFocus);
@@ -755,7 +1039,9 @@ export function mountMemosHome(root, options = {}) {
 
   return {
     activateView(active_view) {
+      const already_active = state.activeView === active_view;
       activateWorkspaceView(active_view);
+      if (already_active) renderAll();
     },
     activateFilter(filter) {
       state.activeView = "memos";
@@ -765,24 +1051,52 @@ export function mountMemosHome(root, options = {}) {
       smallCalendarModel.setSelectedDate("", { silent: true });
       renderAll();
     },
+    activateMemo(memo_id, activate_options = {}) {
+      return activateMemo(memo_id, activate_options);
+    },
+    activateTag(tag) {
+      state.activeView = "memos";
+      state.activeProjectId = "";
+      state.activeFilter = "all";
+      state.activeTag = state.activeTag === tag ? "" : tag;
+      smallCalendarModel.setSelectedDate("", { silent: true });
+      renderAll();
+    },
     createProject() {
       createProjectFromPrompt();
+    },
+    clearActiveMemo() {
+      return setExternalActiveMemo("");
+    },
+    memoCardViewModel(memo_id) {
+      return memo_card_view_models.get(String(memo_id || "").trim()) || null;
+    },
+    loadMoreMemos() {
+      return loadNextMemoFeedPage();
+    },
+    openProject(project_id) {
+      openProjectDetail(project_id);
     },
     showSettings() {
       openSettings();
     },
     destroy() {
       window.removeEventListener("click", handleExternalLinkClick, true);
-      window.removeEventListener(
-        "pointerdown",
-        handleMemoMorePointerDown,
-        true,
-      );
       root.removeEventListener("click", handleClick);
       root.removeEventListener("copy", handleMemoRenderedCopy);
       root.removeEventListener("input", handleInput);
       root.removeEventListener("change", handleChange);
       root.removeEventListener("submit", handleSubmit);
+      if (owns_memo_search_palette) {
+        event_document.removeEventListener(
+          "click",
+          handleMemoSearchPaletteClick,
+        );
+        event_document.removeEventListener(
+          "input",
+          handleMemoSearchPaletteInput,
+        );
+      }
       memo_scroll_container?.removeEventListener(
         "scroll",
         handleMemoListScroll,
@@ -795,7 +1109,13 @@ export function mountMemosHome(root, options = {}) {
       file_controller.destroy();
       if (state.toastTimer) window.clearTimeout(state.toastTimer);
       clipboard_controller.destroy();
-      if (state.highlightTimer) window.clearTimeout(state.highlightTimer);
+      cancelCommentHoverHandoff();
+      Array.from(memo_card_view_models.values()).forEach(function (
+        view_model,
+      ) {
+        view_model.destroy();
+      });
+      memo_card_view_models.clear();
       if (composerAutoSaveTimer) window.clearTimeout(composerAutoSaveTimer);
       composerAutoSaveTimer = null;
       if (composerDraftStatusTimer)
@@ -809,9 +1129,12 @@ export function mountMemosHome(root, options = {}) {
       if (memoDialogController) memoDialogController.destroy();
       if (acpChatController) acpChatController.destroy();
       disconnectProjectScrollObserver();
+      unmountTimelessView(els.calendar);
       smallCalendarModel.destroy();
-      unsubscribeMemoCardMenu();
-      memoCardMenuModel.destroy();
+      unsubscribe_composer_project_select?.();
+      unsubscribe_composer_visibility_select?.();
+      unsubscribe_feed_search_clear?.();
+      unsubscribe_memo_search_dialog?.();
       commentEditEditorCommentId = "";
       commentEditorMemoId = "";
       editEditorMemoId = "";
@@ -819,6 +1142,7 @@ export function mountMemosHome(root, options = {}) {
       memoDialogController = null;
       acpChatController = null;
       state.memoDialog = null;
+      if (owns_active_comment_id_ref) active_comment_id_ref.destroy?.();
     },
   };
 
@@ -1278,21 +1602,13 @@ export function mountMemosHome(root, options = {}) {
           n: "memo-history-dialog-host",
         },
       });
-      host.addEventListener("click", function (event) {
-        var backdrop = closestElement(event.target, "[data-history-backdrop]");
-        var close_button = closestElement(event.target, "[data-action]");
-        if (
-          (close_button &&
-            close_button.dataset.action === "closeHistoryDialog") ||
-          (backdrop && event.target === backdrop)
-        ) {
-          closeHistoryDialog();
-        }
-      });
     }
     renderTimelessView(
       host,
-      HistoryDialogView(historyDialogPresentation(state)),
+      HistoryDialogView({
+        ...historyDialogPresentation(state),
+        store: openDialogStore({ onCancel: closeHistoryDialog }),
+      }),
     );
   }
 
@@ -1337,49 +1653,6 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function handleClick(event) {
-    // Close reaction pickers on clicks outside reaction elements
-    if (
-      !event.target.closest(".memo-reactions-add-wrap, .memo-reactions-picker")
-    ) {
-      closeAllReactionPickers();
-    }
-
-    const searchResult = closestElement(
-      event.target,
-      "[data-memo-search-result]",
-    );
-    if (searchResult && root.contains(searchResult)) {
-      openMemoSearchResult(searchResult.dataset.memoSearchResult || "");
-      return;
-    }
-
-    if (event.target === els.memoSearchPalette) {
-      closeMemoSearchPalette();
-      return;
-    }
-
-    // PIN dialog handlers
-    const pinBackdrop = closestElement(event.target, "[data-pin-backdrop]");
-    if (pinBackdrop && event.target === pinBackdrop) {
-      closePinDialog();
-      return;
-    }
-
-    const cancelPin = closestElement(
-      event.target,
-      '[data-action="cancelPinDialog"]',
-    );
-    if (cancelPin && root.contains(cancelPin)) {
-      closePinDialog();
-      return;
-    }
-
-    const submitPin = closestElement(event.target, '[data-action="submitPin"]');
-    if (submitPin && root.contains(submitPin)) {
-      submitPinDialog();
-      return;
-    }
-
     const unlockOverlay = closestElement(
       event.target,
       '[data-action="unlockPrivate"]',
@@ -1400,15 +1673,16 @@ export function mountMemosHome(root, options = {}) {
     }
 
     const memoDialog = closestElement(event.target, "[data-memo-dialog]");
-    if (memoDialog && event.target === memoDialog) {
-      if (!state.memoDialog || !state.memoDialog.saving) closeMemoDialog();
-      return;
-    }
     if (memoDialog && root.contains(memoDialog)) return;
 
-    const command = closestElement(event.target, "[data-command]");
+    const command = closestElement(
+      event.target,
+      "[data-command], [data-editor-command]",
+    );
     if (command && root.contains(command)) {
-      runComposerCommand(command.dataset.command);
+      runComposerCommand(
+        command.dataset.command || command.dataset.editorCommand,
+      );
       return;
     }
 
@@ -1515,16 +1789,11 @@ export function mountMemosHome(root, options = {}) {
     const commentId = commentNode ? commentNode.dataset.commentId : "";
     const taskNode = closestElement(action, "[data-task-id]");
     const taskId = taskNode ? taskNode.dataset.taskId : "";
-    const gtdItemNode = closestElement(action, "[data-gtd-item-id]");
-    const gtdItemId = gtdItemNode ? gtdItemNode.dataset.gtdItemId : "";
     const gtdMilestoneNode = closestElement(action, "[data-gtd-milestone-id]");
     const gtdMilestoneId = gtdMilestoneNode
       ? gtdMilestoneNode.dataset.gtdMilestoneId
       : "";
     const projectId = action.dataset.projectId || "";
-    if (closestElement(action, "[data-memo-more-menu]")) {
-      memoCardMenuModel.close();
-    }
 
     switch (action.dataset.action) {
     case "addTaskNote":
@@ -1557,6 +1826,7 @@ export function mountMemosHome(root, options = {}) {
       state.editingId = "";
       state.editPreviewVisible = false;
       state.query = "";
+      ui.feedSearchInput.setValue("", { silence: true });
       smallCalendarModel.setSelectedDate("", { silent: true });
       state.linksDomainFilter = "";
       codeBlocksModel.setShowAll(false);
@@ -1637,22 +1907,6 @@ export function mountMemosHome(root, options = {}) {
     case "editTask":
       openTaskEditDialog(taskId);
       break;
-    case "triageGTDItem":
-      updateExistingGTDItem(
-        gtdItemId,
-        { status: "triaged" },
-        "已标记为已澄清",
-      );
-      break;
-    case "waitGTDItem":
-      updateExistingGTDItem(gtdItemId, { status: "waiting" }, "已标记为等待");
-      break;
-    case "closeGTDItem":
-      closeExistingGTDItem(gtdItemId);
-      break;
-    case "deleteGTDItem":
-      deleteExistingGTDItem(gtdItemId);
-      break;
     case "activateGTDMilestone":
       updateExistingGTDMilestone(
         gtdMilestoneId,
@@ -1672,9 +1926,6 @@ export function mountMemosHome(root, options = {}) {
       break;
     case "createTaskSubmit":
       createTaskFromForm(action.closest("[data-task-create-form]"));
-      break;
-    case "createGTDItemSubmit":
-      createGTDItemFromForm(action.closest("[data-gtd-item-create-form]"));
       break;
     case "createGTDMilestoneSubmit":
       createGTDMilestoneFromForm(
@@ -1740,9 +1991,6 @@ export function mountMemosHome(root, options = {}) {
       break;
     case "expandMemo":
       expandMemo(memoId, action);
-      break;
-    case "toggleMemoMore":
-      memoCardMenuModel.toggle(memoId);
       break;
     case "toggleMemoToc":
       toggleMemoToc(memoId);
@@ -1879,9 +2127,6 @@ export function mountMemosHome(root, options = {}) {
         if (cn) openCommentHistory(cn.getAttribute("data-comment-id"));
       }
       break;
-    case "closeHistoryDialog":
-      closeHistoryDialog();
-      break;
     case "previewHistoryVersion":
       previewHistoryVersion(parseInt(action.dataset.version, 10));
       break;
@@ -1909,28 +2154,10 @@ export function mountMemosHome(root, options = {}) {
     case "togglePin":
       togglePin(memoId);
       break;
-    case "toggleMemoReactions":
-      toggleMemoReactions(event, memoId, action);
-      break;
-    case "pickMemoReaction":
-      {
-        var emoji = action.dataset.emoji;
-        if (emoji) toggleMemoReaction(memoId, emoji);
-      }
-      break;
     case "toggleMemoReaction":
       {
         var emoji = action.dataset.emoji;
         if (emoji) toggleMemoReaction(memoId, emoji);
-      }
-      break;
-    case "toggleCommentReactions":
-      toggleCommentReactions(event, commentId, action);
-      break;
-    case "pickCommentReaction":
-      {
-        var emoji = action.dataset.emoji;
-        if (emoji) toggleCommentReaction(commentId, emoji);
       }
       break;
     case "toggleCommentReaction":
@@ -1949,13 +2176,6 @@ export function mountMemosHome(root, options = {}) {
     if (taskForm && root.contains(taskForm)) {
       event.preventDefault();
       createTaskFromForm(taskForm);
-      return;
-    }
-
-    const itemForm = event.target.closest("[data-gtd-item-create-form]");
-    if (itemForm && root.contains(itemForm)) {
-      event.preventDefault();
-      createGTDItemFromForm(itemForm);
       return;
     }
 
@@ -2240,6 +2460,7 @@ export function mountMemosHome(root, options = {}) {
     memoQuickSearchModel.open();
     renderMemoSearchPalette();
     window.requestAnimationFrame(function () {
+      syncMemoSearchPaletteElements();
       if (!els.memoSearchInput) return;
       els.memoSearchInput.focus();
       els.memoSearchInput.select();
@@ -2256,12 +2477,56 @@ export function mountMemosHome(root, options = {}) {
       showToast("找不到搜索结果");
   }
 
+  function syncMemoSearchPaletteElements() {
+    const palette = event_document.querySelector(
+      "[data-memo-search-palette]",
+    );
+    els.memoSearchPalette = palette;
+    els.memoSearchInput = palette?.querySelector(
+      "[data-memo-search-input]",
+    );
+    els.memoSearchResults = palette?.querySelector(
+      "[data-memo-search-results]",
+    );
+    return palette;
+  }
+
+  function handleMemoSearchPaletteClick(event) {
+    if (!memoQuickSearchModel.snapshot().open) return;
+    const palette = syncMemoSearchPaletteElements();
+    if (!palette?.contains(event.target)) return;
+    const search_result = closestElement(
+      event.target,
+      "[data-memo-search-result]",
+    );
+    if (search_result) {
+      openMemoSearchResult(search_result.dataset.memoSearchResult || "");
+    }
+  }
+
+  function handleMemoSearchPaletteInput(event) {
+    if (!memoQuickSearchModel.snapshot().open) return;
+    const palette = syncMemoSearchPaletteElements();
+    if (!palette?.contains(event.target)) return;
+    if (!event.target.matches("[data-memo-search-input]")) return;
+    memoQuickSearchModel.setQuery(event.target.value);
+    ui.memoSearchQuery.as(event.target.value);
+    renderMemoSearchPalette();
+  }
+
   function renderMemoSearchPalette() {
-    if (!els.memoSearchPalette) return;
     const snapshot = memoQuickSearchModel.snapshot();
-    ui.memoSearchPaletteHidden.as(!snapshot.open);
-    if (!snapshot.open) return;
+    const dialog = ui.memoSearchDialog;
+    if (!snapshot.open) {
+      if (dialog.state.visible && !dialog.state.exit) dialog.hide();
+      els.memoSearchPalette = null;
+      els.memoSearchInput = null;
+      els.memoSearchResults = null;
+      return;
+    }
+    if (!dialog.state.visible) dialog.show();
     ui.memoSearchQuery.as(snapshot.query);
+    syncMemoSearchPaletteElements();
 
     const results = snapshot.results;
     if (!els.memoSearchResults) return;
@@ -2366,41 +2631,53 @@ export function mountMemosHome(root, options = {}) {
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
 
-  function focusMemo(memoId, options = {}) {
-    const memo = findMemo(memoId);
-    if (!memo) {
-      showToast("找不到引用的 memo");
-      return;
+  function activateMemo(memo_id, options = {}) {
+    const normalized_memo_id = String(memo_id || "").trim();
+    if (!normalized_memo_id) {
+      setExternalActiveMemo("");
+      return true;
     }
-    const commentId = String(options.commentId || "").trim();
-    if (commentId) state.expandedCommentListMemoIds.add(memo.id);
+    const memo = findMemo(normalized_memo_id);
+    if (!memo) {
+      if (options.notify !== false) showToast("找不到引用的 memo");
+      return false;
+    }
+    const comment_id = String(options.commentId || "").trim();
+    if (comment_id) state.expandedCommentListMemoIds.add(memo.id);
+    setExternalActiveMemo(memo.id);
 
-    state.activeView = "memos";
-    state.activeFilter = memo.archived ? "archive" : "all";
-    state.activeTag = "";
-    state.activeProjectFilter = "all";
-    state.editingId = "";
-    state.editPreviewVisible = false;
-    state.query = "";
-    smallCalendarModel.setSelectedDate("", { silent: true });
-    renderAll();
+    if (options.reveal !== false) {
+      state.activeView = "memos";
+      state.activeFilter = memo.archived ? "archive" : "all";
+      state.activeTag = "";
+      state.activeProjectFilter = "all";
+      state.editingId = "";
+      state.editPreviewVisible = false;
+      state.query = "";
+      smallCalendarModel.setSelectedDate("", { silent: true });
+      renderAll();
+    }
 
+    if (options.scroll === false) return true;
     window.requestAnimationFrame(function () {
-      const target = commentId
+      const target = comment_id
         ? els.memoList.querySelector(
-            `[data-comment-id="${escapeCSSIdent(commentId)}"]`,
+            `[data-comment-id="${escapeCSSIdent(comment_id)}"]`,
         )
         : els.memoList.querySelector(
-            `[data-memo-id="${escapeCSSIdent(memoId)}"]`,
+            `[data-memo-id="${escapeCSSIdent(memo.id)}"]`,
         );
       if (!target) return;
       target.scrollIntoView({ block: "center", behavior: "smooth" });
-      target.classList.add("is-highlighted");
-      if (state.highlightTimer) window.clearTimeout(state.highlightTimer);
-      state.highlightTimer = window.setTimeout(function () {
-        target.classList.remove("is-highlighted");
-        state.highlightTimer = null;
-      }, 1500);
+    });
+    return true;
+  }
+
+  function focusMemo(memo_id, options = {}) {
+    return activateMemo(memo_id, {
+      ...options,
+      reveal: true,
+      scroll: options.scroll !== false,
     });
   }
 
@@ -2415,8 +2692,7 @@ export function mountMemosHome(root, options = {}) {
 
   function renderSourceMemoDialog(memo) {
     closeSourceMemoDialog();
-    const overlay = appendTimelessHost(root, {
-      class: "tn-overlay tn-dialog-layer is-open memo-dialog",
+    const host = appendTimelessHost(root, {
       attributes: {
         "data-source-memo-dialog": "",
         n: "source-memo-dialog-host",
@@ -2429,18 +2705,18 @@ export function mountMemosHome(root, options = {}) {
     } catch (_) {
       html = `<p>${escapeHTML(memo.content || "")}</p>`;
     }
-    renderTimelessView(overlay, SourceMemoDialogView({ html }));
+    renderTimelessView(
+      host,
+      SourceMemoDialogView({
+        html,
+        store: openDialogStore({
+          onCancel: closeSourceMemoDialog,
+          title: "来源 Memo",
+        }),
+      }),
+    );
 
-    overlay.addEventListener("click", function (event) {
-      if (event.target === overlay) closeSourceMemoDialog();
-      const closeBtn = closestElement(
-        event.target,
-        "[data-source-memo-dialog-close]",
-      );
-      if (closeBtn) closeSourceMemoDialog();
-    });
-
-    overlay.addEventListener("change", function (event) {
+    host.addEventListener("change", function (event) {
       if (!event.target.matches("[data-task-line]")) return;
       const memoId = event.target.dataset.taskSourceMemoId;
       const lineIndex = Number(event.target.dataset.taskLine);
@@ -2464,13 +2740,6 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function handleInput(event) {
-    if (event.target.matches("[data-memo-search-input]")) {
-      memoQuickSearchModel.setQuery(event.target.value);
-      ui.memoSearchQuery.as(event.target.value);
-      renderMemoSearchPalette();
-      return;
-    }
-
     if (
       event.target.matches("[data-search-input], [data-project-memo-search]")
     ) {
@@ -2489,37 +2758,12 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function handleKeydown(event) {
-    if (event.key === "Escape" && memoCardMenuModel.state.openMemoId) {
-      const memoId = memoCardMenuModel.state.openMemoId;
-      memoCardMenuModel.close();
-      const trigger = Array.from(root.querySelectorAll("[data-memo-more]"))
-        .find((element) => element.dataset.memoId === memoId)
-        ?.querySelector('[data-action="toggleMemoMore"]');
-      trigger?.focus();
-      event.preventDefault();
-      return;
-    }
-    if (
-      event.key === "Escape" &&
-      root.querySelector("[data-reactions-picker]:not([hidden])")
-    ) {
-      closeAllReactionPickers();
-      return;
-    }
     if (
       root.querySelector("[data-inline-task-detail-dialog]") &&
       event.key === "Escape"
     ) {
       event.preventDefault();
       closeInlineTaskDetailDialog();
-      return;
-    }
-    if (
-      root.querySelector("[data-source-memo-dialog]") &&
-      event.key === "Escape"
-    ) {
-      event.preventDefault();
-      closeSourceMemoDialog();
       return;
     }
     if (
@@ -2530,18 +2774,6 @@ export function mountMemosHome(root, options = {}) {
       closeTaskEditDialog();
       return;
     }
-    if (state.memoDialog && event.key === "Escape") {
-      const editorHost = closestElement(
-        event.target,
-        "[data-memo-dialog-editor-host]",
-      );
-      if (!editorHost && !state.memoDialog.saving) {
-        event.preventDefault();
-        closeMemoDialog();
-        return;
-      }
-    }
-
     if (memoQuickSearchModel.snapshot().open) {
       handleMemoSearchKeydown(event);
       return;
@@ -2562,10 +2794,6 @@ export function mountMemosHome(root, options = {}) {
         event.target,
         "[data-task-create-form]",
       );
-      const item_create = closestElement(
-        event.target,
-        "[data-gtd-item-create-form]",
-      );
       const milestone_create = closestElement(
         event.target,
         "[data-gtd-milestone-create-form]",
@@ -2580,14 +2808,12 @@ export function mountMemosHome(root, options = {}) {
       );
       if (
         task_create ||
-        item_create ||
         milestone_create ||
         board_create ||
         board_task_create
       ) {
         event.preventDefault();
         if (task_create) createTaskFromForm(task_create);
-        else if (item_create) createGTDItemFromForm(item_create);
         else if (milestone_create) createGTDMilestoneFromForm(milestone_create);
         else if (board_create) handleBoardCreateSubmit(board_create);
         else {
@@ -2620,12 +2846,6 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function handleMemoSearchKeydown(event) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closeMemoSearchPalette();
-      return;
-    }
-
     if (event.key === "ArrowDown") {
       event.preventDefault();
       memoQuickSearchModel.moveActive(1);
@@ -2655,51 +2875,8 @@ export function mountMemosHome(root, options = {}) {
       return;
     }
 
-    if (event.target.matches("[data-visibility-select]")) {
-      state.visibility = event.target.value;
-      return;
-    }
-
-    if (event.target.matches("[data-comment-visibility-select]")) {
-      state.commentVisibility = event.target.value;
-      return;
-    }
-
-    if (event.target.matches("[data-project-select]")) {
-      state.composerProjectId = normalizeProjectID(event.target.value);
-      rememberComposerProject(state.composerProjectId);
-      renderComposerProjectSelect();
-      return;
-    }
-
     if (event.target.matches("[data-project-filter-select]")) {
       selectProjectFilter(event.target.value || "all");
-      return;
-    }
-
-    if (event.target.matches("[data-edit-visibility]")) {
-      state.editVisibility = event.target.value;
-      return;
-    }
-
-    if (event.target.matches("[data-edit-project]")) {
-      state.editProjectId = normalizeProjectID(event.target.value);
-      return;
-    }
-
-    if (
-      event.target.matches("[data-memo-dialog-project]") &&
-      state.memoDialog
-    ) {
-      state.memoDialog.projectId = normalizeProjectID(event.target.value);
-      return;
-    }
-
-    if (
-      event.target.matches("[data-memo-dialog-visibility]") &&
-      state.memoDialog
-    ) {
-      state.memoDialog.visibility = event.target.value || DEFAULT_VISIBILITY;
       return;
     }
 
@@ -2735,13 +2912,6 @@ export function mountMemosHome(root, options = {}) {
 
     if (event.target.matches("[data-board-card-complete]")) {
       toggleBoardCardCompletion(event.target);
-      return;
-    }
-
-    if (event.target.matches("[data-gtd-item-complete]")) {
-      const itemNode = closestElement(event.target, "[data-gtd-item-id]");
-      if (!itemNode) return;
-      toggleExistingGTDItemCompletion(itemNode.dataset.gtdItemId, event.target);
       return;
     }
 
@@ -3432,7 +3602,6 @@ export function mountMemosHome(root, options = {}) {
     }
 
     const dialog = appendTimelessHost(root, {
-      class: "tn-overlay tn-dialog-layer is-open memo-dialog",
       attributes: {
         "data-memo-dialog": "true",
         "data-memo-id": memo ? memo.id : "",
@@ -3464,6 +3633,12 @@ export function mountMemosHome(root, options = {}) {
             : "",
         replyTo: replyToPreview,
         saveLabel: comment_editing ? "保存" : "评论",
+        store: openDialogStore({
+          onCancel() {
+            if (!state.memoDialog?.saving) closeMemoDialog();
+          },
+          title: comment_editing ? "编辑评论" : "评论",
+        }),
         title: comment_editing ? "编辑评论" : "评论",
       }),
     );
@@ -3572,7 +3747,7 @@ export function mountMemosHome(root, options = {}) {
     dialog.classList.toggle("is-saving", dialogState.saving);
     dialog
       .querySelectorAll(
-        "[data-memo-dialog-action], [data-memo-dialog-project], [data-memo-dialog-visibility]",
+        "[data-memo-dialog-action]",
       )
       .forEach(function (control) {
         control.disabled = dialogState.saving;
@@ -3937,8 +4112,7 @@ export function mountMemosHome(root, options = {}) {
 
   function openSourceEditDialog(memo) {
     closeSourceEditDialog();
-    var overlay = appendTimelessHost(root, {
-      class: "tn-overlay tn-dialog-layer is-open memo-dialog",
+    var host = appendTimelessHost(root, {
       attributes: {
         "data-source-edit-dialog": "",
         n: "source-edit-dialog-host",
@@ -3947,27 +4121,62 @@ export function mountMemosHome(root, options = {}) {
     const secret =
       Boolean(memo.private) &&
       (memo.visibility || DEFAULT_VISIBILITY) === "PRIVATE";
+    source_edit_visibility_ = secret
+      ? "SECRET"
+      : memo.visibility || DEFAULT_VISIBILITY;
+    source_edit_flags_ = {
+      archived: Boolean(memo.archived),
+      pinned: Boolean(memo.pinned),
+      private: secret ? false : Boolean(memo.private),
+    };
+    const visibility_options = Object.keys(VISIBILITY).map(function (value) {
+      return { label: value, value };
+    });
     renderTimelessView(
-      overlay,
+      host,
       SourceEditDialogView({
+        archivedCheckbox: checkboxStore(
+          source_edit_flags_.archived,
+          function (checked) {
+            source_edit_flags_.archived = checked;
+          },
+        ),
         createdAt: formatDisplayTime(memo.createdAt),
         memo,
-        private: secret ? false : Boolean(memo.private),
-        updatedAt: formatDisplayTime(memo.updatedAt),
-        visibility: secret ? "SECRET" : memo.visibility || DEFAULT_VISIBILITY,
-        visibilityOptions: Object.keys(VISIBILITY).map(function (value) {
-          return { label: value, value };
+        pinnedCheckbox: checkboxStore(
+          source_edit_flags_.pinned,
+          function (checked) {
+            source_edit_flags_.pinned = checked;
+          },
+        ),
+        privateCheckbox: checkboxStore(
+          source_edit_flags_.private,
+          function (checked) {
+            source_edit_flags_.private = checked;
+          },
+        ),
+        store: openDialogStore({
+          onCancel: closeSourceEditDialog,
+          title: "编辑源数据",
         }),
+        updatedAt: formatDisplayTime(memo.updatedAt),
+        visibilitySelect: selectStore(
+          visibility_options,
+          source_edit_visibility_,
+          "可见性",
+          function (value) {
+            source_edit_visibility_ = value || DEFAULT_VISIBILITY;
+          },
+        ),
       }),
     );
 
-    overlay.addEventListener("click", function (event) {
-      if (event.target === overlay) closeSourceEditDialog();
-      var closeBtn = closestElement(
+    host.addEventListener("click", function (event) {
+      var cancel_button = closestElement(
         event.target,
-        "[data-source-edit-dialog-close]",
+        "[data-source-edit-cancel]",
       );
-      if (closeBtn) closeSourceEditDialog();
+      if (cancel_button) closeSourceEditDialog();
       var save_button = closestElement(event.target, "[data-source-edit-save]");
       if (save_button) saveSourceEditDialog(memo.id);
       var openFileBtn = closestElement(event.target, "[data-open-file]");
@@ -4025,12 +4234,12 @@ export function mountMemosHome(root, options = {}) {
     var fields = overlay.querySelectorAll("[data-source-edit-field]");
     var data = {};
     fields.forEach(function (field) {
-      if (field.type === "checkbox") {
-        data[field.name] = field.checked;
-      } else {
-        data[field.name] = String(field.value || "").trim();
-      }
+      data[field.name] = String(field.value || "").trim();
     });
+    data.visibility = source_edit_visibility_;
+    data.archived = source_edit_flags_.archived;
+    data.pinned = source_edit_flags_.pinned;
+    data.private = source_edit_flags_.private;
 
     // Validate createdAt
     if (!data.createdAt) {
@@ -4424,60 +4633,6 @@ export function mountMemosHome(root, options = {}) {
 
   /* ── Emoji Reactions ── */
 
-  var reactionDocHandler = null;
-
-  function installReactionDocHandler() {
-    uninstallReactionDocHandler();
-    reactionDocHandler = function (event) {
-      if (
-        event.target.closest(".memo-reactions-add-wrap, .memo-reactions-picker")
-      )
-        return;
-      closeAllReactionPickers();
-    };
-    window.setTimeout(function () {
-      document.addEventListener("click", reactionDocHandler, true);
-    }, 0);
-  }
-
-  function uninstallReactionDocHandler() {
-    if (reactionDocHandler) {
-      document.removeEventListener("click", reactionDocHandler, true);
-      reactionDocHandler = null;
-    }
-  }
-
-  function closeAllReactionPickers() {
-    root.querySelectorAll("[data-reactions-picker]").forEach(function (el) {
-      el.hidden = true;
-    });
-    uninstallReactionDocHandler();
-  }
-
-  function toggleMemoReactions(event, memoId, action) {
-    event.stopPropagation();
-    closeAllReactionPickers();
-    if (!action) return;
-    var wrap = action.closest(".memo-reactions-add-wrap");
-    if (!wrap) return;
-    var picker = wrap.querySelector("[data-reactions-picker]");
-    if (!picker) return;
-    picker.hidden = !picker.hidden;
-    if (!picker.hidden) installReactionDocHandler();
-  }
-
-  function toggleCommentReactions(event, commentId, action) {
-    event.stopPropagation();
-    closeAllReactionPickers();
-    if (!action) return;
-    var wrap = action.closest(".memo-reactions-add-wrap");
-    if (!wrap) return;
-    var picker = wrap.querySelector("[data-reactions-picker]");
-    if (!picker) return;
-    picker.hidden = !picker.hidden;
-    if (!picker.hidden) installReactionDocHandler();
-  }
-
   function memoReactions(memoId) {
     var memo = findMemo(memoId);
     return memo && Array.isArray(memo.reactions) ? memo.reactions : [];
@@ -4498,7 +4653,6 @@ export function mountMemosHome(root, options = {}) {
       next = reactions.concat([emoji]);
     }
     updateMemo(memoId, { reactions: next });
-    closeAllReactionPickers();
   }
 
   function toggleCommentReaction(commentId, emoji) {
@@ -4520,7 +4674,6 @@ export function mountMemosHome(root, options = {}) {
         renderAll();
       },
     );
-    closeAllReactionPickers();
   }
 
   function toggleTask(memoId, lineIndex, checked) {
@@ -4822,9 +4975,11 @@ export function mountMemosHome(root, options = {}) {
         unmountTimelessView(host);
       });
     state.memoRefIndex = buildMemoReferenceIndex(state.memos);
+    publishSidebarSelection();
     renderMainChrome();
     renderProjects();
     renderComposerProjectSelect();
+    ui.composerVisibilitySelect.setValue(state.visibility);
     renderViewButtons();
     renderFilterButtons();
     renderCalendar();
@@ -4836,26 +4991,6 @@ export function mountMemosHome(root, options = {}) {
       syncMemoQuickSearchSources();
       renderMemoSearchPalette();
     }
-  }
-
-  function syncMemoCardMenus(menuState) {
-    const openMemoId = String(menuState?.openMemoId || "");
-    root.querySelectorAll("[data-memo-more]").forEach(function (wrapper) {
-      const open = Boolean(openMemoId && wrapper.dataset.memoId === openMemoId);
-      const trigger = wrapper.querySelector('[data-action="toggleMemoMore"]');
-      const menu = wrapper.querySelector("[data-memo-more-menu]");
-      wrapper.classList.toggle("is-open", open);
-      if (trigger) trigger.setAttribute("aria-expanded", String(open));
-      if (menu) menu.hidden = !open;
-    });
-  }
-
-  function handleMemoMorePointerDown(event) {
-    const openMemoId = memoCardMenuModel.state.openMemoId;
-    if (!openMemoId) return;
-    const wrapper = closestElement(event.target, "[data-memo-more]");
-    if (wrapper && wrapper.dataset.memoId === openMemoId) return;
-    memoCardMenuModel.close();
   }
 
   function renderMainChrome() {
@@ -4922,9 +5057,6 @@ export function mountMemosHome(root, options = {}) {
     switch (state.activeView) {
     case "todos":
       renderTodos();
-      return;
-    case "items":
-      renderGTDItems();
       return;
     case "milestones":
       renderGTDMilestones();
@@ -5001,15 +5133,11 @@ export function mountMemosHome(root, options = {}) {
     const codeSnippetCount = codeBlocks.filter((block) => block.marked).length;
     const codeBlockCount = codeBlocks.length;
     const resourceCount = collectResources(documents).length;
-    const openItemCount = scopedGTDItems().filter(
-      (item) => item.status !== "closed" && item.status !== "resolved",
-    ).length;
     const activeMilestoneCount = scopedGTDMilestones().filter(
       (milestone) =>
         milestone.status === "active" || milestone.status === "planned",
     ).length;
     ui.todoNavCount.as(todoStats.open ? String(todoStats.open) : "");
-    ui.itemNavCount.as(openItemCount ? String(openItemCount) : "");
     ui.milestoneNavCount.as(
       activeMilestoneCount ? String(activeMilestoneCount) : "",
     );
@@ -5036,6 +5164,24 @@ export function mountMemosHome(root, options = {}) {
       return sum + (b.rules || []).length;
     }, 0);
     ui.rulesNavCount.as(totalRules ? String(totalRules) : "");
+    publishSidebar({
+      boardNavCount: state.boards.length ? String(state.boards.length) : "",
+      clipboardNavCount:
+        state.clipboardItem && state.clipboardItem.id ? "1" : "",
+      codeNavCount: codeBlockCount
+        ? codeSnippetCount
+          ? `${codeSnippetCount}/${codeBlockCount}`
+          : String(codeBlockCount)
+        : "",
+      fileNavCount: resourceCount ? String(resourceCount) : "",
+      imageNavCount: imageCount ? String(imageCount) : "",
+      linkNavCount: linkCount ? String(linkCount) : "",
+      milestoneNavCount: activeMilestoneCount
+        ? String(activeMilestoneCount)
+        : "",
+      rulesNavCount: totalRules ? String(totalRules) : "",
+      todoNavCount: todoStats.open ? String(todoStats.open) : "",
+    });
   }
 
   function renderFilterButtons() {
@@ -5043,6 +5189,7 @@ export function mountMemosHome(root, options = {}) {
       (memo) => !memo.archived,
     ).length;
     ui.allNavCount.as(String(activeMemoCount));
+    publishSidebar({ allNavCount: String(activeMemoCount) });
   }
 
   function renderCalendar() {
@@ -5050,17 +5197,30 @@ export function mountMemosHome(root, options = {}) {
       dateCounts: memoDateCounts(scopedMemos()),
       weekStart: calendarWeekStart(),
     });
+    if (!els.calendar) return;
+    renderTimelessView(
+      els.calendar,
+      SmallCalendarView({
+        model: smallCalendarModel,
+        runtime: TimelessPrimitive,
+      }),
+    );
   }
 
   function renderTags() {
-    if (!els.tagList) return;
     const tags = collectTags(scopedMemos().filter((memo) => !memo.archived));
-    ui.tagSummary.as(tags.length ? `${tags.length} 个标签` : "暂无标签");
+    const tag_summary = tags.length ? `${tags.length} 个标签` : "暂无标签";
+    const tag_presentations = tags.map(function ([tag, count]) {
+      return { count, tag };
+    });
+    ui.tagSummary.as(tag_summary);
+    publishSidebar({ tagSummary: tag_summary, tags: tag_presentations });
+    if (!els.tagList) return;
     renderTimelessView(
       els.tagList,
       TagListView({
-        tags: tags.map(function ([tag, count]) {
-          return { active: state.activeTag === tag, count, tag };
+        tags: tag_presentations.map(function (item) {
+          return { ...item, active: state.activeTag === item.tag };
         }),
       }),
     );
@@ -5093,11 +5253,7 @@ export function mountMemosHome(root, options = {}) {
       container.scrollHeight - 80
     ) {
       if (state.activeView === "memos") {
-        const memos = visibleMemos();
-        const maxPage = Math.ceil(memos.length / FEED_PAGE_SIZE);
-        if (state.feedPage >= maxPage) return;
-        state.feedPage++;
-        appendFeedPage();
+        loadNextMemoFeedPage();
       } else if (state.activeView === "links") {
         loadNextLinksPage();
       } else if (state.activeView === "codeblocks") {
@@ -5112,6 +5268,16 @@ export function mountMemosHome(root, options = {}) {
         renderProjectDetail();
       }
     }
+  }
+
+  function loadNextMemoFeedPage() {
+    if (state.activeView !== "memos") return false;
+    const memos = visibleMemos();
+    const max_page = Math.ceil(memos.length / FEED_PAGE_SIZE);
+    if (state.feedPage >= max_page) return false;
+    state.feedPage++;
+    appendFeedPage();
+    return true;
   }
 
   function appendFeedPage() {
@@ -5347,25 +5513,68 @@ export function mountMemosHome(root, options = {}) {
 
   function safeMemoView(memo) {
     try {
-      return memoCardPresentation(memo);
+      return createMemoCardViewModel(memoCardPresentation(memo));
     } catch (err) {
-      return {
+      return createMemoCardViewModel({
+        className: "memo-card is-archived",
         error: "memo 渲染失败: " + errorMessage(err),
         id: memo.id,
-      };
+      });
     }
+  }
+
+  function createMemoCardViewModel(presentation) {
+    const memo_id = String(presentation?.id || "").trim();
+    const existing_view_model = memo_card_view_models.get(memo_id);
+    if (existing_view_model) {
+      existing_view_model.updatePresentation(presentation);
+      existing_view_model.setActive(
+        state.externalActiveMemoId === memo_id,
+      );
+      return existing_view_model;
+    }
+    const view_model = new MemoCardViewModel({
+      active: state.externalActiveMemoId === memo_id,
+      presentation,
+      onDestroy(destroyed_view_model) {
+        if (memo_card_view_models.get(memo_id) === destroyed_view_model) {
+          memo_card_view_models.delete(memo_id);
+        }
+      },
+    });
+    if (memo_id) memo_card_view_models.set(memo_id, view_model);
+    return view_model;
   }
 
   function renderFeedCollection() {
     const memos = visibleMemos();
     const visible_count = state.feedPage * FEED_PAGE_SIZE;
     const paginated = memos.slice(0, visible_count);
+    const has_more = paginated.length < memos.length;
+    const memo_presentations = paginated.map(safeMemoView);
+    const visible_memo_ids = new Set(
+      memo_presentations.map((memo) => String(memo.id || "").trim()),
+    );
+    Array.from(memo_card_view_models.entries()).forEach(function ([
+      memo_id,
+      view_model,
+    ]) {
+      if (visible_memo_ids.has(memo_id)) return;
+      view_model.destroy();
+    });
+    const project_presentations = projectOptionsPresentation();
+    if (options.section === "memos") {
+      ui.memoFeedProjects.as(project_presentations);
+      ui.memoFeedHasMore.as(has_more);
+      ui.memoFeedMemos.as(memo_presentations);
+      return;
+    }
     renderTimelessView(
       els.memoList,
       MemoFeedView({
-        hasMore: paginated.length < memos.length,
-        memos: paginated.map(safeMemoView),
-        projects: projectOptionsPresentation(),
+        hasMore: has_more,
+        memos: memo_presentations,
+        projects: project_presentations,
       }),
     );
   }
@@ -5434,12 +5643,30 @@ export function mountMemosHome(root, options = {}) {
     } catch (_) {
       html = `<p>${escapeHTML(comment.content || "")}</p>`;
     }
+    const reaction_menu = commentReactionMenuModel(comment);
     return {
+      active: computed(active_comment_id_ref, function (active_comment_id) {
+        return active_comment_id === comment.id;
+      }),
       editing: comment.id === state.commentEditingId,
       hasHistory: Boolean(comment.updatedAt),
       html,
       id: comment.id,
+      onMouseEnter() {
+        handleCommentMouseEnter(comment.id);
+      },
+      onMouseLeave() {
+        handleCommentMouseLeave(comment.id);
+      },
+      onReactionMenuMouseEnter() {
+        handleCommentReactionMenuMouseEnter(comment.id);
+      },
+      onReactionMenuMouseLeave() {
+        handleCommentReactionMenuMouseLeave(comment.id);
+      },
       private: Boolean(comment.private && !state.privateUnlocked),
+      reactionMenu: reaction_menu.store,
+      reactionMenuDestroy: reaction_menu.destroy,
       reactions: Array.isArray(comment.reactions)
         ? comment.reactions.slice()
         : [],
@@ -5506,6 +5733,140 @@ export function mountMemosHome(root, options = {}) {
     };
   }
 
+  function memoMoreMenuItem(label, icon_name, on_click, options = {}) {
+    const menu_item = new TimelessPrimitive.vm.MenuItemCore({
+      icon: TimelessPrimitive.Icon({
+        name: icon_name,
+        attributes: { n: "memo-more-menu-item-icon" },
+      }),
+      label,
+      onClick: on_click,
+    });
+    menu_item.variant = options.variant || "default";
+    return menu_item;
+  }
+
+  function reactionMenuStore(reactions, on_click) {
+    const active_reactions = new Set(
+      Array.isArray(reactions) ? reactions : [],
+    );
+    const items = MEMO_REACTIONS.map(function ([emoji, label]) {
+      return new TimelessPrimitive.vm.MenuItemCore({
+        label: emoji + " " + label,
+        onClick() {
+          on_click(emoji);
+        },
+        shortcut: active_reactions.has(emoji) ? "已选择" : "",
+      });
+    });
+    return new TimelessPrimitive.vm.DropdownMenuCore({
+      items,
+      trigger: "hover",
+    });
+  }
+
+  function commentReactionMenuModel(comment) {
+    const store = reactionMenuStore(comment.reactions, function (emoji) {
+      toggleCommentReaction(comment.id, emoji);
+    });
+    let destroyed = false;
+    let menu_open = Boolean(store.state.visible);
+    const unsubscribe = store.onStateChange(function (menu_state) {
+      const next_open = Boolean(menu_state.visible);
+      if (menu_open === next_open) return;
+      menu_open = next_open;
+      handleCommentReactionMenuOpenChange(comment.id, menu_open);
+    });
+    return {
+      destroy() {
+        if (destroyed) return;
+        destroyed = true;
+        if (typeof unsubscribe === "function") unsubscribe();
+        if (menu_open) {
+          handleCommentReactionMenuOpenChange(comment.id, false);
+        }
+        store.unmount?.();
+      },
+      store,
+    };
+  }
+
+  function memoMoreMenuModel(memo) {
+    const items = [
+      memoMoreMenuItem("在独立窗口中编辑", "external-link", function () {
+        openEditMemoWindow(memo.id);
+      }),
+      memoMoreMenuItem("编辑源数据", "braces", function () {
+        openSourceEditDialog(memo);
+      }),
+    ];
+    if (memo.updatedAt) {
+      items.push(
+        memoMoreMenuItem("版本历史", "history", function () {
+          openMemoHistory(memo.id);
+        }),
+      );
+    }
+    items.push(
+      memoMoreMenuItem("复制引用", "file-symlink", function () {
+        copyMemoRef(memo.id);
+      }),
+    );
+    items.push(new TimelessPrimitive.vm.MenuSeparatorCore());
+    if (memo.archived) {
+      items.push(
+        memoMoreMenuItem("恢复 Memo", "undo2", function () {
+          updateMemo(memo.id, { archived: false });
+        }),
+      );
+    } else {
+      items.push(
+        memoMoreMenuItem("归档 Memo", "inbox", function () {
+          updateMemo(memo.id, { archived: true });
+        }),
+      );
+    }
+    items.push(
+      memoMoreMenuItem(
+        "删除 Memo",
+        "trash2",
+        function () {
+          deleteMemo(memo.id);
+        },
+        { variant: "destructive" },
+      ),
+    );
+    const store = new TimelessPrimitive.vm.DropdownMenuCore({
+      align: "end",
+      items,
+      trigger: "hover",
+    });
+    let destroyed = false;
+    return {
+      destroy() {
+        if (destroyed) return;
+        destroyed = true;
+        store.unmount?.();
+      },
+      store,
+    };
+  }
+
+  function memoReactionMenuModel(memo) {
+    const store = reactionMenuStore(memo.reactions, function (emoji) {
+      toggleMemoReaction(memo.id, emoji);
+    });
+    let destroyed = false;
+    return {
+      destroy() {
+        if (destroyed) return;
+        destroyed = true;
+        store.unmount?.();
+      },
+      store,
+    };
+  }
+
   function memoCardPresentation(memo, context_options = {}) {
     const render_context = memoRenderContext(memo.id, context_options);
     const visibility =
@@ -5526,6 +5887,16 @@ export function mountMemosHome(root, options = {}) {
       html = `<p>${escapeHTML(memo.content || "")}</p>`;
     }
     const line_count = String(memo.content || "").split("\n").length;
+    const visibility_options = [
+      { label: "仅自己", value: "PRIVATE" },
+      { label: "私密", value: "SECRET" },
+      { label: "工作区", value: "PROTECTED" },
+      { label: "公开", value: "PUBLIC" },
+    ];
+    const editing = memo.id === state.editingId;
+    const commenting = state.commentingMemoId === memo.id;
+    const more_menu = memoMoreMenuModel(memo);
+    const reaction_menu = memoReactionMenuModel(memo);
     return {
       alias: memo.alias || "",
       archived: Boolean(memo.archived),
@@ -5537,17 +5908,51 @@ export function mountMemosHome(root, options = {}) {
         (private_visible ? " is-private" : ""),
       commentCount: comments.all.length,
       commentVisibility: state.commentVisibility,
-      commenting: state.commentingMemoId === memo.id,
+      commenting,
+      commentVisibilitySelect: commenting
+        ? selectStore(
+          visibility_options,
+          state.commentVisibility,
+          "可见范围",
+          function (value) {
+            state.commentVisibility = value || DEFAULT_VISIBILITY;
+          },
+        )
+        : null,
       comments: comments.all,
       commentsExpanded: comments.expanded,
       commentsOverflow: comments.hasOverflow,
       commentsToggleLabel: comments.toggleLabel,
       createdAt: memo.createdAt,
-      editing: memo.id === state.editingId,
+      editing,
+      editProjectSelect: editing
+        ? selectStore(
+          [{ label: "未归属", value: "" }].concat(
+            projectOptionsPresentation(),
+          ),
+          memo.projectId || "",
+          "未归属",
+          function (value) {
+            state.editProjectId = normalizeProjectID(value);
+          },
+        )
+        : null,
       editVisibility:
         memo.private && memo.visibility === "PRIVATE"
           ? "SECRET"
           : memo.visibility,
+      editVisibilitySelect: editing
+        ? selectStore(
+          visibility_options,
+          memo.private && memo.visibility === "PRIVATE"
+            ? "SECRET"
+            : memo.visibility,
+          "可见性",
+          function (value) {
+            state.editVisibility = value || DEFAULT_VISIBILITY;
+          },
+        )
+        : null,
       expanded,
       hasHistory: Boolean(memo.updatedAt),
       hasToc: headings.length > 0,
@@ -5555,11 +5960,14 @@ export function mountMemosHome(root, options = {}) {
       html,
       id: memo.id,
       lineCount: line_count,
-      moreOpen: memoCardMenuModel.isOpen(memo.id),
+      moreMenu: more_menu.store,
+      moreMenuDestroy: more_menu.destroy,
       pinned: Boolean(memo.pinned),
       private: private_visible,
       project: memoProjectPresentation(memo.projectId),
       projectId: memo.projectId || "",
+      reactionMenu: reaction_menu.store,
+      reactionMenuDestroy: reaction_menu.destroy,
       reactions: Array.isArray(memo.reactions) ? memo.reactions.slice() : [],
       relativeTime: formatRelativeDate(memo.createdAt),
       short: !expanded && line_count <= 36,
@@ -5626,6 +6034,13 @@ export function mountMemosHome(root, options = {}) {
       PinDialogView({
         error: state.pinDialogError,
         mode: state.pinDialogMode,
+        store: openDialogStore({
+          footer: true,
+          onCancel: closePinDialog,
+          onOk: submitPinDialog,
+          title:
+            state.pinDialogMode === "set" ? "设置隐私 PIN" : "输入 PIN 解锁",
+        }),
       }),
     );
     setTimeout(function () {
@@ -5639,47 +6054,47 @@ export function mountMemosHome(root, options = {}) {
     const tagCount = extractTags(text).length;
     const chars = text.trim().length;
     ui.composerStatus.as(`${chars} 字符 / ${tagCount} 标签`);
-    ui.createButtonDisabled.as(chars === 0 || state.saving);
+    const disabled = chars === 0 || state.saving;
+    if (disabled === ui.composerPublishButton.state.disabled) return;
+    if (disabled) ui.composerPublishButton.disable();
+    else ui.composerPublishButton.enable();
   }
 
   function showInlinePrompt(title, defaultValue) {
     return new Promise(function (resolve) {
-      const overlay = appendTimelessHost(root, {
-        class: "memo-inline-prompt-overlay",
-        attributes: { n: "inline-prompt-overlay" },
-      });
-      const dialog = appendTimelessHost(overlay, {
-        class: "memo-inline-prompt-dialog",
+      const host = appendTimelessHost(root, {
         attributes: { n: "inline-prompt-dialog-host" },
       });
+      let settled = false;
+
+      function close(value) {
+        if (settled) return;
+        settled = true;
+        unmountTimelessView(host);
+        host.remove();
+        resolve(value);
+      }
+
+      const store = openDialogStore({
+        footer: true,
+        onCancel() {
+          close(null);
+        },
+        onOk() {
+          close(host.querySelector(".memo-inline-prompt-input")?.value || "");
+        },
+        title,
+      });
       renderTimelessView(
-        dialog,
+        host,
         InlinePromptView({
-          title,
+          store,
           value: defaultValue || "",
         }),
       );
 
-      const input = dialog.querySelector(".memo-inline-prompt-input");
-      const okBtn = dialog.querySelector(".memo-inline-prompt-ok");
-      const cancelBtn = dialog.querySelector(".memo-inline-prompt-cancel");
-
-      function close(value) {
-        unmountTimelessView(dialog);
-        overlay.remove();
-        resolve(value);
-      }
-
-      okBtn.addEventListener("click", function () {
-        close(input.value);
-      });
-      cancelBtn.addEventListener("click", function () {
-        close(null);
-      });
-      overlay.addEventListener("click", function (e) {
-        if (e.target === overlay) close(null);
-      });
-      input.addEventListener("keydown", function (e) {
+      const input = host.querySelector(".memo-inline-prompt-input");
+      input?.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
           e.preventDefault();
           close(input.value);
@@ -5691,8 +6106,8 @@ export function mountMemosHome(root, options = {}) {
       });
 
       requestAnimationFrame(function () {
-        input.focus();
-        input.select();
+        input?.focus();
+        input?.select();
       });
     });
   }
@@ -5807,7 +6222,8 @@ export function mountMemosHome(root, options = {}) {
     if (composerEditor.getText().trim()) return;
     state.composerProjectId = normalizeProjectID(draft.projectId);
     state.visibility = draft.visibility || DEFAULT_VISIBILITY;
-    if (els.visibilitySelect) els.visibilitySelect.value = state.visibility;
+    renderComposerProjectSelect();
+    ui.composerVisibilitySelect.setValue(state.visibility);
     composerEditor.setText(draft.content || "");
     renderComposerStatus(draft.content || "");
   }
@@ -5839,25 +6255,24 @@ export function mountMemosHome(root, options = {}) {
     renderViewButtons();
   }
 
-  function refreshGTDFromVault() {
-    state.gtdLoading = true;
-    Promise.all([loadGTDItems(), loadGTDMilestones()])
+  function refreshMilestonesFromVault() {
+    state.milestonesLoading = true;
+    loadGTDMilestones()
       .then(
-        function (results) {
-          state.gtdItems = results[0].map(normalizeGTDItem).filter(Boolean);
-          state.gtdMilestones = results[1]
+        function (milestones) {
+          state.gtdMilestones = milestones
             .map(normalizeGTDMilestone)
             .filter(Boolean);
           renderAll();
         },
         function (err) {
           if (typeof globalThis.invoke === "function") {
-            showToast("读取 GTD 事项失败: " + errorMessage(err));
+            showToast("读取里程碑失败: " + errorMessage(err));
           }
         },
       )
       .finally(function () {
-        state.gtdLoading = false;
+        state.milestonesLoading = false;
         renderAll();
       });
   }

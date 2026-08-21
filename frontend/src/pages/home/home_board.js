@@ -9,8 +9,8 @@ import {
 } from "@/domain/boards.js";
 import { errorMessage } from "@/domain/memo-repository.js";
 import { completeTask, createTask, getTask, updateTask } from "@/domain/tasks.js";
-import { setCheckboxControlValue } from "@/components.js";
-import { TimelessPrimitive } from "@/timeless-icons.js";
+import { setCheckboxControlValue } from "@/checkbox-control.js";
+import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 import {
   renderTimelessView,
   unmountTimelessView,
@@ -30,7 +30,6 @@ import {
   appendTimelessHost,
   ConfirmDeleteView,
   iconActionButton,
-  memoIcon,
   reactiveWhen,
 } from "./home_view_shared.js";
 
@@ -904,7 +903,12 @@ export function BoardPresetsView(props = {}) {
                     type: "button",
                   },
                 },
-                [memoIcon("x", "board-presets-close-icon")],
+                [
+                  Timeless.Icon({
+                    name: "x",
+                    attributes: { n: "board-presets-close-icon" },
+                  }),
+                ],
               ),
             ],
           ),
@@ -1121,7 +1125,12 @@ export function BoardListView(props = {}) {
                                 type: "button",
                               },
                             },
-                            [memoIcon("trash2", "board-list-delete-icon")],
+                            [
+                              Timeless.Icon({
+                                name: "trash2",
+                                attributes: { n: "board-list-delete-icon" },
+                              }),
+                            ],
                           ),
                         ],
                       ),

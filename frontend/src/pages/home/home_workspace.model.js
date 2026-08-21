@@ -10,6 +10,26 @@ const workspace_models_ = new WeakMap();
 /** @type {HomeWorkspaceModelInstance | null} */
 let fallback_workspace_model_ = null;
 
+function create_sidebar_state() {
+  return {
+    activeProjectId: ref(""),
+    allNavCount: ref("0"),
+    boardNavCount: ref(""),
+    chatNavCount: ref(""),
+    clipboardNavCount: ref(""),
+    codeNavCount: ref(""),
+    fileNavCount: ref(""),
+    imageNavCount: ref(""),
+    linkNavCount: ref(""),
+    milestoneNavCount: ref(""),
+    projects: ref([]),
+    rulesNavCount: ref(""),
+    tags: ref([]),
+    tagSummary: ref("暂无标签"),
+    todoNavCount: ref(""),
+  };
+}
+
 /** @returns {HomeWorkspaceModelInstance} */
 function createHomeWorkspaceModel() {
   /** @type {HomeSectionRef} */
@@ -20,8 +40,10 @@ function createHomeWorkspaceModel() {
   const active_tag_ = ref("");
   /** @type {Map<HomeSection, HomeSectionController>} */
   const controllers_ = new Map();
+  const sidebar_ = create_sidebar_state();
 
   return {
+    sidebar: sidebar_,
     state: {
       activeFilter: active_filter_,
       activeSection: active_section_,
@@ -31,6 +53,7 @@ function createHomeWorkspaceModel() {
       activate(section) {
         if (!section) return;
         active_section_.as(section);
+        if (section !== "memos") sidebar_.activeProjectId.as("");
         controllers_.get(section)?.activateView(section);
       },
       activateFilter(filter) {
@@ -39,11 +62,32 @@ function createHomeWorkspaceModel() {
         active_tag_.as("");
         controllers_.get("memos")?.activateFilter(next_filter);
       },
+      activateMemo(memo_id, options = {}) {
+        const controller = controllers_.get("memos");
+        if (!controller) return false;
+        if (options.reveal !== false) active_section_.as("memos");
+        return controller.activateMemo(memo_id, options);
+      },
+      activateTag(tag) {
+        const next_tag = String(tag || "");
+        active_section_.as("memos");
+        active_filter_.as("all");
+        active_tag_.as(active_tag_.value === next_tag ? "" : next_tag);
+        controllers_.get("memos")?.activateTag(next_tag);
+      },
+      clearActiveMemo() {
+        return controllers_.get("memos")?.clearActiveMemo() || false;
+      },
       run(section, method, ...args) {
         const controller = controllers_.get(section);
         if (typeof controller?.[method] !== "function") return false;
         controller[method](...args);
         return true;
+      },
+      syncSidebarSelection(selection = {}) {
+        active_filter_.as(String(selection.activeFilter || "all"));
+        active_tag_.as(String(selection.activeTag || ""));
+        sidebar_.activeProjectId.as(String(selection.activeProjectId || ""));
       },
       register(section, controller) {
         controllers_.set(section, controller);

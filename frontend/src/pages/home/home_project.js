@@ -13,7 +13,7 @@ import {
   projectThemeColor,
 } from "@/domain/projects.js";
 import { ProjectDetailPaginationModel } from "@/project-detail-pagination-model.js";
-import { TimelessPrimitive } from "@/timeless-icons.js";
+import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 import { renderTimelessView } from "@/timeless-view-mount.js";
 
 import { MemoFeedView } from "./home_memo.js";
@@ -21,7 +21,6 @@ import { BoardPresetsView } from "./home_board.js";
 import { HomeTodoContentView as TaskCollectionsView } from "./home_todo.js";
 import {
   EmptyStateView,
-  memoIcon,
   reactiveWhen,
 } from "./home_view_shared.js";
 
@@ -60,8 +59,13 @@ export function createHomeProjectController(options) {
   }
 
   function project_memo_count(project_id) {
+    const normalized_project_id = normalizeProjectID(project_id);
     return state.memos.filter(
-      (memo) => memo.projectId === project_id && !memo.archived,
+      (memo) =>
+        !memo.archived &&
+        (normalized_project_id
+          ? memo.projectId === normalized_project_id
+          : !memo.projectId),
     ).length;
   }
 
@@ -77,6 +81,7 @@ export function createHomeProjectController(options) {
       .filter((project) => !project.archived)
       .map((project) => ({
         color: projectThemeColor(project.color),
+        count: project_memo_count(project.id),
         label: project.name,
         value: project.id,
       }));
@@ -94,18 +99,22 @@ export function createHomeProjectController(options) {
 
   function render_projects() {
     const projects = state.projects.filter((project) => !project.archived);
+    const project_presentations = projects.map((project) => ({
+      color: projectThemeColor(project.color),
+      count: project_memo_count(project.id),
+      id: project.id,
+      name: project.name,
+    }));
+    options.publishSidebarProjects?.(project_presentations);
     if (elements.projectList) {
       renderTimelessView(
         elements.projectList,
         ProjectListView({
-          projects: projects.map((project) => ({
+          projects: project_presentations.map((project) => ({
+            ...project,
             active:
               state.activeView === "project-detail" &&
               state.activeProjectId === project.id,
-            color: projectThemeColor(project.color),
-            count: project_memo_count(project.id),
-            id: project.id,
-            name: project.name,
           })),
         }),
       );
@@ -149,15 +158,16 @@ export function createHomeProjectController(options) {
   }
 
   function render_composer_project_select() {
-    if (!elements.projectSelect) return;
-    renderTimelessView(
-      elements.projectSelect,
-      ProjectOptionsView({
-        projects: project_options_presentation(),
-        selected: state.composerProjectId,
-      }),
+    ui.composerProjectSelect.setOptions(
+      [{
+        count: project_memo_count(""),
+        label: "未归属",
+        value: "",
+      }].concat(
+        project_options_presentation(),
+      ),
     );
-    elements.projectSelect.value = state.composerProjectId || "";
+    ui.composerProjectSelect.setValue(state.composerProjectId || "");
   }
 
   function disconnect_scroll_observer() {
@@ -344,19 +354,31 @@ export function createHomeProjectController(options) {
     render_all();
   }
 
+  function create_project_record(name) {
+    return createProjectInVault(name).then(function (project) {
+      const normalized = normalizeProjectPayload(project);
+      if (!normalized) throw new Error("创建结果不是有效的 Project");
+      const existing = state.projects.some(
+        (item) => item.id === normalized.id,
+      );
+      state.projects = existing
+        ? state.projects.map((item) =>
+          item.id === normalized.id ? normalized : item,
+        )
+        : state.projects.concat(normalized);
+      saveProjects(state.projects);
+      render_projects();
+      render_composer_project_select();
+      return normalized;
+    });
+  }
+
   function resolve_or_create_project(name) {
     const existing = state.projects.find(
       (project) => !project.archived && project.name === name,
     );
     if (existing) return Promise.resolve(existing.id);
-    return createProjectInVault(name).then(function (project) {
-      const normalized = normalizeProjectPayload(project);
-      if (!normalized) return "";
-      state.projects = state.projects.concat(normalized);
-      saveProjects(state.projects);
-      render_projects();
-      return normalized.id;
-    });
+    return create_project_record(name).then((project) => project.id);
   }
 
   function refresh_projects() {
@@ -377,17 +399,19 @@ export function createHomeProjectController(options) {
       if (name === null) return;
       const trimmed = name.trim();
       if (!trimmed) return toast("Project 名称不能为空");
-      createProjectInVault(trimmed).then(
-        function (project) {
-          const normalized = normalizeProjectPayload(project);
-          if (!normalized) return;
-          state.projects = state.projects.concat(normalized);
-          saveProjects(state.projects);
-          render_projects();
+      create_project_record(trimmed).then(
+        function () {
           toast("已创建 Project");
         },
         (error) => toast("创建 Project 失败: " + errorMessage(error)),
       );
+    });
+  }
+
+  function create_project_from_composer(name) {
+    return create_project_record(name).then(function (project) {
+      toast("已创建 Project");
+      return project;
     });
   }
 
@@ -431,6 +455,10 @@ export function createHomeProjectController(options) {
     toast("已归档 Project: " + project.name);
     render_all();
   }
+
+  ui.composerProjectSelect.setCreateProjectHandler(
+    create_project_from_composer,
+  );
 
   return {
     archiveProjectFromDetail: archive_project,
@@ -658,7 +686,10 @@ export function ProjectDetailView(props = {}) {
                   attributes: { n: "project-memo-search-label" },
                 },
                 [
-                  memoIcon("search", "project-memo-search-icon"),
+                  Timeless.Icon({
+                    name: "search",
+                    attributes: { n: "project-memo-search-icon" },
+                  }),
                   Input({
                     type: "search",
                     value: props.query || "",

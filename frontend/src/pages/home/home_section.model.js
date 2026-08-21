@@ -104,8 +104,17 @@ export function HomeSectionPageModel(props, section) {
         controller_ = mountMemosHome(root, {
           elements,
           history: props.history,
+          isSidebarActive() {
+            return workspace$.state.activeSection.value === section;
+          },
           routeView: props.view,
+          section,
+          sidebar: workspace$.sidebar,
           state: page_state.state,
+          stateRefs: page_state.refs,
+          syncSidebarSelection(selection) {
+            workspace$.methods.syncSidebarSelection(selection);
+          },
           ui,
         });
         unregister_controller_ = workspace$.methods.register(
@@ -119,6 +128,13 @@ export function HomeSectionPageModel(props, section) {
           );
         }
       });
+    },
+    loadMoreMemos() {
+      try {
+        return Boolean(controller_?.loadMoreMemos());
+      } finally {
+        ui.memoMainScroll.finishLoadingMore();
+      }
     },
   };
 

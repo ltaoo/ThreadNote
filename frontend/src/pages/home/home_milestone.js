@@ -11,7 +11,7 @@ import { formatDateTime } from "./home_memo_helpers.js";
 import { TaskCollectionsView } from "./home_todo.js";
 
 export function createHomeMilestoneState() {
-  return { gtdMilestones: [] };
+  return { gtdMilestones: [], milestonesLoading: false };
 }
 
 export function createHomeMilestoneController(options) {
@@ -102,11 +102,6 @@ export function createHomeMilestoneController(options) {
   }
 
   function presentation(milestone) {
-    const items = state.gtdItems.filter(function (item) {
-      return (
-        item.milestoneId === milestone.id || milestone.itemIds.includes(item.id)
-      );
-    });
     const tasks = state.tasks.filter(function (task) {
       return milestone.taskIds.includes(task.id);
     });
@@ -128,26 +123,17 @@ export function createHomeMilestoneController(options) {
     }
     meta.push({
       label:
-        items.filter(function (item) {
-          return item.status !== "closed" && item.status !== "resolved";
-        }).length + " open items",
-    });
-    meta.push({
-      label:
         tasks.filter(function (task) {
           return !["completed", "cancelled", "archived"].includes(task.status);
         }).length + " open tasks",
     });
-    meta.push(
-      { label: items.length + " items" },
-      { label: tasks.length + " tasks" },
-    );
+    meta.push({ label: tasks.length + " tasks" });
     const actions = [];
     if (milestone.status === "planned") {
       actions.push({ action: "activateGTDMilestone", icon: "check", label: "开始" });
     }
     if (milestone.status !== "completed") {
-      actions.push({ action: "completeGTDMilestone", icon: "archive", label: "完成" });
+      actions.push({ action: "completeGTDMilestone", icon: "inbox", label: "完成" });
     }
     return {
       actions,
@@ -218,7 +204,7 @@ export function createHomeMilestoneController(options) {
       },
       function (error) {
         options.showToast("更新里程碑失败: " + errorMessage(error));
-        options.refreshGTD();
+        options.refreshMilestones();
       },
     );
   }

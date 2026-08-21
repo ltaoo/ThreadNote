@@ -97,7 +97,7 @@ func BuildOpenWindowSpec(req OpenWindowRequest) WindowSpec {
 		Width:     760,
 	}
 	switch pathBase {
-	case "/home/index":
+	case "/home/index", "/desktop":
 		spec.EntryPage = "index.html"
 		spec.Name = "desktop"
 		spec.Title = AppTitle

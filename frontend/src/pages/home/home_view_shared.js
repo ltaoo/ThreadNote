@@ -1,9 +1,5 @@
 import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 
-export function memoIcon(name, meaning) {
-  return Timeless.Icon({ name, attributes: { n: meaning } });
-}
-
 export function reactiveWhen(value) {
   return ref(Boolean(value));
 }
@@ -14,7 +10,7 @@ export function renderTimelessHost(
   runtime = TimelessPrimitive,
 ) {
   const host_view = runtime.View(props, children);
-  return host_view.render();
+  return runtime.DOM.buildAndRender(host_view).dom;
 }
 
 export function appendTimelessHost(
@@ -65,7 +61,10 @@ export function iconActionButton(runtime, props) {
       disabled: props.disabled,
     },
     [
-      memoIcon(props.icon, props.meaning + "-icon"),
+      Timeless.Icon({
+        name: props.icon,
+        attributes: { n: props.meaning + "-icon" },
+      }),
       Show({
         when: reactiveWhen(props.text),
         ok() {
@@ -111,7 +110,10 @@ export function PrivateOverlayView(props = {}) {
       attributes: { n: props.meaning + "-private-overlay" },
     },
     [
-      memoIcon("lock", props.meaning + "-private-icon"),
+      Timeless.Icon({
+        name: "file-lock",
+        attributes: { n: props.meaning + "-private-icon" },
+      }),
       runtime.View(
         { as: "strong", attributes: { n: props.meaning + "-private-title" } },
         [props.label],
@@ -173,7 +175,12 @@ export function ConfirmDeleteView(props = {}) {
               class: "memo-delete-icon",
               attributes: { n: props.meaning + "-icon" },
             },
-            [memoIcon("trash2", props.meaning + "-symbol")],
+            [
+              Timeless.Icon({
+                name: "trash2",
+                attributes: { n: props.meaning + "-symbol" },
+              }),
+            ],
           ),
           View({ attributes: { n: props.meaning + "-heading" } }, [
             View({ as: "h2", attributes: { n: props.meaning + "-title" } }, [

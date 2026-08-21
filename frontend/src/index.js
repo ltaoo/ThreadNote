@@ -1,8 +1,7 @@
 import { app, history, client, router } from "./store/index.js";
 import { storage } from "./store/storage.js";
-import * as uiComponents from "./components.js";
-
-Object.assign(window, uiComponents);
+import "./tnui.js";
+import { ErrorFallbackView, LoadingView } from "./route-status.js";
 
 const WINDOW_STATE_POLL_INTERVAL = 250;
 const WINDOW_STATE_SNAPSHOT_DEBOUNCE = 800;
@@ -21,17 +20,18 @@ function windowStateName() {
 }
 
 function ApplicationRootView() {
-  return View({ class: "tn-root-view" }, [
+  return View({ class: "tn-root-view", attributes: { n: "application-root" } }, [
     Timeless.ui.StandardSubViews({
       class: "root-view w-full h-full",
+      attributes: { n: "application-route-content" },
       app,
       view: history.$view,
       views: router.views,
       history,
       storage,
       client,
-      placeholder: [uiComponents.LoadingView()],
-      ErrorFallback: uiComponents.ErrorFallbackView,
+      placeholder: [LoadingView()],
+      ErrorFallback: ErrorFallbackView,
     }),
   ]);
 }

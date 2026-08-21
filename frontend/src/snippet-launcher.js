@@ -26,7 +26,15 @@ class SnippetLauncherView {
     this.resizeRequestId = 0;
     this.unsubscribe = null;
     this.windowHeight = 0;
-    this.els.close?.replaceChildren(Timeless.Icon({ name: "x", size: 18 }).render());
+    this.els.close?.replaceChildren(
+      Timeless.DOM.buildAndRender(
+        Timeless.Icon({
+          name: "x",
+          size: 18,
+          attributes: { n: "snippet-launcher-close-icon" },
+        }),
+      ).dom,
+    );
   }
 
   connect(model) {

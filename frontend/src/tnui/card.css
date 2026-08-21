@@ -1,0 +1,6 @@
+.tn-card { border: var(--tn-border-width) solid var(--tn-color-border); border-radius: var(--tn-radius-md); background: var(--tn-color-bg-surface); color: var(--tn-color-text-primary); }
+.tn-card__header, .tn-card__content, .tn-card__footer { padding: var(--tn-space-4); }
+.tn-card__header { display: grid; gap: var(--tn-space-1); border-bottom: var(--tn-border-width) solid var(--tn-color-border-translucent); }
+.tn-card__title { margin: 0; font-size: var(--tn-font-size-xl); font-weight: var(--tn-font-weight-semibold); }
+.tn-card__description { margin: 0; color: var(--tn-color-text-tertiary); font-size: var(--tn-font-size-sm); }
+.tn-card__footer { display: flex; align-items: center; justify-content: flex-end; gap: var(--tn-space-2); border-top: var(--tn-border-width) solid var(--tn-color-border-translucent); }

@@ -1,10 +1,9 @@
-import { TimelessPrimitive } from "@/timeless-icons.js";
+import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 
 import { HomeRulePageModel } from "./home_rule.model.js";
 import { HomePageHeader, HomePageToast } from "./home_page_header.js";
 import {
   iconActionButton,
-  memoIcon,
   reactiveWhen,
 } from "./home_view_shared.js";
 
@@ -139,7 +138,12 @@ export function BoardRuleConditionRowView(props = {}) {
           type: "button",
         },
       },
-      [memoIcon("x", "board-rule-condition-remove-icon")],
+      [
+        Timeless.Icon({
+          name: "x",
+          attributes: { n: "board-rule-condition-remove-icon" },
+        }),
+      ],
     ),
   ]);
 }
@@ -206,7 +210,12 @@ export function BoardRuleActionRowView(props = {}) {
           type: "button",
         },
       },
-      [memoIcon("x", "board-rule-action-remove-icon")],
+      [
+        Timeless.Icon({
+          name: "x",
+          attributes: { n: "board-rule-action-remove-icon" },
+        }),
+      ],
     ),
   ]);
 }
@@ -270,7 +279,12 @@ export function BoardRuleEditorView(props = {}) {
                     type: "button",
                   },
                 },
-                [memoIcon("x", "board-rule-editor-close-icon")],
+                [
+                  Timeless.Icon({
+                    name: "x",
+                    attributes: { n: "board-rule-editor-close-icon" },
+                  }),
+                ],
               ),
             ],
           ),
@@ -426,7 +440,10 @@ export function BoardRuleEditorView(props = {}) {
                       },
                     },
                     [
-                      memoIcon("plus", "board-rule-add-condition-icon"),
+                      Timeless.Icon({
+                        name: "plus",
+                        attributes: { n: "board-rule-add-condition-icon" },
+                      }),
                       " 加条件",
                     ],
                   ),
@@ -476,7 +493,13 @@ export function BoardRuleEditorView(props = {}) {
                         type: "button",
                       },
                     },
-                    [memoIcon("plus", "board-rule-add-action-icon"), " 加动作"],
+                    [
+                      Timeless.Icon({
+                        name: "plus",
+                        attributes: { n: "board-rule-add-action-icon" },
+                      }),
+                      " 加动作",
+                    ],
                   ),
                 ],
               ),
@@ -795,7 +818,7 @@ export function BoardRulesOverviewView(props = {}) {
                                           action: "editRule",
                                           boardId: board.id,
                                           class: "memo-rules-card-btn",
-                                          icon: "edit",
+                                          icon: "file-text",
                                           label: "编辑",
                                           meaning: "board-rule-edit",
                                           ruleId: rule.id,

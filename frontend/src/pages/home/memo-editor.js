@@ -2165,30 +2165,30 @@ function createFloatingMenuView(config) {
 
 function memoSlashCommands() {
   return [
-    { icon: "H1", label: "标题", detail: "插入 # 标题", keywords: "heading title", text: "# " },
-    { icon: "TODO", label: "任务", detail: "插入待办项", keywords: "todo task", text: "- [ ] " },
-    { icon: "UL", label: "无序列表", detail: "插入 - 列表", keywords: "list bullet", text: "- " },
-    { icon: "OL", label: "有序列表", detail: "插入 1. 列表", keywords: "list ordered", text: "1. " },
-    { icon: ">", label: "引用", detail: "插入引用块", keywords: "quote", text: "> \n> " },
-    { icon: "!", label: "标注", detail: "插入 Callout 标注块", keywords: "callout alert note warning tip danger info", text: "> [!NOTE] \n> " },
-    { icon: "<>", label: "代码块", detail: "插入 fenced code", keywords: "code pre", text: "```\n\n```" },
-    { icon: "SNIP", label: "代码片段", detail: "插入可搜索 snippet", keywords: "snippet snip code alias 代码片段", text: "```sh snippet 标题 | alias\n\n```" },
+    { icon: "file-text", label: "标题", detail: "插入 # 标题", keywords: "heading title", text: "# " },
+    { icon: "check", label: "任务", detail: "插入待办项", keywords: "todo task", text: "- [ ] " },
+    { icon: "list-filter", label: "无序列表", detail: "插入 - 列表", keywords: "list bullet", text: "- " },
+    { icon: "list-filter", label: "有序列表", detail: "插入 1. 列表", keywords: "list ordered", text: "1. " },
+    { icon: "corner-down-right", label: "引用", detail: "插入引用块", keywords: "quote", text: "> \n> " },
+    { icon: "circle-alert", label: "标注", detail: "插入 Callout 标注块", keywords: "callout alert note warning tip danger info", text: "> [!NOTE] \n> " },
+    { icon: "braces", label: "代码块", detail: "插入 fenced code", keywords: "code pre", text: "```\n\n```" },
+    { icon: "file-code", label: "代码片段", detail: "插入可搜索 snippet", keywords: "snippet snip code alias 代码片段", text: "```sh snippet 标题 | alias\n\n```" },
     {
-      icon: "TBL",
+      icon: "table",
       label: "表格",
       detail: "插入 Markdown 表格",
       keywords: "table",
       text: "| 列 1 | 列 2 |\n| --- | --- |\n|  |  |",
     },
     {
-      icon: "GRID",
+      icon: "grid-3x3",
       label: "图片布局",
       detail: "插入 grid 图片布局",
       keywords: "image layout gallery grid photos 九宫格 图片 微博",
       text: ":::image-layout grid\n![图片 1]()\n![图片 2]()\n![图片 3]()\n:::",
     },
     {
-      icon: "TIME",
+      icon: "clock",
       label: "时间",
       detail: "插入 :: 时间语法",
       keywords: "time date",
@@ -2197,7 +2197,7 @@ function memoSlashCommands() {
       },
     },
     {
-      icon: "LOCATION",
+      icon: "radio-tower",
       label: "地点",
       detail: "插入 @@ 地点语法",
       keywords: "location place address 地点 坐标",
@@ -2206,7 +2206,7 @@ function memoSlashCommands() {
     {
       action: "files",
       accept: "",
-      icon: "FILE",
+      icon: "upload",
       label: "上传文件",
       detail: "选择文件并插入 Markdown 链接",
       keywords: "file upload attach",
@@ -2215,7 +2215,7 @@ function memoSlashCommands() {
     {
       action: "files",
       accept: "image/*",
-      icon: "IMG",
+      icon: "file-image",
       label: "上传图片",
       detail: "选择图片并插入 Markdown 图片",
       keywords: "image upload picture",
@@ -2223,7 +2223,7 @@ function memoSlashCommands() {
     },
     {
       action: "link",
-      icon: "LINK",
+      icon: "file-symlink",
       label: "插入链接",
       detail: "将剪贴板中的链接粘贴为 Markdown 链接",
       keywords: "link url 链接 粘贴 paste",
@@ -2266,7 +2266,12 @@ function renderSlashCommandMenu(menu, pluginState) {
                 class: "slash-command-icon",
                 attributes: { n: "memo-slash-command-icon" },
               },
-              [item.icon],
+              [
+                Timeless.Icon({
+                  name: item.icon,
+                  attributes: { n: "memo-slash-command-symbol" },
+                }),
+              ],
             ),
             View(
               {

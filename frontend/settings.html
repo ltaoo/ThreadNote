@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 
 <head>
+  <script src="/public/logger.js" data-n="frontend-logger-script"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ThreadNote</title>
@@ -34,8 +35,7 @@
   <script src="/public/timeless/0.31.4/timeless.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.dom.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.web.umd.min.js"></script>
-  <script src="/public/timeless-icon-runtime.js"></script>
-  <script type="module" src="/src/components.js"></script>
+  <script type="module" src="/src/tnui.js"></script>
   <script type="module" src="/src/settings-sync-view.js?v=20260820-vault-sync-provider"></script>
   <style>
     :root {
@@ -943,32 +943,33 @@
   <div class="settings-shell">
     <aside class="settings-sidebar" aria-label="设置菜单">
       <div class="settings-brand">
+        <span class="settings-brand-mark" data-n="settings-brand-icon"></span>
         <div class="settings-title">设置</div>
         <div class="settings-subtitle">ThreadNote</div>
       </div>
       <nav class="settings-nav" aria-label="设置分类">
         <button class="settings-nav-button is-active" type="button" data-panel="cloud-storage">
-          <span data-timeless-icon="cloud" data-n="settings-cloud-storage-icon"></span>
+          <span data-n="settings-cloud-storage-icon"></span>
           <span>云存储</span>
         </button>
         <button class="settings-nav-button" type="button" data-panel="shortcuts">
-          <span data-timeless-icon="keyboard" data-n="settings-shortcuts-icon"></span>
+          <span data-n="settings-shortcuts-icon"></span>
           <span>键盘</span>
         </button>
         <button class="settings-nav-button" type="button" data-panel="input-source">
-          <span data-timeless-icon="input-source" data-n="settings-input-source-icon"></span>
+          <span data-n="settings-input-source-icon"></span>
           <span>输入法</span>
         </button>
         <button class="settings-nav-button" type="button" data-panel="calendar">
-          <span data-timeless-icon="calendar" data-n="settings-calendar-icon"></span>
+          <span data-n="settings-calendar-icon"></span>
           <span>日历</span>
         </button>
         <button class="settings-nav-button" type="button" data-panel="webhook">
-          <span data-timeless-icon="link" data-n="settings-webhook-icon"></span>
+          <span data-n="settings-webhook-icon"></span>
           <span>Webhook</span>
         </button>
         <button class="settings-nav-button" type="button" data-panel="about">
-          <span data-timeless-icon="info" data-n="settings-about-icon"></span>
+          <span data-n="settings-about-icon"></span>
           <span>关于</span>
         </button>
       </nav>
@@ -981,7 +982,7 @@
           <p data-settings-subtitle>S3/OSS 兼容对象存储配置</p>
         </div>
         <div class="setting-status" data-config-status>
-          <span data-timeless-icon="circle-alert" data-n="settings-config-status-icon"></span>
+          <span data-n="settings-config-status-icon"></span>
           <span data-config-status-text>未配置</span>
         </div>
       </header>

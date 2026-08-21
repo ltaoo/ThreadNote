@@ -15,11 +15,25 @@ import { codeBlockFence, fileDisplayName, isFileAttachment, isImageAttachment } 
 import { parseAssetReference, parseImageQueryParams } from "@/domain/storage.js";
 import { formatRelativeDate } from "./memo-date.js";
 import { cloudStorageById, loadEditorSettings, normalizeFileEditor, normalizeFileEditorRules, resolveAssetUrl } from "./memo-editor.js";
-import { SVG } from "./memo-icons.js";
 import { escapeAttr, escapeHTML } from "./memo-utils.js";
-import { registerCheckboxElement } from "@/components.js";
+import { registerCheckboxElement } from "@/checkbox-control.js";
+import { Timeless } from "@/timeless-icons.js";
 
 registerCheckboxElement();
+
+function serialize_timeless_view(view) {
+  if (!view || !Timeless?.DOM?.buildAndRender || typeof document === "undefined") {
+    return "";
+  }
+  const element = Timeless.DOM.buildAndRender(view).dom;
+  if (!element) return "";
+  Object.entries(view.state?.attributes || {}).forEach(function ([name, value]) {
+    if (value !== undefined && value !== null && value !== false) {
+      element.setAttribute(name, value === true ? "" : String(value));
+    }
+  });
+  return new XMLSerializer().serializeToString(element);
+}
 
 function renderMemoMarkdown(content, context = {}, lineNumberOffset = 0) {
   const lines = memoLines(content);
@@ -326,7 +340,14 @@ function memoCodeWorkbenchTemplate(codeLines, options = {}) {
           </div>
           <div class="memo-fenced-code-actions" data-n="code-actions">
             <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-code-copy-button" type="button" data-n="code-copy" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">
-              ${SVG.copy}
+              ${serialize_timeless_view(
+                Timeless?.Icon
+                  ? Timeless.Icon({
+                    name: "copy",
+                    attributes: { n: "memo-code-copy-icon" },
+                  })
+                  : null,
+              )}
               <span data-n="code-copy-label">复制</span>
             </button>
           </div>
@@ -344,9 +365,23 @@ function memoCodeWorkbenchTemplate(codeLines, options = {}) {
           <span class="memo-fenced-code-meta" data-n="code-line-count">${lineCountLabel}</span>
         </div>
         <div class="memo-fenced-code-actions" data-n="code-actions">
-          <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-code-collapse-button" type="button" data-n="code-collapse-toggle" data-action="toggleCodeCollapse" title="展开代码" aria-label="展开代码">${SVG.chevronDown}</button>
+          <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-code-collapse-button" type="button" data-n="code-collapse-toggle" data-action="toggleCodeCollapse" title="展开代码" aria-label="展开代码">${serialize_timeless_view(
+            Timeless?.Icon
+              ? Timeless.Icon({
+                name: "chevron-down",
+                attributes: { n: "memo-code-collapse-icon" },
+              })
+              : null,
+          )}</button>
           <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-code-copy-button" type="button" data-n="code-copy" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">
-            ${SVG.copy}
+            ${serialize_timeless_view(
+              Timeless?.Icon
+                ? Timeless.Icon({
+                  name: "copy",
+                  attributes: { n: "memo-code-copy-icon" },
+                })
+                : null,
+            )}
             <span data-n="code-copy-label">复制</span>
           </button>
         </div>
@@ -739,7 +774,14 @@ function renderMemoTimeToken(trigger, value) {
   const label = String(value || "");
   return `
     <span class="memo-time-token" title="${escapeAttr(trigger + label)}" aria-label="时间 ${escapeAttr(label)}">
-      ${SVG.clock}
+      ${serialize_timeless_view(
+        Timeless?.Icon
+          ? Timeless.Icon({
+            name: "clock",
+            attributes: { n: "memo-time-token-icon" },
+          })
+          : null,
+      )}
       <span>${label}</span>
     </span>
   `;
@@ -764,7 +806,14 @@ function renderMemoLocationToken(trigger, value) {
   const label = String(value || "").trim();
   return `
     <span class="memo-location-token" title="${escapeAttr(trigger + label)}" aria-label="地点 ${escapeAttr(label)}">
-      ${SVG.mapPin}
+      ${serialize_timeless_view(
+        Timeless?.Icon
+          ? Timeless.Icon({
+            name: "radio-tower",
+            attributes: { n: "memo-location-token-icon" },
+          })
+          : null,
+      )}
       <span>${escapeHTML(label)}</span>
     </span>
   `;
@@ -1090,7 +1139,14 @@ function renderMemoFileBlock(resource, context = {}) {
   const openButton = renderVSCodeOpenButton(resource.url, context);
   const localClass = openButton ? " has-editor-open" : "";
   const body = `
-    <span class="memo-file-block-icon">${SVG.paperclip}</span>
+    <span class="memo-file-block-icon" data-n="memo-file-block-icon">${serialize_timeless_view(
+      Timeless?.Icon
+        ? Timeless.Icon({
+          name: "file",
+          attributes: { n: "memo-file-block-symbol" },
+        })
+        : null,
+    )}</span>
     <span class="memo-file-block-text">
       <span class="memo-file-block-name">${escapeHTML(name)}</span>
       <span class="memo-file-block-url">${escapeHTML(compactFileURL(displayUrl))}</span>
@@ -1110,14 +1166,28 @@ function renderMemoLinkBlock(resource) {
   return `
     <div class="memo-link-block" data-inline-link-url="${escapeAttr(copyUrl)}">
       <a class="memo-link-block-target" href="${escapeAttr(href)}" target="_blank" rel="noreferrer" title="${escapeAttr(label || copyUrl)}">
-        <span class="memo-link-block-icon">${SVG.link}</span>
+        <span class="memo-link-block-icon" data-n="memo-link-block-icon">${serialize_timeless_view(
+          Timeless?.Icon
+            ? Timeless.Icon({
+              name: "file-symlink",
+              attributes: { n: "memo-link-block-symbol" },
+            })
+            : null,
+        )}</span>
         <span class="memo-link-block-text">
           <span class="memo-link-block-name">${escapeHTML(label || copyUrl)}</span>
           <span class="memo-link-block-url">${escapeHTML(compactFileURL(copyUrl))}</span>
         </span>
       </a>
       <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-link-block-copy" type="button" data-action="copyInlineLink" title="复制链接" aria-label="复制链接">
-        ${SVG.copy}
+        ${serialize_timeless_view(
+          Timeless?.Icon
+            ? Timeless.Icon({
+              name: "copy",
+              attributes: { n: "memo-link-copy-icon" },
+            })
+            : null,
+        )}
       </button>
     </div>
   `;
@@ -1129,7 +1199,14 @@ function renderMemoImageToken(resource) {
   const previewAttrs = src ? imagePreviewAttrs(src, label, resource.url, label) : "";
   return `
     <span class="memo-image-token" ${previewAttrs} ${src ? 'role="button" tabindex="0"' : ""}>
-      ${SVG.image}
+      ${serialize_timeless_view(
+        Timeless?.Icon
+          ? Timeless.Icon({
+            name: "image",
+            attributes: { n: "memo-image-token-icon" },
+          })
+          : null,
+      )}
       <span>${escapeHTML(label || resource.url)}</span>
       ${src ? `<span class="memo-image-token-preview"><img src="${escapeAttr(src)}" alt="${escapeAttr(label)}" loading="lazy" ${imageDimensionAttrs(resource.url)} /></span>` : ""}
     </span>
@@ -1152,7 +1229,14 @@ function renderMemoFileToken(resource, context = {}) {
   const name = fileDisplayName(resource.label, resource.url);
   const openButton = renderVSCodeOpenButton(resource.url, context);
   const localClass = openButton ? " has-editor-open" : "";
-  const body = `${SVG.paperclip}<span>${escapeHTML(name)}</span>`;
+  const body = `${serialize_timeless_view(
+    Timeless?.Icon
+      ? Timeless.Icon({
+        name: "file",
+        attributes: { n: "memo-file-token-icon" },
+      })
+      : null,
+  )}<span>${escapeHTML(name)}</span>`;
 
   if (href === "#" || openButton) {
     return `<span class="memo-file-token${localClass}">${body}${openButton}</span>`;
@@ -1182,7 +1266,14 @@ function renderVSCodeOpenButton(url, context = {}) {
       title="${escapeAttr(actionLabel)}"
       aria-label="${escapeAttr(actionLabel)}"
     >
-      ${SVG.code}
+      ${serialize_timeless_view(
+        Timeless?.Icon
+          ? Timeless.Icon({
+            name: "braces",
+            attributes: { n: "memo-file-open-editor-icon" },
+          })
+          : null,
+      )}
       <span>${escapeHTML(actionLabel)}</span>
     </button>
   `;

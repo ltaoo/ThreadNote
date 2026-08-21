@@ -1,4 +1,4 @@
-import { TimelessPrimitive } from "@/timeless-icons.js";
+import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 import { callNativeAPI } from "@/domain/native.js";
 import { extractTags } from "@/domain/memos.js";
 import {
@@ -21,7 +21,6 @@ import { closestElement } from "./memo-utils.js";
 import {
   appendTimelessHost,
   EmptyStateView,
-  memoIcon,
 } from "./home_view_shared.js";
 
 export function ImageContextMenuView(props = {}) {
@@ -40,7 +39,10 @@ export function ImageContextMenuView(props = {}) {
         },
       },
       [
-        memoIcon(icon_name, "memo-image-context-" + action + "-icon"),
+        Timeless.Icon({
+          name: icon_name,
+          attributes: { n: "memo-image-context-" + action + "-icon" },
+        }),
         View(
           {
             as: "span",

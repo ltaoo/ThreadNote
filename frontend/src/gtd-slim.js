@@ -21,10 +21,6 @@ const QUICK_REMINDERS = Object.freeze([
   { label: "到期前 1 天", minutes: 1440 },
 ]);
 
-function icon(name, meaning) {
-  return Timeless.Icon({ name, attributes: { n: meaning } });
-}
-
 function ReminderPopoverView(props) {
   const { Button, For, Input, View } = props.runtime;
   const task = props.task;
@@ -156,7 +152,12 @@ function ReminderPopoverView(props) {
                                 props.vm$.methods.deleteReminder(task.id, index);
                               },
                             },
-                            [icon("x", "gtd-reminder-delete-icon")],
+                            [
+                              Timeless.Icon({
+                                name: "x",
+                                attributes: { n: "gtd-reminder-delete-icon" },
+                              }),
+                            ],
                           ),
                         ],
                       );
@@ -224,7 +225,12 @@ function CompletedTimeView(props) {
                   props.vm$.methods.saveCompletedEdit(props.task.id);
                 },
               },
-              [icon("check", "gtd-completed-time-confirm-icon")],
+              [
+                Timeless.Icon({
+                  name: "check",
+                  attributes: { n: "gtd-completed-time-confirm-icon" },
+                }),
+              ],
             ),
             Button(
               {
@@ -239,7 +245,12 @@ function CompletedTimeView(props) {
                   props.vm$.methods.cancelCompletedEdit();
                 },
               },
-              [icon("x", "gtd-completed-time-cancel-icon")],
+              [
+                Timeless.Icon({
+                  name: "x",
+                  attributes: { n: "gtd-completed-time-cancel-icon" },
+                }),
+              ],
             ),
           ],
         ),
@@ -394,7 +405,12 @@ function TaskView(props) {
                 props.vm$.methods.toggleReminder(task.id);
               },
             },
-            [icon("bell", "gtd-task-reminder-icon")],
+            [
+              Timeless.Icon({
+                name: "radio-tower",
+                attributes: { n: "gtd-task-reminder-icon" },
+              }),
+            ],
           ),
           Show({
             when: reminder_open_,
@@ -560,7 +576,12 @@ export function GTDSlimView(props) {
                     vm$.methods.refresh();
                   },
                 },
-                [icon("undo2", "gtd-slim-refresh-icon")],
+                [
+                  Timeless.Icon({
+                    name: "undo2",
+                    attributes: { n: "gtd-slim-refresh-icon" },
+                  }),
+                ],
               ),
               Button(
                 {
@@ -576,7 +597,12 @@ export function GTDSlimView(props) {
                     vm$.methods.toggleFixed();
                   },
                 },
-                [icon("pin", "gtd-slim-fixed-icon")],
+                [
+                  Timeless.Icon({
+                    name: "arrow-down-to-line",
+                    attributes: { n: "gtd-slim-fixed-icon" },
+                  }),
+                ],
               ),
             ],
           ),
@@ -665,7 +691,12 @@ export function GTDSlimView(props) {
                     vm$.methods.createTodo();
                   },
                 },
-                [icon("plus", "gtd-slim-submit-icon")],
+                [
+                  Timeless.Icon({
+                    name: "plus",
+                    attributes: { n: "gtd-slim-submit-icon" },
+                  }),
+                ],
               ),
               View(
                 {

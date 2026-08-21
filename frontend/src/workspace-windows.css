@@ -680,7 +680,7 @@ body.is-fixed-window .memo-window-shell {
   width: 50px;
 }
 
-.vault-picker-mark img {
+.vault-picker-mark svg {
   display: block;
   height: 100%;
   width: 100%;
@@ -743,10 +743,14 @@ body.is-fixed-window .memo-window-shell {
 }
 
 .auth-brand-mark {
-  background: url("/public/threadnote-logo.svg") center / cover no-repeat;
+  align-items: center;
+  background: var(--tn-color-primary-soft);
   border-radius: var(--tn-radius-lg);
   box-shadow: var(--tn-shadow-sm);
+  color: var(--tn-color-primary-text);
+  display: flex;
   height: 54px;
+  justify-content: center;
   width: 54px;
 }
 

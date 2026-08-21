@@ -1,0 +1,35 @@
+.tn-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tn-control-height-md);
+  gap: var(--tn-space-2);
+  padding: 0 var(--tn-space-3);
+  border: var(--tn-border-width) solid transparent;
+  border-radius: var(--tn-radius-sm);
+  background: var(--tn-color-bg-interactive);
+  color: var(--tn-color-text-primary);
+  font: inherit;
+  font-size: var(--tn-font-size-sm);
+  font-weight: var(--tn-font-weight-medium);
+  cursor: pointer;
+  transition: background var(--tn-duration-fast) var(--tn-ease-standard);
+}
+
+.tn-button:hover:not(:disabled) { background: var(--tn-color-hover-surface); }
+.tn-button:focus-visible { outline: var(--tn-border-width-strong) solid var(--tn-color-focus-ring); outline-offset: 2px; }
+.tn-button:disabled, .tn-button.is-disabled, .tn-button.is-loading { cursor: not-allowed; opacity: var(--tn-opacity-disabled); }
+.tn-button--primary { background: var(--tn-color-primary-fill); color: var(--tn-color-on-primary); }
+.tn-button--secondary { border-color: var(--tn-color-border); background: var(--tn-color-bg-subtle); }
+.tn-button--outline { border-color: var(--tn-color-border); background: transparent; }
+.tn-button--ghost { background: transparent; }
+.tn-button--danger { background: var(--tn-color-danger); color: var(--tn-color-text-inverse); }
+.tn-button--link { min-height: auto; padding: 0; background: transparent; color: var(--tn-color-primary-text); }
+.tn-button--xs { min-height: var(--tn-control-height-xs); padding-inline: var(--tn-space-2); font-size: var(--tn-font-size-xs); }
+.tn-button--sm, .tn-button--icon-sm { min-height: var(--tn-control-height-sm); }
+.tn-button--lg { min-height: var(--tn-control-height-lg); padding-inline: var(--tn-space-4); }
+.tn-button--icon, .tn-button--icon-sm, .tn-icon-button { aspect-ratio: 1; padding: 0; }
+.tn-button__spinner { display: inline-flex; animation: tn-spin 0.8s linear infinite; }
+.tn-button__prefix, .tn-button__content { display: inline-flex; align-items: center; }
+
+@keyframes tn-spin { to { transform: rotate(360deg); } }

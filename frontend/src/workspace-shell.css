@@ -12,8 +12,12 @@
 }
 
 .home-page-subviews {
+  height: 100%;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
+  position: relative;
+  width: 100%;
 }
 
 .memo-shell[data-section-shell] {
@@ -41,6 +45,7 @@
   padding: 20px 14px 18px;
   scrollbar-color: var(--tn-color-border-strong) transparent;
   scrollbar-width: thin;
+  width: 100%;
 }
 
 .memo-brand {
@@ -228,7 +233,7 @@
 }
 
 .memo-main {
-  padding: 0 clamp(22px, 3vw, 46px) 12px;
+  /* padding: 0 clamp(22px, 3vw, 46px) 12px; */
   scrollbar-color: var(--tn-color-border-strong) transparent;
   scrollbar-width: thin;
 }
@@ -239,7 +244,7 @@
   border-bottom: 1px solid var(--tn-color-border-translucent);
   margin: 0 0 22px;
   min-height: 104px;
-  padding: 18px 0 17px;
+  padding: 18px 20px 17px;
   position: sticky;
   top: 0;
   z-index: var(--tn-z-sticky);
@@ -317,6 +322,20 @@
 
 .memo-tool-group-head {
   gap: 2px;
+}
+
+.memo-composer-select-control {
+  flex: 0 1 168px;
+  min-width: 112px;
+}
+
+.memo-composer-project-control {
+  flex-basis: 198px;
+  min-width: 150px;
+}
+
+.memo-composer-select {
+  min-height: var(--tn-control-height-sm);
 }
 
 .memo-tool-button,
@@ -662,7 +681,11 @@
   }
 
   .memo-shell[data-section-shell] {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) var(--memo-inspector-width);
+  }
+
+  .memo-shell[data-section-shell] > .memo-inspector {
+    display: block;
   }
 }
 
@@ -670,6 +693,14 @@
   .memo-shell {
     --memo-sidebar-width: 76px;
     grid-template-columns: var(--memo-sidebar-width) minmax(0, 1fr);
+  }
+
+  .memo-shell[data-section-shell] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .memo-shell[data-section-shell] > .memo-inspector {
+    display: none;
   }
 
   .memo-sidebar {

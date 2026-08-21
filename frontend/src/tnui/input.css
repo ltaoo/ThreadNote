@@ -1,0 +1,25 @@
+.tn-input-root {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+}
+
+.tn-input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--tn-control-height-md);
+  padding: 0 var(--tn-space-3);
+  border: var(--tn-border-width) solid var(--tn-color-border);
+  border-radius: var(--tn-radius-sm);
+  background: var(--tn-color-bg-interactive);
+  color: var(--tn-color-text-primary);
+  font: inherit;
+  outline: none;
+}
+
+.tn-input:focus { border-color: var(--tn-color-focus-ring); box-shadow: var(--tn-focus-ring); }
+.tn-input:disabled { cursor: not-allowed; opacity: var(--tn-opacity-disabled); }
+.tn-input__action, .tn-input__loading { position: absolute; right: var(--tn-space-2); display: inline-flex; color: var(--tn-color-text-tertiary); }
+.tn-input__action { border: 0; background: transparent; cursor: pointer; }
+.tn-input__loading { animation: tn-spin 0.8s linear infinite; pointer-events: none; }

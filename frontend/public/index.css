@@ -2412,7 +2412,7 @@ mark.memo-find-match.is-active {
   min-height: 0;
   min-width: 0;
   overflow-y: auto;
-  padding: 22px 20px 12px;
+  /* padding: 22px 20px 12px; */
   width: 100%;
 }
 
@@ -6683,13 +6683,6 @@ mark.memo-command-match {
   transform: translateY(4px);
   transition: opacity 0.14s ease, transform 0.14s ease;
   z-index: 2;
-}
-
-.memo-comments .memo-comment:hover .memo-comment-hover-actions,
-.memo-comments .memo-comment:focus-within .memo-comment-hover-actions {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
 }
 
 .memo-comments .memo-comment-hover-actions .memo-action-button {

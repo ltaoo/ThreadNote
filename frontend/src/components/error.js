@@ -6,13 +6,6 @@ import {
   TimelessPrimitive,
 } from "@/timeless-icons.js";
 
-function error_icon() {
-  return Timeless.Icon({
-    name: "x",
-    attributes: { n: "error-modal-close-icon" },
-  });
-}
-
 function ErrorModalModel(props = {}) {
   const runtime = props.runtime || TimelessPrimitive;
   const errors_ = runtime.refarr([]);
@@ -91,7 +84,12 @@ function ErrorModalView(props) {
                     props.vm$.methods.hide();
                   },
                 },
-                [error_icon()],
+                [
+                  Timeless.Icon({
+                    name: "x",
+                    attributes: { n: "error-modal-close-icon" },
+                  }),
+                ],
               ),
             ],
           ),

@@ -9,9 +9,9 @@
 
 现有后端实现位于：
 
-- `internal/desktopapp/routes_storage.go`
-- `internal/desktopapp/oss_storage.go`
-- `internal/desktopapp/oss_local.go`
+- `internal/service/routes_storage.go`
+- `internal/service/oss_storage.go`
+- `internal/service/oss_local.go`
 
 当前预览模型是后端读取完整文件内容，通过 JSON 返回文本或 base64：
 
@@ -75,7 +75,7 @@
 
 ## 后端预览方案
 
-适合新增在 `internal/desktopapp/oss_preview*.go`，路由仍由
+适合新增在 `internal/service/oss_preview*.go`，路由仍由
 `routes_storage.go` 注册。
 
 ### 优点
@@ -336,4 +336,3 @@ storageId + objectPath + etag/mtime + size + converterVersion
 
 核心原则：代码、文本、图片、PDF 和表格数据浏览交给前端；Office 版式、
 PPT、DOC 和复杂格式交给后端转换。
-

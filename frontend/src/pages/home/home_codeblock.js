@@ -1,4 +1,4 @@
-import { TimelessPrimitive } from "@/timeless-icons.js";
+import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 import { collectCodeBlocks } from "@/domain/memo-resources.js";
 import { extractTags } from "@/domain/memos.js";
 import { sortMemoReference } from "@/domain/memo-resources.js";
@@ -12,7 +12,6 @@ import { closestElement, copyText } from "./memo-utils.js";
 import {
   EmptyStateView,
   iconActionButton,
-  memoIcon,
   reactiveWhen,
 } from "./home_view_shared.js";
 
@@ -242,7 +241,12 @@ export function CodeBlocksView(props = {}) {
                     class: "memo-resource-icon",
                     attributes: { n: "code-snippet-icon" },
                   },
-                  [memoIcon("code", "code-snippet-symbol")],
+                  [
+                    Timeless.Icon({
+                      name: "braces",
+                      attributes: { n: "code-snippet-symbol" },
+                    }),
+                  ],
                 ),
                 View(
                   {

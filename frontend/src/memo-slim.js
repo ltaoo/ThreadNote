@@ -1342,21 +1342,17 @@ function shouldShowTimelineTime(previousTime, currentTime) {
 }
 
 const EDITOR_TOOLS = Object.freeze([
-  { command: "bold", icon: "bold", label: "粗体" },
-  { command: "italic", icon: "italic", label: "斜体" },
-  { command: "code", icon: "code", label: "行内代码" },
-  { command: "list", icon: "list", label: "列表" },
+  { command: "bold", icon: "file-text", label: "粗体" },
+  { command: "italic", icon: "file-text", label: "斜体" },
+  { command: "code", icon: "braces", label: "行内代码" },
+  { command: "list", icon: "list-filter", label: "列表" },
   { command: "checklist", icon: "check", label: "任务" },
-  { command: "tag", icon: "hash", label: "标签" },
-  { command: "link", icon: "link", label: "链接" },
+  { command: "tag", icon: "grid-3x3", label: "标签" },
+  { command: "link", icon: "file-symlink", label: "链接" },
   { command: "image", icon: "image", label: "图片" },
-  { command: "attach", icon: "paperclip", label: "附件" },
+  { command: "attach", icon: "file", label: "附件" },
   { command: "date", icon: "clock", label: "时间" },
 ]);
-
-function icon(name, meaning) {
-  return Timeless.Icon({ name, attributes: { n: meaning } });
-}
 
 function actionButton(runtime, props) {
   return runtime.Button(
@@ -1436,8 +1432,14 @@ function MemoSlimShellView(props = {}) {
                 ariaHasPopup: "menu",
                 ariaLabel: "更多操作",
                 children: [
-                  icon("ellipsis", "memo-slim-more-icon"),
-                  icon("chevron-down", "memo-slim-menu-chevron-icon"),
+                  Timeless.Icon({
+                    name: "ellipsis",
+                    attributes: { n: "memo-slim-more-icon" },
+                  }),
+                  Timeless.Icon({
+                    name: "chevron-down",
+                    attributes: { n: "memo-slim-menu-chevron-icon" },
+                  }),
                 ],
                 class: "memo-slim-menu-button",
                 meaning: "memo-slim-menu-button",
@@ -1473,7 +1475,10 @@ function MemoSlimShellView(props = {}) {
                         { as: "span", attributes: { n: "memo-slim-fixed-label" } },
                         ["置顶窗口"],
                       ),
-                      icon("check", "memo-slim-fixed-check-icon"),
+                      Timeless.Icon({
+                        name: "check",
+                        attributes: { n: "memo-slim-fixed-check-icon" },
+                      }),
                     ],
                     meaning: "memo-slim-fixed-button",
                     role: "menuitem",
@@ -1528,7 +1533,10 @@ function MemoSlimShellView(props = {}) {
             action: "backToBottom",
             backToBottom: "true",
             children: [
-              icon("chevron-down", "memo-slim-back-bottom-icon"),
+              Timeless.Icon({
+                name: "chevron-down",
+                attributes: { n: "memo-slim-back-bottom-icon" },
+              }),
               View({ as: "span", attributes: { n: "memo-slim-back-bottom-label" } }, ["回到底部"]),
             ],
             class: "memo-slim-back-bottom",
@@ -1553,7 +1561,12 @@ function MemoSlimShellView(props = {}) {
                       actionButton(runtime, {
                         action: "toggleEmoji",
                         ariaLabel: "选择表情",
-                        children: [icon("smile", "memo-slim-emoji-icon")],
+                        children: [
+                          Timeless.Icon({
+                            name: "user",
+                            attributes: { n: "memo-slim-emoji-icon" },
+                          }),
+                        ],
                         meaning: "memo-slim-emoji-button",
                         title: "表情",
                       }),
@@ -1590,7 +1603,14 @@ function MemoSlimShellView(props = {}) {
                       return actionButton(runtime, {
                         action: "editorCommand",
                         ariaLabel: tool.label,
-                        children: [icon(tool.icon, "memo-slim-" + tool.command + "-icon")],
+                        children: [
+                          Timeless.Icon({
+                            name: tool.icon,
+                            attributes: {
+                              n: "memo-slim-" + tool.command + "-icon",
+                            },
+                          }),
+                        ],
                         editorCommand: tool.command,
                         meaning: "memo-slim-" + tool.command + "-button",
                         title: tool.label,
@@ -1751,7 +1771,12 @@ function MemoSlimItemView(props) {
             class: "memo-slim-avatar",
             attributes: { "aria-hidden": "true", n: "memo-slim-avatar" },
           },
-          [icon("file-text", "memo-slim-avatar-icon")],
+          [
+            Timeless.Icon({
+              name: "file-text",
+              attributes: { n: "memo-slim-avatar-icon" },
+            }),
+          ],
         ),
       ],
     ),
@@ -1773,7 +1798,12 @@ function MemoSlimStateView(props = {}) {
           class: "memo-slim-state-icon",
           attributes: { "aria-hidden": "true", n: "memo-slim-state-icon" },
         },
-        [icon("file-text", "memo-slim-state-symbol")],
+        [
+          Timeless.Icon({
+            name: "file-text",
+            attributes: { n: "memo-slim-state-symbol" },
+          }),
+        ],
       ),
       View(
         { as: "strong", attributes: { n: "memo-slim-state-message" } },

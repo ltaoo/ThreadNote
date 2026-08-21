@@ -49,7 +49,6 @@ export type HomeSection =
   | "codeblocks"
   | "files"
   | "images"
-  | "items"
   | "links"
   | "memos"
   | "milestones"
@@ -63,7 +62,6 @@ export type HomeRouteKey =
   | "codeblock"
   | "file"
   | "image"
-  | "item"
   | "link"
   | "memo"
   | "milestone"
@@ -138,36 +136,6 @@ export interface HomeTaskSummary extends TaskSummary {
   source: HomeTaskSource;
 }
 
-export type GTDItemStatus =
-  | "closed"
-  | "open"
-  | "resolved"
-  | "triaged"
-  | "waiting";
-
-export type GTDItemType =
-  | "bug"
-  | "chore"
-  | "feature"
-  | "idea"
-  | "question";
-
-export interface GTDItemRecord {
-  closedAt: string;
-  createdAt: string;
-  decision: string;
-  id: string;
-  labels: string[];
-  linkedMemoIds: MemoID[];
-  linkedTaskIds: string[];
-  milestoneId: string;
-  projectId: ProjectID | "";
-  status: GTDItemStatus;
-  title: string;
-  type: GTDItemType;
-  updatedAt: string;
-}
-
 export type GTDMilestoneStatus =
   | "active"
   | "cancelled"
@@ -178,7 +146,6 @@ export interface GTDMilestoneRecord {
   completedAt: string;
   createdAt: string;
   id: string;
-  itemIds: string[];
   projectIds: ProjectID[];
   reviewMemoId: MemoID | "";
   status: GTDMilestoneStatus;
@@ -329,11 +296,18 @@ export interface MemoProjectPresentation {
 }
 
 export interface MemoCommentPresentation {
+  active: ReactiveRef<boolean>;
   editing: boolean;
   hasHistory: boolean;
   html: string;
   id: string;
+  onMouseEnter(): void;
+  onMouseLeave(): void;
+  onReactionMenuMouseEnter(): void;
+  onReactionMenuMouseLeave(): void;
   private: boolean;
+  reactionMenu: unknown;
+  reactionMenuDestroy(): void;
   reactions: string[];
   relativeTime: string;
   replyCount: number;
@@ -366,11 +340,14 @@ export interface MemoCardPresentation {
   html: string;
   id: MemoID;
   lineCount: string;
-  moreOpen: boolean;
+  moreMenu?: unknown;
+  moreMenuDestroy?(): void;
   pinned: boolean;
   private: boolean;
   project: MemoProjectPresentation | null;
   projectId: ProjectID | "";
+  reactionMenu?: unknown;
+  reactionMenuDestroy?(): void;
   reactions: string[];
   relativeTime: string;
   short: boolean;
@@ -380,6 +357,22 @@ export interface MemoCardPresentation {
   tocVisible: boolean;
   visibility: VisibilityMeta;
   visibleComments: MemoCommentPresentation[];
+}
+
+export interface MemoCardViewModel extends MemoCardPresentation {
+  active: ReactiveRef<boolean>;
+  clearActive(): false;
+  destroy(): void;
+  isActiveSource(source: string): boolean;
+  onMoreMenuMouseEnter(): boolean;
+  onMoreMenuMouseLeave(): boolean;
+  onMouseEnter(): boolean;
+  onMouseLeave(): boolean;
+  reactionMenuDestroy(): void;
+  setActive(active: boolean, source?: string): boolean;
+  setMoreMenuOpen(open: boolean): boolean;
+  setReactionMenuOpen(open: boolean): boolean;
+  updatePresentation(presentation: Partial<MemoCardPresentation>): this;
 }
 
 export interface MemoListConditions {
@@ -441,9 +434,22 @@ export interface HomeElementRegistry {
 export interface HomeSectionController {
   [method: string]: unknown;
   activateFilter(filter: MemoListFilter | string): void;
+  activateMemo(
+    memoId: MemoID | string,
+    options?: {
+      commentId?: string;
+      notify?: boolean;
+      reveal?: boolean;
+      scroll?: boolean;
+    },
+  ): boolean;
+  activateTag(tag: string): void;
   activateView(section: HomeSection): void;
+  clearActiveMemo(): boolean;
   createProject(): void;
   destroy(): void;
+  loadMoreMemos(): boolean;
+  memoCardViewModel(memoId: MemoID | string): MemoCardViewModel | null;
   showSettings(): void;
 }
 
@@ -451,11 +457,49 @@ export interface HomeWorkspaceModelInstance {
   methods: {
     activate(section: HomeSection): void;
     activateFilter(filter: MemoListFilter | string): void;
+    activateMemo(
+      memoId: MemoID | string,
+      options?: {
+        commentId?: string;
+        notify?: boolean;
+        reveal?: boolean;
+        scroll?: boolean;
+      },
+    ): boolean;
+    activateTag(tag: string): void;
+    clearActiveMemo(): boolean;
     register(
       section: HomeSection,
       controller: HomeSectionController,
     ): () => void;
     run(section: HomeSection, method: string, ...args: unknown[]): boolean;
+    syncSidebarSelection(selection: {
+      activeFilter?: string;
+      activeProjectId?: string;
+      activeTag?: string;
+    }): void;
+  };
+  sidebar: {
+    activeProjectId: ReactiveRef<string>;
+    allNavCount: ReactiveRef<string>;
+    boardNavCount: ReactiveRef<string>;
+    chatNavCount: ReactiveRef<string>;
+    clipboardNavCount: ReactiveRef<string>;
+    codeNavCount: ReactiveRef<string>;
+    fileNavCount: ReactiveRef<string>;
+    imageNavCount: ReactiveRef<string>;
+    linkNavCount: ReactiveRef<string>;
+    milestoneNavCount: ReactiveRef<string>;
+    projects: ReactiveRef<Array<{
+      color: string;
+      count: number;
+      id: string;
+      name: string;
+    }>>;
+    rulesNavCount: ReactiveRef<string>;
+    tags: ReactiveRef<Array<{ count: number; tag: string }>>;
+    tagSummary: ReactiveRef<string>;
+    todoNavCount: ReactiveRef<string>;
   };
   state: {
     activeFilter: ReactiveRef<string>;

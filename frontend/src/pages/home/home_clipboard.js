@@ -1,4 +1,4 @@
-import { TimelessPrimitive } from "@/timeless-icons.js";
+import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 import {
   DEFAULT_VISIBILITY,
   VISIBILITY,
@@ -20,7 +20,6 @@ import { fileInfoToUploadURL } from "./memo-editor.js";
 import { formatDateTime } from "./home_memo_helpers.js";
 import {
   iconActionButton,
-  memoIcon,
   reactiveWhen,
 } from "./home_view_shared.js";
 
@@ -542,7 +541,12 @@ export function ClipboardCardView(props = {}) {
               type: "button",
             },
           },
-          [memoIcon("x", "memo-clipboard-close-icon")],
+          [
+            Timeless.Icon({
+              name: "x",
+              attributes: { n: "memo-clipboard-close-icon" },
+            }),
+          ],
         ),
       ],
     ),
@@ -622,7 +626,12 @@ export function ClipboardCurrentView(props = {}) {
             class: "memo-empty-icon",
             attributes: { n: "memo-clipboard-current-empty-icon" },
           },
-          [memoIcon("copy", "memo-clipboard-current-empty-symbol")],
+          [
+            Timeless.Icon({
+              name: "copy",
+              attributes: { n: "memo-clipboard-current-empty-symbol" },
+            }),
+          ],
         ),
         View(
           { as: "h2", attributes: { n: "memo-clipboard-current-empty-title" } },
@@ -647,7 +656,7 @@ export function ClipboardCurrentView(props = {}) {
   if (item.type === "image") {
     icon_name = "image";
   } else if (item.type === "link") {
-    icon_name = "link";
+    icon_name = "file-symlink";
   }
   return View(
     {
@@ -676,7 +685,12 @@ export function ClipboardCurrentView(props = {}) {
                   class: "memo-resource-icon",
                   attributes: { n: "memo-clipboard-current-icon" },
                 },
-                [memoIcon(icon_name, "memo-clipboard-current-symbol")],
+                [
+                  Timeless.Icon({
+                    name: icon_name,
+                    attributes: { n: "memo-clipboard-current-symbol" },
+                  }),
+                ],
               ),
               View(
                 {

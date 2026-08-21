@@ -1,0 +1,5 @@
+.tn-avatar { position: relative; display: inline-flex; width: 36px; height: 36px; flex: none; overflow: hidden; align-items: center; justify-content: center; border-radius: var(--tn-radius-full); background: var(--tn-color-bg-subtle); color: var(--tn-color-text-secondary); font-weight: var(--tn-font-weight-medium); }
+.tn-avatar--sm { width: 28px; height: 28px; font-size: var(--tn-font-size-xs); }
+.tn-avatar--lg { width: 48px; height: 48px; font-size: var(--tn-font-size-lg); }
+.tn-avatar__image { width: 100%; height: 100%; object-fit: cover; }
+.tn-avatar__fallback { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; }

@@ -1,0 +1,3 @@
+.tn-separator { flex: none; background: var(--tn-color-border-translucent); }
+.tn-separator--horizontal { width: 100%; height: var(--tn-border-width); }
+.tn-separator--vertical { width: var(--tn-border-width); height: 100%; }

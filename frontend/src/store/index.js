@@ -36,11 +36,6 @@ const routes_configure = {
             pathname: "/home/index/todo",
             component: Timeless.lazy("@/pages/home/home_todo.js"),
           },
-          item: {
-            title: "事项",
-            pathname: "/home/index/item",
-            component: Timeless.lazy("@/pages/home/home_item.js"),
-          },
           milestone: {
             title: "里程碑",
             pathname: "/home/index/milestone",

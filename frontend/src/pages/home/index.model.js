@@ -1,7 +1,3 @@
-import {
-  createMemosPageUIState,
-  destroyMemosPageUIState,
-} from "./memos.js";
 import { HomeWorkspaceModel } from "./home_workspace.model.js";
 
 /** @typedef {import("./home.models").HomeRouteKey} HomeRouteKey */
@@ -16,7 +12,6 @@ const HOME_VIEW_ROUTE_KEYS = Object.freeze({
   codeblocks: "codeblock",
   files: "file",
   images: "image",
-  items: "item",
   links: "link",
   memos: "memo",
   milestones: "milestone",
@@ -69,7 +64,6 @@ function normalize_home_section(value) {
 /** @param {import("./home.models").HomePageProps} props */
 export function HomePageModel(props) {
   const workspace$ = HomeWorkspaceModel(props.app);
-  const ui = createMemosPageUIState();
   const elements = {};
   const listeners = [];
 
@@ -83,6 +77,25 @@ export function HomePageModel(props) {
 
   const methods = {
     handleClick(event) {
+      const project = event.target.closest?.("[data-project-detail]");
+      if (project) {
+        workspace$.methods.activate("memos");
+        workspace$.methods.run(
+          "memos",
+          "openProject",
+          String(project.dataset.projectDetail || ""),
+        );
+        props.history.push(home_route_name("memos"), {});
+        return;
+      }
+
+      const tag = event.target.closest?.("[data-tag]");
+      if (tag) {
+        workspace$.methods.activateTag(String(tag.dataset.tag || ""));
+        props.history.push(home_route_name("memos"), {});
+        return;
+      }
+
       const view = event.target.closest?.("[data-view]");
       if (view) {
         const active_view = normalize_home_section(view.dataset.view);
@@ -127,12 +140,11 @@ export function HomePageModel(props) {
       activeTag: workspace$.state.activeTag,
       activeView: workspace$.state.activeSection,
     },
-    ui,
+    ui: workspace$.sidebar,
     destroy() {
       listeners.forEach(function (unsubscribe) {
         unsubscribe?.();
       });
-      destroyMemosPageUIState(ui);
     },
   };
 }

@@ -5,10 +5,6 @@ import {
 import { renderTimelessView } from "./timeless-view-mount.js";
 import { TimelineWindowModel } from "./timeline-window.model.js";
 
-function icon(name, meaning) {
-  return Timeless.Icon({ name, attributes: { n: meaning } });
-}
-
 function dom_node(element$) {
   return element$?.$elm?.get$elm?.() || element$?.$elm || null;
 }
@@ -94,7 +90,10 @@ function TimelineItemView(props) {
                   { attributes: { n: "timeline-item-expand-label" } },
                   [item.expanded ? "收起" : "展开"],
                 ),
-                icon("chevron-down", "timeline-item-expand-icon"),
+                Timeless.Icon({
+                  name: "chevron-down",
+                  attributes: { n: "timeline-item-expand-icon" },
+                }),
               ],
             ),
           ];
@@ -137,7 +136,10 @@ function TimelineItemView(props) {
                   attributes: { n: "timeline-item-type" },
                 },
                 [
-                  icon(icon_name, "timeline-item-type-icon"),
+                  Timeless.Icon({
+                    name: icon_name,
+                    attributes: { n: "timeline-item-type-icon" },
+                  }),
                   View(
                     { attributes: { n: "timeline-item-type-label" } },
                     [type_name],
@@ -288,7 +290,12 @@ export function TimelineWindowView(props) {
                         vm$.methods.navigateDate("today");
                       },
                     },
-                    [icon("clock", "timeline-today-icon")],
+                    [
+                      Timeless.Icon({
+                        name: "clock",
+                        attributes: { n: "timeline-today-icon" },
+                      }),
+                    ],
                   ),
                 ],
               ),

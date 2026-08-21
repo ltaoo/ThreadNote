@@ -19,10 +19,6 @@ function dom_node(element$) {
   return element$?.$elm?.get$elm?.() || element$?.$elm || null;
 }
 
-function icon(name, meaning) {
-  return Timeless.Icon({ name, attributes: { n: meaning } });
-}
-
 function project_options(projects) {
   let project_list = [];
   if (Array.isArray(projects)) project_list = projects;
@@ -294,7 +290,12 @@ export function MemoEditDialogView(props) {
                         vm$.methods.exitEdit();
                       },
                     },
-                    [icon("x", "memo-edit-close-icon")],
+                    [
+                      Timeless.Icon({
+                        name: "x",
+                        attributes: { n: "memo-edit-close-icon" },
+                      }),
+                    ],
                   ),
                 ],
               ),
@@ -392,7 +393,10 @@ export function MemoEditDialogView(props) {
                   },
                 },
                 [
-                  icon("eye", "memo-edit-preview-icon"),
+                  Timeless.Icon({
+                    name: "search",
+                    attributes: { n: "memo-edit-preview-icon" },
+                  }),
                   View(
                     { attributes: { n: "memo-edit-preview-button-label" } },
                     [preview_button_label_],
@@ -409,7 +413,10 @@ export function MemoEditDialogView(props) {
                   },
                 },
                 [
-                  icon("x", "memo-edit-cancel-icon"),
+                  Timeless.Icon({
+                    name: "x",
+                    attributes: { n: "memo-edit-cancel-icon" },
+                  }),
                   View(
                     { attributes: { n: "memo-edit-cancel-label" } },
                     ["取消"],
@@ -426,7 +433,10 @@ export function MemoEditDialogView(props) {
                   },
                 },
                 [
-                  icon("check", "memo-edit-save-icon"),
+                  Timeless.Icon({
+                    name: "check",
+                    attributes: { n: "memo-edit-save-icon" },
+                  }),
                   View(
                     { attributes: { n: "memo-edit-save-label" } },
                     ["保存"],

@@ -25,8 +25,8 @@ ThreadNote 是一个本地优先的桌面知识与任务工作台。它以 Markd
 
 - 独立任务模型支持状态、优先级、清单、项目、标签、上下文、子任务、日期、提醒、重复规则和关联笔记。
 - Markdown 中的任务行可以同步或提取为独立任务。
-- Open Loops 用于管理 idea、bug、question、feature、chore 等待澄清事项。
-- Milestones 用于管理阶段目标，并可关联 Open Loops。
+- 待澄清、待判断或待分解的需求也是 Task，通过 `stage:backlog` 等标签表达任务阶段；类型可使用 `type:idea`、`type:bug`、`type:feature` 等标签。
+- Milestones 用于管理阶段目标，并通过 `taskIds` 关联任务。
 - 看板支持自定义列、内置流程模板和任务创建规则。
 
 ### 资源与自动化
@@ -34,7 +34,7 @@ ThreadNote 是一个本地优先的桌面知识与任务工作台。它以 Markd
 - 支持本地存储及 S3 兼容对象存储，用于图片与附件上传、预览和管理。
 - 自动识别 Memo 与评论中的代码片段和链接，提供全局快捷搜索入口。
 - 支持任务和 Memo 事件 Webhook。
-- 提供默认监听本机回环地址的 REST API，可供其他工具管理 GTD Items 和 Milestones。
+- 提供统一能力目录，可通过本机 REST API、CLI、JSON-RPC 和独立 MCP Server 管理 Memo、Task、Project、Milestone 与 Board。
 - 可连接本机 ACP Agent；当前内置 OpenCode 启动配置，用于编辑选区和聊天。
 
 ### 桌面能力
@@ -53,8 +53,16 @@ ThreadNote 是一个本地优先的桌面知识与任务工作台。它以 Markd
 └───────────────────────────┬────────────────────────────────┘
                             │ globalThis.invoke / Velo Bridge
 ┌───────────────────────────▼────────────────────────────────┐
-│ internal/desktopapp/                                       │
-│ 领域服务 · Bridge API · 窗口管理 · 系统能力 · 定时提醒      │
+│ internal/desktopapp/ · 稳定桌面入口                         │
+├────────────────────────────────────────────────────────────┤
+│ internal/service/                                          │
+│ 领域服务 · 统一能力目录 · 窗口管理 · 系统能力 · 定时提醒    │
+└──────┬───────────┬────────────┬──────────────┬─────────────┘
+       │           │            │              │
+ Bridge API    REST API        CLI        JSON-RPC / MCP
+       │           │            │              │
+┌──────▼───────────▼────────────▼──────────────▼─────────────┐
+│ Vault 与外部集成                                           │
 ├──────────────────────┬─────────────────────┬───────────────┤
 │ 本地 Vault           │ S3 兼容对象存储      │ ACP / Webhook │
 │ Markdown + JSON      │ 可选                 │ 可选          │
@@ -169,7 +177,7 @@ xattr -dr com.apple.quarantine "/Applications/ThreadNote.app"
 使用 `fakegithubrelease` 上传一个高于当前应用版本、且文件名包含当前平台（例如 `ThreadNote_0.1.2_darwin_arm64.dmg`）的 Release 后，可运行真实下载验收测试：
 
 ```bash
-THREADNOTE_SELF_UPDATE_TEST=1 go test ./internal/desktopapp \
+THREADNOTE_SELF_UPDATE_TEST=1 go test ./internal/service \
   -run '^TestConfiguredSelfHostedUpdateDownload$' -count=1 -v
 ```
 
@@ -195,15 +203,12 @@ your-vault/
 ├── tasks/
 │   ├── open/YYYY/MM/*.json
 │   └── <status>/YYYY/*.json     # completed/cancelled/archived
-├── items/
-│   ├── open/YYYY/MM/*.json      # Open Loops
-│   └── <status>/YYYY/*.json
 └── storage/                     # 默认本地附件存储（启用时）
 ```
 
-Memo 使用 YAML front matter 保存结构化元数据，正文保持为普通 Markdown。版本历史以相邻的 `*.history.json` 文件保存。任务和 Open Loops 使用独立 JSON 文件，因此数据无需专有数据库即可读取。
+Memo 使用 YAML front matter 保存结构化元数据，正文保持为普通 Markdown。版本历史以相邻的 `*.history.json` 文件保存。任务使用独立 JSON 文件，因此数据无需专有数据库即可读取。旧版本的 `items/*.json` 会在打开 Vault 时迁移为 Task，原文件备份到 `.velo/migrations/items-to-tasks-v1/`。
 
-本机 Vault 注册表位于 `~/.velo/data.json`，记录最近打开的 Vault 和当前活动 Vault。当前日志路径为 `~/.myapp/app.log`。
+本机 Vault 注册表位于 `~/.velo/data.json`，记录最近打开的 Vault 和当前活动 Vault。后端与前端结构化日志统一写入固定文件 `~/.myapp/app.log`；前端记录带有 `"component":"frontend"`，可用 `rg '"component":"frontend"' ~/.myapp/app.log` 快速筛选。
 
 ## 常用快捷键
 
@@ -220,10 +225,15 @@ Memo 使用 YAML front matter 保存结构化元数据，正文保持为普通 M
 
 ### 本机 REST API
 
-ThreadNote 默认在 `127.0.0.1:18088` 启动本机 API，提供健康检查、Vault 状态、GTD Items 和 Milestones 接口。
+ThreadNote 默认在 `127.0.0.1:18088` 启动本机 API，提供健康检查、兼容的 Tasks/Milestones REST 路由，以及由统一能力目录生成的领域操作。Task 列表支持通过 `status`、`projectId`、`listId`、`tag` 和 `context` 查询参数筛选。
 
 ```bash
 curl http://127.0.0.1:18088/api/health
+curl 'http://127.0.0.1:18088/api/tasks?tag=stage%3Abacklog'
+curl http://127.0.0.1:18088/api/capabilities
+curl -X POST http://127.0.0.1:18088/api/capabilities/memo.create \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"通过统一能力 API 创建"}'
 ```
 
 可通过环境变量调整：
@@ -236,6 +246,20 @@ curl http://127.0.0.1:18088/api/health
 | `DEMO_DESKTOP_API_TOKEN` | Bearer Token 或 `X-Velo-API-Token` |
 
 兼容的旧变量前缀为 `VELO_DEMO_API_*`。如果把监听地址改为非回环地址，务必同时设置 Token 并配置主机防火墙。
+
+### CLI、JSON-RPC 与 MCP
+
+无参数执行根二进制仍启动桌面应用；以下子命令复用同一领域能力目录：
+
+```bash
+go run . cli --vault /absolute/path/to/vault capabilities
+go run . cli --vault /absolute/path/to/vault memo list
+go run . cli --vault /absolute/path/to/vault --input '{"title":"新任务"}' task create
+go run . jsonrpc --vault /absolute/path/to/vault
+go run . mcp --vault /absolute/path/to/vault
+```
+
+独立 MCP 二进制可通过 `go build -o threadnote-mcp ./cmd/threadnote-mcp` 构建。桌面 Bridge 也支持通过 `/api/mcp/start`、`/api/mcp/status` 和 `/api/mcp/stop` 管理默认监听 `127.0.0.1:18089` 的 Streamable HTTP MCP Server。入口契约、Bridge 参数、MCP Host 配置和扩展规范见 [统一能力入口文档](docs/CAPABILITY_ENTRYPOINTS.md)。
 
 ### Webhook
 
@@ -259,7 +283,8 @@ go run ./cmd/webhook-server
 .
 ├── main.go                    # 应用入口与资源嵌入
 ├── velo.json                  # Velo 构建、平台和更新配置
-├── internal/desktopapp/       # 桌面应用、领域逻辑和 Bridge API
+├── internal/desktopapp/       # 稳定桌面入口及平台子包
+├── internal/service/          # 按领域拆分的服务、Bridge API 与运行时
 ├── internal/clientsdk/        # ACP/JSON-RPC/NDJSON 客户端
 ├── frontend/                  # 页面、领域模块和静态运行时资源
 ├── cmd/webhook-server/        # Webhook 调试接收器

@@ -4,15 +4,8 @@ import {
 } from "@/timeless-icons.js";
 import { VaultPickerPageModel } from "./index.model.js";
 
-const { Button, DOM, For, Img, Input, Show, View, computed } =
+const { Button, DOM, For, Input, Show, View, computed } =
   TimelessPrimitive;
-
-function icon(name, meaning) {
-  return Timeless.Icon({
-    name,
-    attributes: { n: meaning },
-  });
-}
 
 function VaultItemView(props) {
   const path = String(props.vault.path || "");
@@ -34,7 +27,12 @@ function VaultItemView(props) {
           class: "vault-picker-item-icon",
           attributes: { n: "vault-picker-recent-item-icon" },
         },
-        [icon("folder", "vault-picker-folder-icon")],
+        [
+          Timeless.Icon({
+            name: "folder",
+            attributes: { n: "vault-picker-folder-icon" },
+          }),
+        ],
       ),
       View(
         {
@@ -121,10 +119,10 @@ function VaultPickerContentView(props) {
                       attributes: { n: "vault-picker-brand-mark" },
                     },
                     [
-                      Img({
-                        alt: "",
-                        attributes: { n: "vault-picker-brand-image" },
-                        src: "/public/threadnote-logo.svg",
+                      Timeless.Icon({
+                        name: "file-text",
+                        size: 28,
+                        attributes: { n: "vault-picker-brand-icon" },
                       }),
                     ],
                   ),
@@ -212,7 +210,13 @@ function VaultPickerContentView(props) {
                         vm$.methods.openVault();
                       },
                     },
-                    [icon("check", "vault-picker-open-icon"), "打开"],
+                    [
+                      Timeless.Icon({
+                        name: "check",
+                        attributes: { n: "vault-picker-open-icon" },
+                      }),
+                      "打开",
+                    ],
                   ),
                 ],
               ),
@@ -234,7 +238,13 @@ function VaultPickerContentView(props) {
                         vm$.methods.chooseVault();
                       },
                     },
-                    [icon("plus", "vault-picker-add-icon"), "选择目录"],
+                    [
+                      Timeless.Icon({
+                        name: "plus",
+                        attributes: { n: "vault-picker-add-icon" },
+                      }),
+                      "选择目录",
+                    ],
                   ),
                 ],
               ),

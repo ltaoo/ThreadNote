@@ -1,0 +1,16 @@
+.tn-date-picker-root { display: inline-flex; width: 100%; }
+.tn-date-picker { display: flex; width: 100%; min-height: var(--tn-control-height-md); align-items: center; justify-content: space-between; gap: var(--tn-space-2); padding: 0 var(--tn-space-3); border: var(--tn-border-width) solid var(--tn-color-border); border-radius: var(--tn-radius-sm); background: var(--tn-color-bg-interactive); color: var(--tn-color-text-primary); cursor: pointer; outline: none; }
+.tn-date-picker:focus-visible { border-color: var(--tn-color-focus-ring); box-shadow: var(--tn-focus-ring); }
+.tn-date-picker__value { flex: 1 1 auto; min-width: 0; text-align: left; }
+.tn-date-picker__action, .tn-date-picker__nav { display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--tn-color-text-tertiary); cursor: pointer; }
+.tn-date-picker__content { z-index: var(--tn-z-control-popover); width: 292px; padding: var(--tn-space-3); border: var(--tn-border-width) solid var(--tn-color-border); border-radius: var(--tn-radius-lg); background: var(--tn-color-bg-elevated); box-shadow: var(--tn-shadow-md); }
+.tn-date-picker__header { display: grid; grid-template-columns: 32px 1fr 32px; align-items: center; margin-bottom: var(--tn-space-2); }
+.tn-date-picker__month { text-align: center; font-weight: var(--tn-font-weight-semibold); }
+.tn-date-picker__weekdays, .tn-date-picker__week { display: grid; grid-template-columns: repeat(7, 1fr); }
+.tn-date-picker__weekday, .tn-date-picker__day { display: inline-flex; width: 36px; height: 32px; align-items: center; justify-content: center; border: 0; border-radius: var(--tn-radius-sm); background: transparent; color: var(--tn-color-text-secondary); }
+.tn-date-picker__weekday { color: var(--tn-color-text-tertiary); font-size: var(--tn-font-size-xs); }
+.tn-date-picker__day { cursor: pointer; }
+.tn-date-picker__day:hover { background: var(--tn-color-hover-surface); }
+.tn-date-picker__day.is-selected { background: var(--tn-color-primary-fill); color: var(--tn-color-on-primary); }
+.tn-date-picker__day.is-today:not(.is-selected) { background: var(--tn-color-primary-soft); color: var(--tn-color-primary-text); }
+.tn-date-picker__day.is-outside { opacity: 0.45; }

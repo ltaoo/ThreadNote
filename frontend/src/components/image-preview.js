@@ -14,23 +14,6 @@ const PREVIEW_STORAGE_PREFIX = "demo-desktop:image-preview:";
 const PREVIEW_STORAGE_INDEX = "demo-desktop:image-preview:index";
 const MAX_STORED_PREVIEWS = 16;
 
-const ICONS = Object.freeze({
-  actual: Timeless.Icon({ name: "square" }),
-  brush: Timeless.Icon({ name: "brush" }),
-  close: Timeless.Icon({ name: "x" }),
-  copy: Timeless.Icon({ name: "copy" }),
-  download: Timeless.Icon({ name: "download" }),
-  fit: Timeless.Icon({ name: "fit" }),
-  hand: Timeless.Icon({ name: "hand" }),
-  pin: Timeless.Icon({ name: "pin" }),
-  reset: Timeless.Icon({ name: "undo2" }),
-  rotateLeft: Timeless.Icon({ name: "rotate-ccw" }),
-  rotateRight: Timeless.Icon({ name: "rotate-right" }),
-  trash: Timeless.Icon({ name: "trash2" }),
-  zoomIn: Timeless.Icon({ name: "zoom-in" }),
-  zoomOut: Timeless.Icon({ name: "zoom-out" }),
-});
-
 const PREVIEW_CSS = `
   * {
     box-sizing: border-box;
@@ -482,11 +465,39 @@ function resolveWindowPreviewPayload() {
 function ImagePreviewView(payload) {
   const { Input, View } = TimelessPrimitive;
   const tools = [
-    PreviewToolbarButton("toggleFixed", ICONS.pin, "固定在最上方"),
+    PreviewToolbarButton(
+      "toggleFixed",
+      Timeless.Icon({
+        name: "arrow-down-to-line",
+        attributes: { n: "image-preview-fixed-icon" },
+      }),
+      "固定在最上方",
+    ),
     PreviewDivider("image-preview-pin-divider"),
-    PreviewToolbarButton("fit", ICONS.fit, "适应窗口"),
-    PreviewToolbarButton("actual", ICONS.actual, "实际大小"),
-    PreviewToolbarButton("zoomOut", ICONS.zoomOut, "缩小"),
+    PreviewToolbarButton(
+      "fit",
+      Timeless.Icon({
+        name: "square-arrow-down",
+        attributes: { n: "image-preview-fit-icon" },
+      }),
+      "适应窗口",
+    ),
+    PreviewToolbarButton(
+      "actual",
+      Timeless.Icon({
+        name: "square",
+        attributes: { n: "image-preview-actual-size-icon" },
+      }),
+      "实际大小",
+    ),
+    PreviewToolbarButton(
+      "zoomOut",
+      Timeless.Icon({
+        name: "search",
+        attributes: { n: "image-preview-zoom-out-icon" },
+      }),
+      "缩小",
+    ),
     View(
       {
         as: "span",
@@ -495,13 +506,48 @@ function ImagePreviewView(payload) {
       },
       ["100%"],
     ),
-    PreviewToolbarButton("zoomIn", ICONS.zoomIn, "放大"),
+    PreviewToolbarButton(
+      "zoomIn",
+      Timeless.Icon({
+        name: "search",
+        attributes: { n: "image-preview-zoom-in-icon" },
+      }),
+      "放大",
+    ),
     PreviewDivider("image-preview-zoom-divider"),
-    PreviewToolbarButton("rotateLeft", ICONS.rotateLeft, "向左旋转"),
-    PreviewToolbarButton("rotateRight", ICONS.rotateRight, "向右旋转"),
+    PreviewToolbarButton(
+      "rotateLeft",
+      Timeless.Icon({
+        name: "rotate-ccw",
+        attributes: { n: "image-preview-rotate-left-icon" },
+      }),
+      "向左旋转",
+    ),
+    PreviewToolbarButton(
+      "rotateRight",
+      Timeless.Icon({
+        name: "refresh-cw",
+        attributes: { n: "image-preview-rotate-right-icon" },
+      }),
+      "向右旋转",
+    ),
     PreviewDivider("image-preview-rotate-divider"),
-    PreviewToolbarButton("move", ICONS.hand, "移动"),
-    PreviewToolbarButton("draw", ICONS.brush, "标注"),
+    PreviewToolbarButton(
+      "move",
+      Timeless.Icon({
+        name: "activity",
+        attributes: { n: "image-preview-move-icon" },
+      }),
+      "移动",
+    ),
+    PreviewToolbarButton(
+      "draw",
+      Timeless.Icon({
+        name: "wrench",
+        attributes: { n: "image-preview-draw-icon" },
+      }),
+      "标注",
+    ),
     PreviewColorButton("#ff4d4f", "红色标注"),
     PreviewColorButton("#f7b731", "黄色标注"),
     PreviewColorButton("#40c057", "绿色标注"),
@@ -520,11 +566,39 @@ function ImagePreviewView(payload) {
         type: "range",
       },
     }),
-    PreviewToolbarButton("clearAnnotations", ICONS.trash, "清除标注"),
+    PreviewToolbarButton(
+      "clearAnnotations",
+      Timeless.Icon({
+        name: "trash2",
+        attributes: { n: "image-preview-clear-annotations-icon" },
+      }),
+      "清除标注",
+    ),
     PreviewDivider("image-preview-action-divider"),
-    PreviewToolbarButton("copy", ICONS.copy, "复制当前图片"),
-    PreviewToolbarButton("download", ICONS.download, "下载当前图片"),
-    PreviewToolbarButton("close", ICONS.close, "关闭窗口"),
+    PreviewToolbarButton(
+      "copy",
+      Timeless.Icon({
+        name: "copy",
+        attributes: { n: "image-preview-copy-icon" },
+      }),
+      "复制当前图片",
+    ),
+    PreviewToolbarButton(
+      "download",
+      Timeless.Icon({
+        name: "download",
+        attributes: { n: "image-preview-download-icon" },
+      }),
+      "下载当前图片",
+    ),
+    PreviewToolbarButton(
+      "close",
+      Timeless.Icon({
+        name: "x",
+        attributes: { n: "image-preview-close-icon" },
+      }),
+      "关闭窗口",
+    ),
   ];
   return View(
     {

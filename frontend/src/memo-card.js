@@ -112,6 +112,12 @@ export function createMemoCardComponent(deps) {
       container.replaceChildren();
       const views = normalizeViews(value);
       views.forEach((view) => {
+        if (view?.t === "icon" && Timeless?.DOM?.buildAndRender) {
+          const rendered = Timeless.DOM.buildAndRender(view);
+          if (rendered.dom) container.appendChild(rendered.dom);
+          if (mounted) view.onMounted?.({ target: rendered.vnode });
+          return;
+        }
         if (view && typeof view.render === "function") {
           const element = view.render();
           if (element) container.appendChild(element);
@@ -141,7 +147,15 @@ export function createMemoCardComponent(deps) {
           title: label,
           variant: "ghost",
         },
-        options.icons || [Timeless.Icon({ name, size: 15 })],
+        options.icons || [
+          Timeless.Icon({
+            name,
+            size: 15,
+            attributes: {
+              n: (options.semanticName || "memo-" + name) + "-icon",
+            },
+          }),
+        ],
       );
     }
 
@@ -154,7 +168,11 @@ export function createMemoCardComponent(deps) {
           options.danger && "is-danger",
         ),
         onClick: handler,
-        prefix: Timeless.Icon({ name, size: 15 }),
+        prefix: Timeless.Icon({
+          name,
+          size: 15,
+          attributes: { n: options.semanticName || name + "-menu-icon" },
+        }),
         size: "sm",
         text: label,
         variant: "ghost",
@@ -162,7 +180,7 @@ export function createMemoCardComponent(deps) {
     }
 
     const pinAction = actionButton(
-      "pin",
+      "arrow-down-to-line",
       "置顶",
       (event) => model.togglePinned?.(event),
       {
@@ -170,30 +188,30 @@ export function createMemoCardComponent(deps) {
           Timeless.Icon({
             attributes: { n: "memo-pin-icon" },
             class: "tn-memo-card__pin-icon",
-            name: "pin",
+            name: "arrow-down-to-line",
             size: 15,
           }),
           Timeless.Icon({
             attributes: { n: "memo-unpin-icon" },
             class: "tn-memo-card__unpin-icon",
-            name: "unpin",
+            name: "undo2",
             size: 15,
           }),
         ],
         semanticName: "memo-pin-toggle",
       },
     );
-    const openAction = actionButton("external", "打开 Memo", (event) =>
+    const openAction = actionButton("external-link", "打开 Memo", (event) =>
       model.open?.(event),
     );
-    const commentAction = actionButton("comment", "评论", (event) =>
+    const commentAction = actionButton("message-square-more", "评论", (event) =>
       model.comment?.(event),
     );
-    const editAction = actionButton("edit", "编辑", (event) =>
+    const editAction = actionButton("file-text", "编辑", (event) =>
       model.edit?.(event),
     );
     let moreMenu = null;
-    const archiveAction = menuAction("archive", "归档", (event) => {
+    const archiveAction = menuAction("inbox", "归档", (event) => {
       moreMenu?.model?.hide?.("action");
       model.toggleArchived?.(event);
     });
@@ -206,12 +224,19 @@ export function createMemoCardComponent(deps) {
       },
       { danger: true },
     );
-    const moreAction = actionButton("moreHorizontal", "更多操作", () => {});
+    const moreAction = actionButton("ellipsis", "更多操作", () => {}, {
+      semanticName: "memo-more-actions",
+    });
     const expandAction = Button({
       ariaLabel: "展开全文",
       class: "tn-memo-card__expand-action",
       onClick: (event) => model.expand?.(event),
-      prefix: Timeless.Icon({ class: "tn-memo-card__expand-icon", name: "chevron-down", size: 14 }),
+      prefix: Timeless.Icon({
+        class: "tn-memo-card__expand-icon",
+        name: "chevron-down",
+        size: 14,
+        attributes: { n: "memo-expand-icon" },
+      }),
       size: "xs",
       text: "展开全文",
       variant: "ghost",

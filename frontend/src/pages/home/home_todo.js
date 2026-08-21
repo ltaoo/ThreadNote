@@ -2,7 +2,7 @@ import {
   renderTimelessView,
   unmountTimelessView,
 } from "@/timeless-view-mount.js";
-import { TimelessPrimitive } from "@/timeless-icons.js";
+import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 import {
   DEFAULT_VISIBILITY,
   normalizeMemoPayload,
@@ -11,11 +11,13 @@ import {
   updateTaskLine,
 } from "@/domain/memos.js";
 import {
+  TASK_BACKLOG_TAG,
   completeTask,
   createTask,
   createTaskNote,
   deleteTask,
   getTask,
+  isTaskInBacklog,
   normalizeTaskSummary,
   updateTask,
 } from "@/domain/tasks.js";
@@ -25,7 +27,7 @@ import {
   saveMemos,
   updateMemoInVault,
 } from "@/domain/memo-repository.js";
-import { setCheckboxControlValue } from "@/components.js";
+import { setCheckboxControlValue } from "@/checkbox-control.js";
 
 import { HomePageHeader, HomePageToast } from "./home_page_header.js";
 import { formatDateTime } from "./home_memo_helpers.js";
@@ -35,7 +37,6 @@ import {
   appendTimelessHost,
   EmptyStateView,
   iconActionButton,
-  memoIcon,
   PrivateOverlayView,
   reactiveWhen,
   renderTimelessHost,
@@ -44,6 +45,7 @@ import {
 const TASK_FILTER_STORAGE_KEY = "demo-desktop:gtd:task-filter:v1";
 const TASK_FILTERS = new Set([
   "all",
+  "backlog",
   "completed",
   "inbox",
   "next",
@@ -147,6 +149,11 @@ export function createHomeTodoController(options) {
     switch (filter) {
     case "all":
       return true;
+    case "backlog":
+      return (
+        !["archived", "cancelled", "completed"].includes(task.status) &&
+        isTaskInBacklog(task)
+      );
     case "completed":
       return task.status === "completed";
     case "inbox":
@@ -260,6 +267,8 @@ export function createHomeTodoController(options) {
   function task_filter_counts(tasks) {
     return {
       all: tasks.length,
+      backlog: tasks.filter((task) => task_matches_filter(task, "backlog"))
+        .length,
       completed: tasks.filter((task) => task.status === "completed").length,
       inbox: tasks.filter((task) => task_matches_filter(task, "inbox")).length,
       next: tasks.filter((task) => task_matches_filter(task, "next")).length,
@@ -313,8 +322,8 @@ export function createHomeTodoController(options) {
     return {
       actions: [
         { action: "editTask", icon: "clock", label: "编辑任务" },
-        { action: "addTaskNote", icon: "edit", label: "添加 note" },
-        { action: "copyTaskRef", icon: "link", label: "复制引用" },
+        { action: "addTaskNote", icon: "file-text", label: "添加 note" },
+        { action: "copyTaskRef", icon: "file-symlink", label: "复制引用" },
         { action: "deleteTask", danger: true, icon: "trash2", label: "删除" },
       ],
       badge: priority_labels[task.priority || "none"],
@@ -331,6 +340,7 @@ export function createHomeTodoController(options) {
     options.beforeRender();
     const counts = task_filter_counts(scoped_tasks());
     const filters = [
+      ["backlog", "需求池"],
       ["inbox", "Inbox"],
       ["today", "Today"],
       ["overdue", "已过期"],
@@ -403,6 +413,7 @@ export function createHomeTodoController(options) {
       listId: state.taskFilter === "inbox" ? "inbox" : "",
       priority,
       projectId,
+      tags: state.taskFilter === "backlog" ? [TASK_BACKLOG_TAG] : [],
       title,
       visibility: visibility || DEFAULT_VISIBILITY,
     };
@@ -668,6 +679,7 @@ export function createHomeTodoController(options) {
             label: formatReminderLabel(reminder),
           };
         }),
+        tags: (task.tags || []).join(", "),
         title: task.title,
       }),
     );
@@ -776,10 +788,17 @@ export function createHomeTodoController(options) {
     const titleInput = overlay.querySelector("[data-task-edit-title]");
     const dueInput = overlay.querySelector("[data-task-edit-due]");
     const prioritySelect = overlay.querySelector("[data-task-edit-priority]");
+    const tagsInput = overlay.querySelector("[data-task-edit-tags]");
     const patch = {};
     if (titleInput) patch.title = titleInput.value.trim();
     if (dueInput) patch.dueAt = dueInput.value || "";
     if (prioritySelect) patch.priority = prioritySelect.value || "none";
+    if (tagsInput) {
+      patch.tags = tagsInput.value
+        .split(/[,，]/)
+        .map((tag) => tag.trim().replace(/^#/, ""))
+        .filter(Boolean);
+    }
     if (!patch.title) {
       showToast("标题不能为空");
       return;
@@ -1222,67 +1241,6 @@ export function TaskCollectionsView(props = {}) {
         ],
       );
     }
-    if (props.mode === "items") {
-      return View(
-        {
-          class: "memo-task-create",
-          attributes: {
-            "data-gtd-item-create-form": "true",
-            n: "gtd-item-create-form",
-          },
-        },
-        [
-          Input({
-            type: "text",
-            placeholder: "捕捉开放事项、bug、想法或问题",
-            attributes: {
-              autocomplete: "off",
-              n: "gtd-item-create-title",
-              name: "title",
-              type: "text",
-            },
-          }),
-          Select({
-            attributes: {
-              "aria-label": "事项类型",
-              n: "gtd-item-create-type",
-              name: "type",
-            },
-            options: [
-              { label: "想法", value: "idea" },
-              { label: "功能", value: "feature" },
-              { label: "Bug", value: "bug" },
-              { label: "问题", value: "question" },
-              { label: "杂项", value: "chore" },
-            ],
-            placeholder: "事项类型",
-            value: "idea",
-          }),
-          Select({
-            attributes: {
-              "aria-label": "里程碑",
-              n: "gtd-item-create-milestone",
-              name: "milestoneId",
-            },
-            options: [{ label: "无里程碑", value: "" }].concat(
-              (props.milestones || []).map(function (item) {
-                return { label: item.title, value: item.id };
-              }),
-            ),
-            placeholder: "无里程碑",
-            value: "",
-          }),
-          iconActionButton(runtime, {
-            action: "createGTDItemSubmit",
-            class: "tn-button tn-button--primary memo-primary-button",
-            icon: "plus",
-            label: "添加",
-            meaning: "gtd-item-create-submit",
-            text: "添加",
-          }),
-        ],
-      );
-    }
     return View(
       {
         class: "memo-task-create",
@@ -1351,12 +1309,9 @@ export function TaskCollectionsView(props = {}) {
   }
   function card_view(item) {
     const is_task = props.mode === "tasks";
-    const is_item = props.mode === "items";
     let id_attribute = "data-gtd-milestone-id";
     if (is_task) {
       id_attribute = "data-task-id";
-    } else if (is_item) {
-      id_attribute = "data-gtd-item-id";
     }
     const card_class_ = computed(
       ref({
@@ -1407,21 +1362,13 @@ export function TaskCollectionsView(props = {}) {
             );
           },
           else() {
-            let completion_label = "切换事项完成状态";
-            let completion_attribute = "data-gtd-item-complete";
-            let completion_meaning = "gtd-item-completion-checkbox";
-            if (is_task) {
-              completion_label = "切换任务完成状态";
-              completion_attribute = "data-task-complete";
-              completion_meaning = "task-completion-checkbox";
-            }
             return Checkbox({
               checked: item.complete,
               class: "memo-task-check memo-todo-checkbox",
               attributes: {
-                "aria-label": completion_label,
-                [completion_attribute]: "true",
-                n: completion_meaning,
+                "aria-label": "切换任务完成状态",
+                "data-task-complete": "true",
+                n: "task-completion-checkbox",
               },
             });
           },
@@ -1753,7 +1700,12 @@ export function InlineTaskDetailView(props = {}) {
                 type: "button",
               },
             },
-            [memoIcon("x", "inline-task-detail-close-icon")],
+            [
+              Timeless.Icon({
+                name: "x",
+                attributes: { n: "inline-task-detail-close-icon" },
+              }),
+            ],
           ),
         ],
       ),
@@ -1881,7 +1833,12 @@ export function CompletedTimeEditorView(props = {}) {
           type: "button",
         },
       },
-      [memoIcon("check", "memo-task-completed-time-confirm-icon")],
+      [
+        Timeless.Icon({
+          name: "check",
+          attributes: { n: "memo-task-completed-time-confirm-icon" },
+        }),
+      ],
     ),
     Button(
       {
@@ -1892,7 +1849,12 @@ export function CompletedTimeEditorView(props = {}) {
           type: "button",
         },
       },
-      [memoIcon("x", "memo-task-completed-time-cancel-icon")],
+      [
+        Timeless.Icon({
+          name: "x",
+          attributes: { n: "memo-task-completed-time-cancel-icon" },
+        }),
+      ],
     ),
   ]);
 }
@@ -1960,7 +1922,12 @@ export function TaskEditDialogView(props = {}) {
                 type: "button",
               },
             },
-            [memoIcon("x", "task-edit-dialog-close-icon")],
+            [
+              Timeless.Icon({
+                name: "x",
+                attributes: { n: "task-edit-dialog-close-icon" },
+              }),
+            ],
           ),
         ],
       ),
@@ -2042,6 +2009,29 @@ export function TaskEditDialogView(props = {}) {
                   }),
                 ],
               ),
+            ],
+          ),
+          View(
+            {
+              class: "task-edit-field",
+              attributes: { n: "task-edit-tags-field" },
+            },
+            [
+              View(
+                { as: "label", attributes: { n: "task-edit-tags-label" } },
+                ["标签"],
+              ),
+              Input({
+                type: "text",
+                value: props.tags || "",
+                placeholder: "例如 stage:backlog, type:feature",
+                attributes: {
+                  "aria-label": "任务标签，使用逗号分隔",
+                  "data-task-edit-tags": "true",
+                  n: "task-edit-tags-input",
+                  type: "text",
+                },
+              }),
             ],
           ),
           View(
@@ -2159,10 +2149,12 @@ export function TaskEditDialogView(props = {}) {
                                   },
                                 },
                                 [
-                                  memoIcon(
-                                    "x",
-                                    "task-edit-reminder-delete-icon",
-                                  ),
+                                  Timeless.Icon({
+                                    name: "x",
+                                    attributes: {
+                                      n: "task-edit-reminder-delete-icon",
+                                    },
+                                  }),
                                 ],
                               ),
                             ],
