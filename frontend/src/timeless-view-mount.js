@@ -12,11 +12,11 @@ function destroy_mounted_view(mounted) {
 
 export function TimelessViewMountModel(props = {}) {
   const runtime = props.runtime || TimelessPrimitive;
-  if (!runtime?.defineModel || !runtime?.ref) {
+  if (!runtime?.DOM) {
     throw new Error("TimelessViewMountModel requires the Timeless runtime");
   }
-  const view_ = runtime.ref(null);
-  return runtime.defineModel({
+  const view_ = ref(null);
+  return defineModel({
     state: { view: view_ },
     methods: {
       setView(view) {

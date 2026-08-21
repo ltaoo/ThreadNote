@@ -1,6 +1,10 @@
 import { closestElement } from "./memo-utils.js";
 import { TimelessPrimitive } from "@/timeless-icons.js";
-import { renderTimelessView } from "@/timeless-view-mount.js";
+import {
+  renderTimelessView,
+  unmountTimelessView,
+} from "@/timeless-view-mount.js";
+import { appendTimelessHost } from "./home_view_shared.js";
 
 function FileContextActionView(action, label, meaning) {
   const { Button, View } = TimelessPrimitive;
@@ -30,13 +34,16 @@ function FileContextMenuView(item) {
   const { Fragment } = TimelessPrimitive;
   return Fragment({}, [
     FileContextActionView("view", "查看", "finder-file-context-view"),
-    item.memoId
-      ? FileContextActionView(
+    Show({
+      when: ref(Boolean(item.memoId)),
+      ok() {
+        return FileContextActionView(
           "source",
           "打开来源 memo",
           "finder-file-context-source",
-        )
-      : null,
+        );
+      },
+    }),
     FileContextActionView(
       "copy",
       "复制文件地址",
@@ -59,7 +66,9 @@ export function bindFileBrowserView(root, model, options = {}) {
     root.querySelectorAll("[data-file-browser-item]").forEach(function (item) {
       const selected = item.dataset.fileBrowserId === selectedItemId;
       item.classList.toggle("is-selected", selected);
-      item.setAttribute("aria-selected", selected ? "true" : "false");
+      let aria_selected = "false";
+      if (selected) aria_selected = "true";
+      item.setAttribute("aria-selected", aria_selected);
     });
   }
 
@@ -106,14 +115,17 @@ export function bindFileBrowserView(root, model, options = {}) {
   }
 
   function openMenu(x, y, item) {
-    menu = document.createElement("div");
-    menu.className = "tn-popup tn-popup--menu tn-menu tn-context-menu memo-file-context-menu";
-    menu.setAttribute("data-n", "finder-file-context-menu");
-    menu.setAttribute("role", "menu");
-    menu.setAttribute("aria-label", item.name + " 文件操作");
+    menu = appendTimelessHost(document.body, {
+      class:
+        "tn-popup tn-popup--menu tn-menu tn-context-menu memo-file-context-menu",
+      attributes: {
+        "aria-label": item.name + " 文件操作",
+        n: "finder-file-context-menu",
+        role: "menu",
+      },
+    });
     renderTimelessView(menu, FileContextMenuView(item));
     menu.addEventListener("click", handleMenuClick);
-    document.body.appendChild(menu);
     positionMenu(menu, x, y);
     window.setTimeout(function () {
       const firstAction = menu && menu.querySelector("[data-file-context-action]");
@@ -133,7 +145,8 @@ export function bindFileBrowserView(root, model, options = {}) {
     event.preventDefault();
     event.stopPropagation();
     const effect = model.performContextAction(action.dataset.fileContextAction);
-    const target = effect ? itemElement(effect.item.id) : null;
+    let target = null;
+    if (effect) target = itemElement(effect.item.id);
     closeMenu();
     if (!effect) return;
 
@@ -159,6 +172,7 @@ export function bindFileBrowserView(root, model, options = {}) {
     window.removeEventListener("scroll", closeMenu, true);
     if (menu) {
       menu.removeEventListener("click", handleMenuClick);
+      unmountTimelessView(menu);
       menu.remove();
     }
     menu = null;

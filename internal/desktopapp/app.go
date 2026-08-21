@@ -35,7 +35,7 @@ type Assets struct {
 }
 
 var appAssets Assets
-var mainWindowPathname = "/desktop"
+var mainWindowPathname = "/home/index"
 
 func appVersion() string {
 	if appAssets.Version == "" {
@@ -140,7 +140,7 @@ func setMainWindowPathname(pathname string) {
 
 func currentMainWindowPathname() string {
 	if mainWindowPathname == "" {
-		return "/desktop"
+		return "/home/index"
 	}
 	return mainWindowPathname
 }
@@ -199,7 +199,7 @@ func Run(assets Assets) {
 			logger.Warn().Msgf("Failed to update active vault registry: %v", err)
 		}
 		b.Store = store.NewWithDir(startupVault.VeloDir)
-		initialPathname = "/desktop"
+		initialPathname = "/home/index"
 		logger.Info().Msgf("Active vault: %s", startupVault.RootDir)
 	} else if dir, err := globalVeloDir(); err == nil {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -229,7 +229,7 @@ func Run(assets Assets) {
 
 	b.NewWebview(mainWindowOptions(initialPathname, b, logger))
 	setup_tray(b, logger)
-	if initialPathname == "/desktop" {
+	if initialPathname == "/home/index" {
 		go func() {
 			time.Sleep(1100 * time.Millisecond)
 			restorePersistedOpenWindows(b, logger)

@@ -9,7 +9,7 @@ import {
 const REDIRECT_DELAY = 180;
 
 function defaultRedirect() {
-  window.location.replace("/desktop");
+  window.location.replace("/home/index");
 }
 
 /**

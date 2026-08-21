@@ -32,6 +32,8 @@ function test_runtime() {
   };
 }
 
+Object.assign(globalThis, test_runtime());
+
 function node(type, attrs) {
   return { type: { name: type }, attrs };
 }

@@ -18,7 +18,10 @@ function dom_node(element$) {
 }
 
 function MemoAgentMessageView(props) {
-  const role = props.message.role === "agent" ? "agent" : "user";
+  let role = "user";
+  if (props.message.role === "agent") role = "agent";
+  let author = "你";
+  if (role === "agent") author = "Agent";
   return props.runtime.View(
     {
       key: props.message.id,
@@ -31,7 +34,7 @@ function MemoAgentMessageView(props) {
           class: "memo-agent-message-label",
           attributes: { n: "memo-agent-message-author" },
         },
-        [role === "agent" ? "Agent" : "你"],
+        [author],
       ),
       props.runtime.View(
         {
@@ -50,8 +53,7 @@ export function MemoAgentDialogView(props) {
   if (!runtime?.Button || !runtime?.For || !runtime?.Select) {
     throw new Error("MemoAgentDialogView requires the Timeless DOM runtime");
   }
-  const { Button, For, Select, Show, Textarea, View, combine, computed } =
-    runtime;
+  const { Button, For, Select, Textarea, View } = runtime;
   const apply_disabled_ = combine(
     { busy: vm$.state.busy, hasCandidate: vm$.state.hasCandidate },
     function (state) {
@@ -59,9 +61,11 @@ export function MemoAgentDialogView(props) {
     },
   );
   const dialog_class_ = computed(vm$.state.busy, function (busy) {
+    let busy_class = "";
+    if (busy) busy_class = "is-busy";
     return [
       "tn-overlay tn-dialog-layer is-open memo-agent-dialog",
-      busy ? "is-busy" : "",
+      busy_class,
     ]
       .filter(Boolean)
       .join(" ");
@@ -70,7 +74,8 @@ export function MemoAgentDialogView(props) {
     return messages.length > 0;
   });
   const send_text_ = computed(vm$.state.busy, function (busy) {
-    return busy ? "处理中…" : "发送";
+    if (busy) return "处理中…";
+    return "发送";
   });
 
   let focus_unsubscribe_ = null;

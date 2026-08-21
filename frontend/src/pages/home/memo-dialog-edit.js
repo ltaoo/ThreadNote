@@ -24,8 +24,10 @@ function icon(name, meaning) {
 }
 
 function project_options(projects) {
+  let project_list = [];
+  if (Array.isArray(projects)) project_list = projects;
   return [{ label: "未归属", value: "" }].concat(
-    (Array.isArray(projects) ? projects : [])
+    project_list
       .filter(function (project) {
         return project && !project.archived;
       })
@@ -47,7 +49,10 @@ function visibility_options() {
 
 function preview_html(context, text) {
   const memo = context.memo;
-  const memos = Array.isArray(context.memos) ? context.memos : [];
+  let memos = [];
+  if (Array.isArray(context.memos)) memos = context.memos;
+  let stack = [];
+  if (memo.id) stack = [memo.id];
   const render_context = {
     depth: 0,
     editorSettings: context.editorSettings || {},
@@ -56,7 +61,7 @@ function preview_html(context, text) {
     readonly: true,
     showLineNumbers: true,
     sourceId: memo.id || "",
-    stack: memo.id ? [memo.id] : [],
+    stack,
   };
   try {
     return renderMemoMarkdown(text, render_context);
@@ -69,18 +74,20 @@ export function MemoEditDialogView(props) {
   const runtime = props.runtime || TimelessPrimitive;
   const context = props.context;
   const vm$ = props.vm$;
-  const { Button, RichText, Select, Show, View, computed } = runtime;
+  const { Button, RichText, Select, View } = runtime;
   const editor_hidden_ = computed(vm$.state.previewVisible, function (visible) {
     return Boolean(visible);
   });
   const panel_class_ = computed(vm$.state.saving, function (saving) {
-    return "tn-overlay tn-dialog-layer is-open memo-dialog" +
-      (saving ? " is-saving" : "");
+    let class_name = "tn-overlay tn-dialog-layer is-open memo-dialog";
+    if (saving) class_name += " is-saving";
+    return class_name;
   });
   const preview_button_label_ = computed(
     vm$.state.previewVisible,
     function (visible) {
-      return visible ? "编辑" : "预览";
+      if (visible) return "编辑";
+      return "预览";
     },
   );
   const preview_html_ = computed(vm$.state.draft, function (draft) {
@@ -108,7 +115,8 @@ export function MemoEditDialogView(props) {
         if (!editor_host) return;
         editor_ = createMiniEditor(editor_host, {
           memoItems() {
-            return Array.isArray(context.memos) ? context.memos : [];
+            if (Array.isArray(context.memos)) return context.memos;
+            return [];
           },
           onChange(value) {
             vm$.methods.setDraft(value);
@@ -133,12 +141,12 @@ export function MemoEditDialogView(props) {
           },
           placeholder: "编辑 memo...",
           sourceMemoId: context.memo.id || "",
-          tagItems:
-            typeof context.tagItems === "function"
-              ? context.tagItems
-              : function () {
-                  return [];
-                },
+          tagItems() {
+            if (typeof context.tagItems === "function") {
+              return context.tagItems();
+            }
+            return [];
+          },
           value: vm$.state.draft.value,
           vim: Boolean(context.editorSettings && context.editorSettings.vimMode),
           vimStatusHost: vim_status_host,

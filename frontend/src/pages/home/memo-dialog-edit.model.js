@@ -13,7 +13,6 @@ import {
   memoEditDraftId,
   upsertMemoDraftInVault,
 } from "@/domain/memo-drafts.js";
-import { TimelessPrimitive } from "@/timeless-icons.js";
 
 function initial_visibility(memo) {
   const visibility = memo.visibility || DEFAULT_VISIBILITY;
@@ -73,13 +72,9 @@ function boolean_metadata(value) {
 }
 
 export function MemoEditDialogModel(props = {}) {
-  const runtime = props.runtime || TimelessPrimitive;
   const context = props.context || {};
   const memo = context.memo;
   if (!memo) throw new Error("MemoEditDialogModel requires context.memo");
-  if (!runtime?.defineModel || !runtime?.ref) {
-    throw new Error("MemoEditDialogModel requires the Timeless runtime");
-  }
 
   const callbacks = {
     onClose:
@@ -100,8 +95,8 @@ export function MemoEditDialogModel(props = {}) {
       typeof context.resolveOrCreateProject === "function"
         ? context.resolveOrCreateProject
         : function () {
-            return Promise.resolve("");
-          },
+          return Promise.resolve("");
+        },
     showToast:
       typeof context.showToast === "function"
         ? context.showToast
@@ -113,16 +108,16 @@ export function MemoEditDialogModel(props = {}) {
     upsertMemoDraftInVault,
     ...(props.services || {}),
   };
-  const draft_ = runtime.ref(
+  const draft_ = ref(
     context.initialDraft || context.initialDraft === ""
       ? context.initialDraft
       : memo.content || "",
   );
-  const focus_request_ = runtime.ref(0);
-  const preview_visible_ = runtime.ref(false);
-  const project_id_ = runtime.ref(normalizeProjectID(memo.projectId));
-  const saving_ = runtime.ref(false);
-  const visibility_ = runtime.ref(initial_visibility(memo));
+  const focus_request_ = ref(0);
+  const preview_visible_ = ref(false);
+  const project_id_ = ref(normalizeProjectID(memo.projectId));
+  const saving_ = ref(false);
+  const visibility_ = ref(initial_visibility(memo));
   let destroyed_ = false;
 
   function request_focus() {
@@ -291,7 +286,7 @@ export function MemoEditDialogModel(props = {}) {
     writeDraft: write_draft,
   };
 
-  const model = runtime.defineModel({
+  const model = defineModel({
     state: {
       draft: draft_,
       focusRequest: focus_request_,

@@ -1241,7 +1241,7 @@ function mountMemoSlim(root) {
 
   function openFullMemos() {
     if (typeof invoke !== "function") {
-      window.open("/desktop", "_blank", "noopener");
+      window.open("/home/index", "_blank", "noopener");
       return;
     }
 

@@ -6,7 +6,6 @@ import {
   loadMemoAgentRunEvents,
   loadMemoAgents,
 } from "@/domain/memo-agent.js";
-import { TimelessPrimitive } from "@/timeless-icons.js";
 
 const DEFAULT_AGENTS = Object.freeze([
   Object.freeze({ id: "opencode", label: "OpenCode", value: "opencode" }),
@@ -45,10 +44,6 @@ function ignore_service_error(callback) {
 }
 
 export function ACPChatModel(props = {}) {
-  const runtime = props.runtime || TimelessPrimitive;
-  if (!runtime?.defineModel || !runtime?.ref || !runtime?.refarr) {
-    throw new Error("ACPChatModel requires the Timeless runtime");
-  }
 
   const services = {
     cancelMemoAgentRun,
@@ -61,17 +56,17 @@ export function ACPChatModel(props = {}) {
     ...(props.services || {}),
   };
   const debug = typeof props.debug === "function" ? props.debug : function () {};
-  const active_run_id_ = runtime.ref("");
-  const agent_id_ = runtime.ref("opencode");
-  const agents_ = runtime.refarr(DEFAULT_AGENTS.slice());
-  const agents_ready_ = runtime.ref(false);
-  const busy_ = runtime.ref(false);
-  const error_ = runtime.ref("");
-  const focus_request_ = runtime.ref(0);
-  const input_ = runtime.ref("");
-  const messages_ = runtime.refarr([]);
-  const session_id_ = runtime.ref("");
-  const status_ = runtime.ref("尚未连接");
+  const active_run_id_ = ref("");
+  const agent_id_ = ref("opencode");
+  const agents_ = refarr(DEFAULT_AGENTS.slice());
+  const agents_ready_ = ref(false);
+  const busy_ = ref(false);
+  const error_ = ref("");
+  const focus_request_ = ref(0);
+  const input_ = ref("");
+  const messages_ = refarr([]);
+  const session_id_ = ref("");
+  const status_ = ref("尚未连接");
   let destroyed_ = false;
   let message_sequence_ = 0;
 
@@ -342,7 +337,7 @@ export function ACPChatModel(props = {}) {
     },
   };
 
-  const model = runtime.defineModel({ state, methods });
+  const model = defineModel({ state, methods });
   const destroy_model = model.destroy.bind(model);
   model.destroy = function () {
     if (destroyed_) return;

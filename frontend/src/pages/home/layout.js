@@ -1,13 +1,4 @@
-import { RouterSubViews } from "@/components/sub-views.js";
-
 export function HomeLayoutView(props) {
-  /** @type {Timeless.kit.RouteViewCore} */
-  const view = props.view;
-  const curSubView = ref(view.curView);
-  view.onCurViewChange((view) => {
-    curSubView.value = view;
-  });
-
   return Flex(
     {
       class: "layout_home w-full h-full",
@@ -17,9 +8,9 @@ export function HomeLayoutView(props) {
       },
     },
     [
-      RouterSubViews({
+      Timeless.ui.KeepAliveSubViews({
         class: "absolute inset-0 right-0 h-full",
-        view: view,
+        view: props.view,
         app: props.app,
         history: props.history,
         views: props.views,

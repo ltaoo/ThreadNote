@@ -60,7 +60,7 @@ func registerVaultProjectMemoRoutes(b *velo.Box) {
 			return c.Error(err.Error())
 		}
 		setActiveVault(ctx)
-		setMainWindowPathname("/desktop")
+		setMainWindowPathname("/home/index")
 		b.Store = store.NewWithDir(ctx.VeloDir)
 		return c.Ok(velo.H{
 			"active":   ctx,

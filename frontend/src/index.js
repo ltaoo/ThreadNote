@@ -1,6 +1,5 @@
-import { app, history, client, views } from "./store/index.js";
+import { app, history, client, router } from "./store/index.js";
 import { storage } from "./store/storage.js";
-import { RouterSubViews } from "./components/sub-views.js";
 import * as uiComponents from "./components.js";
 
 Object.assign(window, uiComponents);
@@ -25,12 +24,14 @@ function ApplicationRootView() {
   return View({ class: "tn-root-view" }, [
     Timeless.ui.StandardSubViews({
       class: "root-view w-full h-full",
-      view: history.$view,
       app,
-      views,
+      view: history.$view,
+      views: router.views,
       history,
       storage,
       client,
+      placeholder: [uiComponents.LoadingView()],
+      ErrorFallback: uiComponents.ErrorFallbackView,
     }),
   ]);
 }

@@ -29,6 +29,7 @@ const timeless_globals = {
   FormField: "readonly",
   Icon: "readonly",
   IconButton: "readonly",
+  Img: "readonly",
   Input: "readonly",
   invoke: "readonly",
   isComponent: "readonly",
@@ -66,8 +67,11 @@ const timeless_globals = {
   Txt: "readonly",
   View: "readonly",
   classnames: "readonly",
+  combine: "readonly",
   computed: "readonly",
+  defineModel: "readonly",
   ref: "readonly",
+  refarr: "readonly",
 };
 
 export default [

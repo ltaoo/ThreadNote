@@ -49,6 +49,8 @@ function create_runtime() {
   };
 }
 
+Object.assign(globalThis, create_runtime());
+
 function base_services(overrides = {}) {
   return {
     async cancelMemoAgentRun() {},

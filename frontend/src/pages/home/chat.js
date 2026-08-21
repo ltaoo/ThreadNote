@@ -41,13 +41,15 @@ function dom_node(element$) {
 function ACPChatMessageView(props) {
   const runtime = props.runtime;
   const message = props.message;
-  const role = message.role === "user" ? "user" : "assistant";
+  let role = "assistant";
+  if (message.role === "user") role = "user";
+  let message_class = "acp-chat-message is-" + role;
+  if (message.error) message_class += " is-error";
+  let author = "Agent";
+  if (role === "user") author = "你";
   return runtime.View(
     {
-      class:
-        "acp-chat-message is-" +
-        role +
-        (message.error ? " is-error" : ""),
+      class: message_class,
       key: message.id,
       attributes: { n: "acp-chat-" + role + "-message" },
     },
@@ -57,7 +59,7 @@ function ACPChatMessageView(props) {
           class: "acp-chat-message-label",
           attributes: { n: "acp-chat-message-author" },
         },
-        [role === "user" ? "你" : "Agent"],
+        [author],
       ),
       runtime.View(
         {
@@ -66,8 +68,8 @@ function ACPChatMessageView(props) {
         },
         [
           message.text || "正在连接 ACP Agent…",
-          runtime.Show({
-            when: message.streaming,
+          Show({
+            when: ref(Boolean(message.streaming)),
             ok() {
               return [
                 runtime.View(
@@ -95,8 +97,7 @@ export function ACPChatView(props) {
   if (!runtime?.Button || !runtime?.For || !runtime?.Select) {
     throw new Error("ACPChatView requires the Timeless DOM runtime");
   }
-  const { Button, For, Select, Show, Textarea, View, combine, computed } =
-    runtime;
+  const { Button, For, Select, Textarea, View } = runtime;
   const agent_disabled_ = combine(
     { busy: vm$.state.busy, sessionId: vm$.state.sessionId },
     function (state) {

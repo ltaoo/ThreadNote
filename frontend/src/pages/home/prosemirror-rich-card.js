@@ -14,9 +14,8 @@ function node_type_name(node) {
 }
 
 function image_upload_status(value) {
-  return ["uploading", "success", "error"].includes(value)
-    ? value
-    : "uploading";
+  if (["uploading", "success", "error"].includes(value)) return value;
+  return "uploading";
 }
 
 function image_upload_text(attrs) {
@@ -36,10 +35,11 @@ export function prosemirror_card_presentation(node) {
   if (type === "file_link") {
     const href = String(attrs.href || "");
     const text = String(attrs.name || href || "文件");
+    let class_name = "file-link-node";
+    if (attrs.syntax === "markdown") class_name += " file-link-node-markdown";
     return Object.freeze({
       attrs: Object.freeze({ href, name: text, syntax: String(attrs.syntax || "") }),
-      className:
-        "file-link-node" + (attrs.syntax === "markdown" ? " file-link-node-markdown" : ""),
+      className: class_name,
       kind: "FILE",
       semanticName: "prosemirror-file-card",
       tagName: "a",
@@ -67,6 +67,9 @@ export function prosemirror_card_presentation(node) {
   if (type === "image_upload") {
     const status = image_upload_status(attrs.status);
     const text = image_upload_text({ ...attrs, status });
+    let kind = "IMG";
+    if (status === "error") kind = "ERROR";
+    else if (status === "success") kind = "DONE";
     return Object.freeze({
       attrs: Object.freeze({
         fileName: String(attrs.fileName || ""),
@@ -75,7 +78,7 @@ export function prosemirror_card_presentation(node) {
         status,
       }),
       className: "image-upload-node image-upload-node-" + status,
-      kind: status === "error" ? "ERROR" : status === "success" ? "DONE" : "IMG",
+      kind,
       semanticName: "prosemirror-image-upload-card",
       tagName: "span",
       text,
@@ -98,18 +101,13 @@ export function prosemirror_card_presentation(node) {
 }
 
 export function ProseMirrorRichCardModel(props = {}) {
-  const runtime = props.runtime || TimelessPrimitive;
-  if (!runtime?.ref || !runtime?.defineModel) {
-    throw new Error("ProseMirrorRichCardModel requires the Timeless runtime");
-  }
-
   const initial_card = prosemirror_card_presentation(props.node);
   if (!initial_card) {
     throw new Error("Unsupported ProseMirror rich card node");
   }
 
-  const card_ = runtime.ref(initial_card);
-  const selected_ = runtime.ref(false);
+  const card_ = ref(initial_card);
+  const selected_ = ref(false);
   let destroyed_ = false;
 
   const state = {
@@ -135,7 +133,7 @@ export function ProseMirrorRichCardModel(props = {}) {
     },
   };
 
-  const model = runtime.defineModel({ state, methods });
+  const model = defineModel({ state, methods });
   const destroy_model = model.destroy.bind(model);
   model.destroy = function () {
     if (destroyed_) return;
@@ -148,15 +146,17 @@ export function ProseMirrorRichCardModel(props = {}) {
 export function ProseMirrorRichCardView(props) {
   const runtime = props.runtime || TimelessPrimitive;
   const vm$ = props.vm$;
-  const { Link, View, combine, computed } = runtime;
+  const { Link, View } = runtime;
   const initial_card = vm$.state.card.value;
   const card_class_ = combine(
     { card: vm$.state.card, selected: vm$.state.selected },
     function (state) {
+      let selected_class = "";
+      if (state.selected) selected_class = "ProseMirror-selectednode is-selected";
       return [
         state.card.className,
         "prosemirror-rich-card",
-        state.selected ? "ProseMirror-selectednode is-selected" : "",
+        selected_class,
       ]
         .filter(Boolean)
         .join(" ");
@@ -172,25 +172,32 @@ export function ProseMirrorRichCardView(props) {
     return card.title;
   });
   const href_ = computed(vm$.state.card, function (card) {
-    return card.type === "file_link" ? card.attrs.href : null;
+    if (card.type === "file_link") return card.attrs.href;
+    return null;
   });
   const datetime_ = computed(vm$.state.card, function (card) {
-    return card.type === "time" ? card.attrs.value : null;
+    if (card.type === "time") return card.attrs.value;
+    return null;
   });
   const status_ = computed(vm$.state.card, function (card) {
-    return card.type === "image_upload" ? card.attrs.status : null;
+    if (card.type === "image_upload") return card.attrs.status;
+    return null;
   });
   const upload_id_ = computed(vm$.state.card, function (card) {
-    return card.type === "image_upload" ? card.attrs.id : null;
+    if (card.type === "image_upload") return card.attrs.id;
+    return null;
   });
   const upload_message_ = computed(vm$.state.card, function (card) {
-    return card.type === "image_upload" ? card.attrs.message : null;
+    if (card.type === "image_upload") return card.attrs.message;
+    return null;
   });
   const image_src_ = computed(vm$.state.card, function (card) {
-    return card.type === "image_link" ? card.attrs.src : null;
+    if (card.type === "image_link") return card.attrs.src;
+    return null;
   });
   const image_alt_ = computed(vm$.state.card, function (card) {
-    return card.type === "image_link" ? card.attrs.alt : null;
+    if (card.type === "image_link") return card.attrs.alt;
+    return null;
   });
   const file_name_ = computed(vm$.state.card, function (card) {
     if (card.type === "file_link") return card.attrs.name;
@@ -198,7 +205,8 @@ export function ProseMirrorRichCardView(props) {
     return null;
   });
   const file_syntax_ = computed(vm$.state.card, function (card) {
-    return card.type === "file_link" ? card.attrs.syntax : null;
+    if (card.type === "file_link") return card.attrs.syntax;
+    return null;
   });
   const attributes = {
     contenteditable: "false",
@@ -306,11 +314,11 @@ export function createProseMirrorRichCardNodeViews(options = {}) {
 }
 
 export function ProseMirrorFileDropCardModel(props = {}) {
-  const runtime = props.runtime || TimelessPrimitive;
-  const { defineModel, ref } = runtime;
+  let placement = "between";
+  if (props.pluginState?.placement === "after") placement = "after";
   const data_ = ref({
     count: Math.max(1, Number(props.pluginState?.count) || 1),
-    placement: props.pluginState?.placement === "after" ? "after" : "between",
+    placement,
   });
   return defineModel({
     state: { data: data_ },
@@ -320,15 +328,15 @@ export function ProseMirrorFileDropCardModel(props = {}) {
 
 export function ProseMirrorFileDropCardView(props) {
   const runtime = props.runtime || TimelessPrimitive;
-  const { View, computed } = runtime;
+  const { View } = runtime;
   const vm$ = props.vm$;
   const badge_ = computed(vm$.state.data, function (data) {
-    return data.count > 1 ? String(data.count) : "FILE";
+    if (data.count > 1) return String(data.count);
+    return "FILE";
   });
   const text_ = computed(vm$.state.data, function (data) {
-    return data.placement === "after"
-      ? "释放后在末尾新行插入文件"
-      : "释放后在这里插入文件";
+    if (data.placement === "after") return "释放后在末尾新行插入文件";
+    return "释放后在这里插入文件";
   });
   return View(
     {
