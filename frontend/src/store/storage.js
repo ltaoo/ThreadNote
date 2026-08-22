@@ -15,7 +15,7 @@ const DEFAULT_CACHE_VALUES = {
 
 const key = "global";
 const e = globalThis.localStorage.getItem(key);
-export const storage = new Timeless.StorageCore({
+export const storage = new Timeless.kit.StorageCore({
   key,
   defaultValues: DEFAULT_CACHE_VALUES,
   values: (() => {

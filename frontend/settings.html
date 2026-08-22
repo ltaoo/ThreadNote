@@ -2,9 +2,17 @@
 <html lang="zh-CN">
 
 <head>
+  <script src="/public/logger.js" data-n="frontend-logger-script"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ThreadNote</title>
+  <script type="importmap" data-n="module-import-map">
+    {
+      "imports": {
+        "@/": "./src/"
+      }
+    }
+  </script>
   <script>
     !function () {
       try {
@@ -24,12 +32,11 @@
   </script>
   <script src="/public/input-policy.js" defer></script>
   <script type="module" src="/src/window-state.js"></script>
-  <script>window.__tn_legacy_timeless = window.Timeless || {};</script>
   <script src="/public/timeless/0.31.4/timeless.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.dom.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.web.umd.min.js"></script>
-  <script src="/public/timeless-icon-runtime.js"></script>
-  <script type="module" src="/src/components.js?v=20260820-component-foundations-v2"></script>
+  <script type="module" src="/src/tnui.js"></script>
+  <script type="module" src="/src/settings-sync-view.js?v=20260822-vault-switch-fix1"></script>
   <style>
     :root {
       color-scheme: light;
@@ -928,7 +935,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="/src/style.css?v=20260820-component-foundations-v2" />
+  <link rel="stylesheet" href="/src/style.css" />
 </head>
 
 <body>
@@ -936,32 +943,37 @@
   <div class="settings-shell">
     <aside class="settings-sidebar" aria-label="设置菜单">
       <div class="settings-brand">
+        <span class="settings-brand-mark" data-n="settings-brand-icon"></span>
         <div class="settings-title">设置</div>
         <div class="settings-subtitle">ThreadNote</div>
       </div>
       <nav class="settings-nav" aria-label="设置分类">
+        <button class="settings-nav-button" type="button" data-panel="vault">
+          <span data-n="settings-vault-icon"></span>
+          <span>Vault</span>
+        </button>
         <button class="settings-nav-button is-active" type="button" data-panel="cloud-storage">
-          <span data-timeless-icon="cloud" data-n="settings-cloud-storage-icon"></span>
+          <span data-n="settings-cloud-storage-icon"></span>
           <span>云存储</span>
         </button>
         <button class="settings-nav-button" type="button" data-panel="shortcuts">
-          <span data-timeless-icon="keyboard" data-n="settings-shortcuts-icon"></span>
+          <span data-n="settings-shortcuts-icon"></span>
           <span>键盘</span>
         </button>
         <button class="settings-nav-button" type="button" data-panel="input-source">
-          <span data-timeless-icon="input-source" data-n="settings-input-source-icon"></span>
+          <span data-n="settings-input-source-icon"></span>
           <span>输入法</span>
         </button>
         <button class="settings-nav-button" type="button" data-panel="calendar">
-          <span data-timeless-icon="calendar" data-n="settings-calendar-icon"></span>
+          <span data-n="settings-calendar-icon"></span>
           <span>日历</span>
         </button>
         <button class="settings-nav-button" type="button" data-panel="webhook">
-          <span data-timeless-icon="link" data-n="settings-webhook-icon"></span>
+          <span data-n="settings-webhook-icon"></span>
           <span>Webhook</span>
         </button>
         <button class="settings-nav-button" type="button" data-panel="about">
-          <span data-timeless-icon="info" data-n="settings-about-icon"></span>
+          <span data-n="settings-about-icon"></span>
           <span>关于</span>
         </button>
       </nav>
@@ -974,12 +986,59 @@
           <p data-settings-subtitle>S3/OSS 兼容对象存储配置</p>
         </div>
         <div class="setting-status" data-config-status>
-          <span data-timeless-icon="circle-alert" data-n="settings-config-status-icon"></span>
+          <span data-n="settings-config-status-icon"></span>
           <span data-config-status-text>未配置</span>
         </div>
       </header>
 
+      <div class="settings-form settings-panel" data-settings-panel="vault" data-n="settings-vault-panel" hidden>
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">当前 Vault</div>
+          </div>
+          <div class="settings-shortcut-card">
+            <div>
+              <div class="settings-shortcut-title" data-n="settings-vault-current-name">读取中</div>
+              <div class="settings-shortcut-description" data-n="settings-vault-current-path">正在读取当前 Vault。</div>
+            </div>
+            <span class="settings-storage-badge" data-n="settings-vault-current-badge">读取中</span>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <div class="settings-profile-head">
+            <div class="settings-profile-title">切换 Vault</div>
+            <button class="settings-button is-primary" type="button" data-n="settings-vault-choose">切换 Vault</button>
+          </div>
+          <div class="settings-shortcut-description">点击已登记的 Vault 直接切换，或从本机选择另一个目录。切换后会更新全局 Vault 配置。</div>
+          <div class="settings-storage-list" data-n="settings-vault-list"></div>
+        </section>
+
+        <div class="settings-actions">
+          <div class="settings-message" data-n="settings-vault-message"></div>
+        </div>
+      </div>
+
       <div class="settings-form settings-panel" data-settings-panel="cloud-storage">
+        <section class="settings-section" data-n="settings-vault-sync-section">
+          <div class="settings-profile-head" data-n="settings-vault-sync-heading">
+            <div class="settings-profile-title" data-n="settings-vault-sync-title">Vault 数据</div>
+          </div>
+          <div class="settings-shortcut-card" data-n="settings-vault-sync-card">
+            <div data-n="settings-vault-provider-content">
+              <div class="settings-shortcut-title" data-n="settings-vault-provider-title">当前 Provider</div>
+              <div class="settings-shortcut-description" data-n="settings-vault-provider-description">正在读取当前 Vault 的存储方式。</div>
+            </div>
+            <div class="settings-storage-actions" data-n="settings-vault-provider-actions">
+              <span class="settings-storage-badge" data-n="settings-vault-provider-value">读取中</span>
+              <button class="settings-button is-secondary" type="button" data-n="settings-vault-open-directory" hidden>打开目录</button>
+            </div>
+          </div>
+          <div class="settings-actions" data-n="settings-vault-provider-message-row">
+            <div class="settings-message" data-n="settings-vault-provider-message"></div>
+          </div>
+        </section>
+
         <section class="settings-section">
           <div class="settings-profile-head">
             <div class="settings-profile-title">存储配置</div>
@@ -1945,7 +2004,7 @@
       }
 
       function setActivePanel(panelName) {
-        activePanel = panelName === "about" || panelName === "shortcuts" || panelName === "input-source" || panelName === "calendar" || panelName === "webhook" ? panelName : "cloud-storage";
+        activePanel = panelName === "vault" || panelName === "about" || panelName === "shortcuts" || panelName === "input-source" || panelName === "calendar" || panelName === "webhook" ? panelName : "cloud-storage";
         render();
         if (activePanel === "shortcuts") ensureEditorAppsLoaded();
         replacePanelQuery();
@@ -1953,6 +2012,7 @@
       }
 
       function renderShell() {
+        var isVault = activePanel === "vault";
         var isAbout = activePanel === "about";
         var isShortcuts = activePanel === "shortcuts";
         var isInputSource = activePanel === "input-source";
@@ -1964,9 +2024,9 @@
         panels.forEach(function (panel) {
           panel.hidden = panel.dataset.settingsPanel !== activePanel;
         });
-        headerTitle.textContent = isAbout ? "关于" : isShortcuts ? "键盘" : isInputSource ? "输入法" : isCalendar ? "日历" : isWebhook ? "Webhook" : "云存储";
-        headerSubtitle.textContent = isAbout ? "版本信息与应用更新" : isShortcuts ? "编辑器模式、文件打开应用与快速入口" : isInputSource ? "按前台应用锁定键盘输入法" : isCalendar ? "周起始日与日历偏好" : isWebhook ? "事件通知与自动化集成" : "S3/OSS 兼容对象存储配置";
-        status.hidden = isAbout || isShortcuts || isInputSource || isCalendar || isWebhook;
+        headerTitle.textContent = isVault ? "Vault" : isAbout ? "关于" : isShortcuts ? "键盘" : isInputSource ? "输入法" : isCalendar ? "日历" : isWebhook ? "Webhook" : "云存储";
+        headerSubtitle.textContent = isVault ? "查看并切换全局 Vault" : isAbout ? "版本信息与应用更新" : isShortcuts ? "编辑器模式、文件打开应用与快速入口" : isInputSource ? "按前台应用锁定键盘输入法" : isCalendar ? "周起始日与日历偏好" : isWebhook ? "事件通知与自动化集成" : "S3/OSS 兼容对象存储配置";
+        status.hidden = isVault || isAbout || isShortcuts || isInputSource || isCalendar || isWebhook;
       }
 
       function renderAbout() {
@@ -2054,6 +2114,7 @@
       function initialPanel() {
         try {
           var params = new URLSearchParams(window.location.search || "");
+          if (params.get("panel") === "vault") return "vault";
           if (params.get("panel") === "shortcuts") return "shortcuts";
           if (params.get("panel") === "input-source") return "input-source";
           if (params.get("panel") === "calendar") return "calendar";
@@ -2067,7 +2128,7 @@
       function replacePanelQuery() {
         try {
           var url = new URL(window.location.href);
-          if (activePanel === "about" || activePanel === "shortcuts" || activePanel === "input-source" || activePanel === "calendar" || activePanel === "webhook") {
+          if (activePanel === "vault" || activePanel === "about" || activePanel === "shortcuts" || activePanel === "input-source" || activePanel === "calendar" || activePanel === "webhook") {
             url.searchParams.set("panel", activePanel);
           } else {
             url.searchParams.delete("panel");
@@ -2105,7 +2166,7 @@
       function applySettingsSessionState() {
         var saved = pendingSettingsSessionState || {};
         if (saved.panel) {
-          activePanel = saved.panel === "about" || saved.panel === "shortcuts" || saved.panel === "input-source" || saved.panel === "calendar" || saved.panel === "webhook" ? saved.panel : "cloud-storage";
+          activePanel = saved.panel === "vault" || saved.panel === "about" || saved.panel === "shortcuts" || saved.panel === "input-source" || saved.panel === "calendar" || saved.panel === "webhook" ? saved.panel : "cloud-storage";
           replacePanelQuery();
         }
         if (saved.activeStorageId && state.storages.some(function (storage) { return storage.id === saved.activeStorageId; })) {

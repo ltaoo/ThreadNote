@@ -125,9 +125,7 @@ test("SelectModel owns open state and keyboard selection", () => {
 test("ProjectSelectModel creates semantic project options", () => {
   const model = new ProjectSelectModel({
     includeAll: true,
-    projects: [
-      { color: "#ffae24", count: 4, id: "work", name: "Work" },
-    ],
+    projects: [{ color: "#ffae24", count: 4, id: "work", name: "Work" }],
     value: "work",
   });
 
@@ -197,23 +195,4 @@ test("ProgressModel clamps values to its configured range", () => {
   assert.equal(model.state.value, 0);
   model.setIndeterminate(true);
   assert.equal(model.state.indeterminate, true);
-});
-
-test("model adapter supports the bundled Timeless state-change contract", async () => {
-  await import("../public/timeless.core.umd.min.js");
-  const legacyModel = new globalThis.Timeless.ui.InputCore({
-    defaultValue: "legacy",
-  });
-  const values = [];
-  const unsubscribe = subscribeModel(legacyModel, (state) => {
-    values.push(state.value);
-  });
-
-  legacyModel.setValue("compatible");
-  unsubscribe();
-  legacyModel.setValue("ignored");
-
-  assert.equal(modelState(legacyModel).value, "ignored");
-  assert.deepEqual(values, ["compatible"]);
-  legacyModel.destroy();
 });

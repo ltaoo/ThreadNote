@@ -13,6 +13,7 @@ require (
 	golang.org/x/image v0.28.0
 	golang.org/x/net v0.21.0
 	golang.org/x/text v0.26.0
+	modernc.org/sqlite v1.23.1
 )
 
 require (
@@ -47,6 +48,7 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/klauspost/compress v1.17.3 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
@@ -59,16 +61,23 @@ require (
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	golang.design/x/hotkey v0.4.1 // indirect
+	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/tools v0.10.0 // indirect
 	gorm.io/driver/mysql v1.5.7 // indirect
 	gorm.io/driver/postgres v1.5.11 // indirect
 	gorm.io/driver/sqlite v1.5.7 // indirect
 	gorm.io/gorm v1.25.12 // indirect
+	lukechampine.com/uint128 v1.2.0 // indirect
+	modernc.org/cc/v3 v3.40.0 // indirect
+	modernc.org/ccgo/v3 v3.16.13 // indirect
 	modernc.org/libc v1.22.5 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.5.0 // indirect
-	modernc.org/sqlite v1.23.1 // indirect
+	modernc.org/opt v0.1.3 // indirect
+	modernc.org/strutil v1.1.3 // indirect
+	modernc.org/token v1.0.1 // indirect
 )
 
 // Pin x/net and x/text to versions compatible with Go 1.20 (like wx_channels_download)

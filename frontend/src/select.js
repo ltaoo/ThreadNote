@@ -33,18 +33,17 @@ export function createSelectComponent(deps) {
 
   function primitiveEnvironment() {
     if (typeof window === "undefined") return null;
-    const bridge = window.Timeless;
-    const Runtime = bridge?.__select_primitive_runtime;
-    const ui = bridge?.ui;
+    const Runtime = window.Timeless;
+    const ui = Runtime?.ui;
     if (
       !Runtime?.DOM?.render
       || !Runtime?.View
       || !ui?.SelectPrimitive
-      || !bridge?.vm?.SelectCore
+      || !Runtime?.vm?.SelectCore
     ) {
       return null;
     }
-    return { bridge, Runtime, ui };
+    return { Runtime, ui };
   }
 
   function primitiveOptionView(environment, store, entry) {
@@ -54,8 +53,8 @@ export function createSelectComponent(deps) {
     const metadata = entry._tn_option || entry;
     const group = entry._tn_group_start
       ? Runtime.View({ class: "tn-select__group", attributes: { role: "presentation" } }, [
-          entry._tn_group,
-        ])
+        entry._tn_group,
+      ])
       : null;
     const markerStyle = metadata.color
       ? { "background-color": metadata.color }
@@ -82,7 +81,13 @@ export function createSelectComponent(deps) {
     const indicator = ui.SelectPrimitive.ItemIndicator({
       class: "tn-select__option-indicator",
       store: entry,
-    }, [Timeless.Icon({ name: "check", size: 14 })]);
+    }, [
+      Timeless.Icon({
+        name: "check",
+        size: 14,
+        attributes: { n: "select-option-check-icon" },
+      }),
+    ]);
     const meta = Runtime.View({ class: "tn-select__option-meta" }, [
       metadata.count === undefined || metadata.count === null
         ? null
@@ -166,7 +171,13 @@ export function createSelectComponent(deps) {
       attributes: { "aria-hidden": "true" },
       class: "tn-select__icon",
       store,
-    }, [Timeless.Icon({ name: "chevron-down", size: 15 })]);
+    }, [
+      Timeless.Icon({
+        name: "chevron-down",
+        size: 15,
+        attributes: { n: "select-control-chevron-icon" },
+      }),
+    ]);
     const trigger = ui.SelectPrimitive.Trigger({
       class: classNames(
         "tn-select",
@@ -343,13 +354,25 @@ export function createSelectComponent(deps) {
 
     const leadingIcon = props.leading || null;
     if (leadingIcon) {
-      const node = typeof leadingIcon.render === "function" ? leadingIcon.render() : leadingIcon;
+      let node = leadingIcon;
+      if (leadingIcon?.t === "icon" && Timeless?.DOM?.buildAndRender) {
+        node = Timeless.DOM.buildAndRender(leadingIcon).dom;
+      } else if (typeof leadingIcon.render === "function") {
+        node = leadingIcon.render();
+      }
       if (node) leading.appendChild(node);
     }
     trigger.append(
       leading,
       value,
-      Timeless.Icon({ name: "chevron-down", class: "tn-select__icon", size: 15 }).render(),
+      Timeless.DOM.buildAndRender(
+        Timeless.Icon({
+          name: "chevron-down",
+          class: "tn-select__icon",
+          size: 15,
+          attributes: { n: "select-trigger-icon" },
+        }),
+      ).dom,
     );
     panel.appendChild(list);
     root.append(hidden, trigger, panel);

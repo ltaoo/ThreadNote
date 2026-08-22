@@ -1,0 +1,6 @@
+.tn-switch { display: inline-flex; width: 40px; height: 22px; align-items: center; padding: 2px; border: 0; border-radius: var(--tn-radius-full); background: var(--tn-color-bg-interactive); cursor: pointer; transition: background var(--tn-duration-fast) var(--tn-ease-standard); }
+.tn-switch[data-checked], .tn-switch[aria-checked="true"] { background: var(--tn-color-primary-fill); }
+.tn-switch:focus-visible { outline: var(--tn-border-width-strong) solid var(--tn-color-focus-ring); outline-offset: 2px; }
+.tn-switch:disabled { cursor: not-allowed; opacity: var(--tn-opacity-disabled); }
+.tn-switch__thumb { display: block; width: 18px; height: 18px; border-radius: var(--tn-radius-full); background: var(--tn-color-bg-elevated); box-shadow: var(--tn-shadow-sm); transition: transform var(--tn-duration-fast) var(--tn-ease-standard); }
+.tn-switch[data-checked] .tn-switch__thumb, .tn-switch[aria-checked="true"] .tn-switch__thumb { transform: translateX(18px); }

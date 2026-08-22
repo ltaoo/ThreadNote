@@ -48,13 +48,16 @@ body:has(.preview-shell) {
   margin: 0 6px 28px;
 }
 
-.settings-brand::before {
-  background: url("/public/threadnote-logo.svg") center / cover no-repeat;
+.settings-brand-mark {
+  align-items: center;
+  background: var(--tn-color-primary-soft);
   border-radius: var(--tn-radius-md);
   box-shadow: var(--tn-shadow-xs);
-  content: "";
+  color: var(--tn-color-primary-text);
+  display: flex;
   grid-row: 1 / span 2;
   height: 38px;
+  justify-content: center;
   width: 38px;
 }
 
@@ -553,8 +556,8 @@ body.image-preview-page {
     margin-inline: auto;
   }
 
-  .settings-brand::before {
-    display: block;
+  .settings-brand-mark {
+    display: flex;
   }
 
   .settings-title,

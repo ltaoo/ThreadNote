@@ -1,4 +1,56 @@
 import { closestElement } from "./memo-utils.js";
+import { TimelessPrimitive } from "@/timeless-icons.js";
+import {
+  renderTimelessView,
+  unmountTimelessView,
+} from "@/timeless-view-mount.js";
+import { appendTimelessHost } from "./home_view_shared.js";
+
+function FileContextActionView(action, label, meaning) {
+  const { Button, View } = TimelessPrimitive;
+  return Button(
+    {
+      class: "tn-menu__item memo-file-context-option",
+      attributes: {
+        "data-file-context-action": action,
+        n: meaning,
+        role: "menuitem",
+        type: "button",
+      },
+    },
+    [
+      View(
+        {
+          as: "span",
+          attributes: { n: meaning + "-label" },
+        },
+        [label],
+      ),
+    ],
+  );
+}
+
+function FileContextMenuView(item) {
+  const { Fragment } = TimelessPrimitive;
+  return Fragment({}, [
+    FileContextActionView("view", "查看", "finder-file-context-view"),
+    Show({
+      when: ref(Boolean(item.memoId)),
+      ok() {
+        return FileContextActionView(
+          "source",
+          "打开来源 memo",
+          "finder-file-context-source",
+        );
+      },
+    }),
+    FileContextActionView(
+      "copy",
+      "复制文件地址",
+      "finder-file-context-copy",
+    ),
+  ]);
+}
 
 export function bindFileBrowserView(root, model, options = {}) {
   let menu = null;
@@ -14,7 +66,9 @@ export function bindFileBrowserView(root, model, options = {}) {
     root.querySelectorAll("[data-file-browser-item]").forEach(function (item) {
       const selected = item.dataset.fileBrowserId === selectedItemId;
       item.classList.toggle("is-selected", selected);
-      item.setAttribute("aria-selected", selected ? "true" : "false");
+      let aria_selected = "false";
+      if (selected) aria_selected = "true";
+      item.setAttribute("aria-selected", aria_selected);
     });
   }
 
@@ -61,18 +115,17 @@ export function bindFileBrowserView(root, model, options = {}) {
   }
 
   function openMenu(x, y, item) {
-    menu = document.createElement("div");
-    menu.className = "tn-popup tn-popup--menu tn-menu tn-context-menu memo-file-context-menu";
-    menu.setAttribute("data-n", "finder-file-context-menu");
-    menu.setAttribute("role", "menu");
-    menu.setAttribute("aria-label", item.name + " 文件操作");
-    menu.innerHTML = `
-      <button class="tn-menu__item memo-file-context-option" type="button" role="menuitem" data-n="finder-file-context-view" data-file-context-action="view"><span data-n="finder-file-context-view-label">查看</span></button>
-      ${item.memoId ? `<button class="tn-menu__item memo-file-context-option" type="button" role="menuitem" data-n="finder-file-context-source" data-file-context-action="source"><span data-n="finder-file-context-source-label">打开来源 memo</span></button>` : ""}
-      <button class="tn-menu__item memo-file-context-option" type="button" role="menuitem" data-n="finder-file-context-copy" data-file-context-action="copy"><span data-n="finder-file-context-copy-label">复制文件地址</span></button>
-    `;
+    menu = appendTimelessHost(document.body, {
+      class:
+        "tn-popup tn-popup--menu tn-menu tn-context-menu memo-file-context-menu",
+      attributes: {
+        "aria-label": item.name + " 文件操作",
+        n: "finder-file-context-menu",
+        role: "menu",
+      },
+    });
+    renderTimelessView(menu, FileContextMenuView(item));
     menu.addEventListener("click", handleMenuClick);
-    document.body.appendChild(menu);
     positionMenu(menu, x, y);
     window.setTimeout(function () {
       const firstAction = menu && menu.querySelector("[data-file-context-action]");
@@ -92,7 +145,8 @@ export function bindFileBrowserView(root, model, options = {}) {
     event.preventDefault();
     event.stopPropagation();
     const effect = model.performContextAction(action.dataset.fileContextAction);
-    const target = effect ? itemElement(effect.item.id) : null;
+    let target = null;
+    if (effect) target = itemElement(effect.item.id);
     closeMenu();
     if (!effect) return;
 
@@ -118,6 +172,7 @@ export function bindFileBrowserView(root, model, options = {}) {
     window.removeEventListener("scroll", closeMenu, true);
     if (menu) {
       menu.removeEventListener("click", handleMenuClick);
+      unmountTimelessView(menu);
       menu.remove();
     }
     menu = null;

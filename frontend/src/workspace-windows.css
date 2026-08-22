@@ -289,6 +289,13 @@ body.is-fixed-window .memo-window-shell {
   box-shadow: var(--tn-shadow-lg);
 }
 
+.memo-comment-dialog-panel {
+  box-sizing: border-box;
+  flex: 0 0 var(--tn-layout-dialog-width);
+  max-width: calc(100vw - 36px);
+  width: var(--tn-layout-dialog-width);
+}
+
 .inline-task-detail-dialog {
   background:
     linear-gradient(
@@ -514,7 +521,8 @@ body.is-fixed-window .memo-window-shell {
 }
 
 .memo-dialog-head h2,
-.memo-agent-head h2 {
+.memo-agent-head h2,
+.memo-agent-title {
   font-family: var(--tn-font-family-display);
   font-size: var(--tn-font-size-2xl);
   font-weight: var(--tn-font-weight-semibold);
@@ -672,7 +680,7 @@ body.is-fixed-window .memo-window-shell {
   width: 50px;
 }
 
-.vault-picker-mark img {
+.vault-picker-mark svg {
   display: block;
   height: 100%;
   width: 100%;
@@ -685,6 +693,7 @@ body.is-fixed-window .memo-window-shell {
 }
 
 .vault-picker-header h1,
+.vault-picker-title,
 .auth-title,
 .notfound-title {
   font-family: var(--tn-font-family-display);
@@ -734,10 +743,14 @@ body.is-fixed-window .memo-window-shell {
 }
 
 .auth-brand-mark {
-  background: url("/public/threadnote-logo.svg") center / cover no-repeat;
+  align-items: center;
+  background: var(--tn-color-primary-soft);
   border-radius: var(--tn-radius-lg);
   box-shadow: var(--tn-shadow-sm);
+  color: var(--tn-color-primary-text);
+  display: flex;
   height: 54px;
+  justify-content: center;
   width: 54px;
 }
 

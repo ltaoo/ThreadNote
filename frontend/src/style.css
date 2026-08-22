@@ -6,15 +6,18 @@
  * aliases remain available while components are migrated incrementally.
  */
 @import url("../public/index.css");
-@import url("./components.css?v=20260820-component-foundations-v2");
-@import url("./form-controls.css?v=20260820-component-foundations-v2");
-@import url("./memo-card.css?v=20260820-pin-state-clarity");
-@import url("./small-calendar.css?v=20260820-calendar-navigation");
+@import url("./form-controls.css");
+@import url("./tnui.css");
+@import url("./components/project-select.css?v=20260821-custom-project-picker");
+@import url("./components/tag-select.css?v=20260821-custom-tag-picker");
+@import url("./route-status.css?v=20260821-error-boundary");
+@import url("./memo-card.css");
+@import url("./small-calendar.css?v=20260820-date-highlight-fill");
 @import url("./workspace-shell.css?v=20260820-fixed-settings-footer");
-@import url("./workspace-memos.css?v=20260820-project-tag-subtle");
+@import url("./workspace-memos.css?v=20260821-memo-icon-own-opacity");
 @import url("./memo-code.css?v=20260820-code-snippet-workbench");
-@import url("./workspace-collections.css?v=20260820-compact-finder-thumbnails");
-@import url("./workspace-windows.css?v=20260820-inline-task-detail-brand");
+@import url("./workspace-collections.css");
+@import url("./workspace-windows.css?v=20260820-fixed-comment-dialog-width");
 @import url("./workspace-timeline.css");
 @import url("./standalone-tools.css");
 @import url("./atomic.css");
@@ -78,7 +81,7 @@
   --tn-radius-sm: 5px;
   --tn-radius-md: 8px;
   --tn-radius-lg: 12px;
-  --tn-radius-xl: 16px;
+  --tn-radius-xl: 14px;
   --tn-radius-full: 9999px;
   --tn-control-height-xs: 26px;
   --tn-control-height-sm: 30px;

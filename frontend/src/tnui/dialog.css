@@ -1,0 +1,15 @@
+.tn-dialog__overlay { position: fixed; inset: 0; background: var(--tn-color-bg-scrim); opacity: 1; }
+.tn-dialog__positioner { position: fixed; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding: 10vh var(--tn-space-4) var(--tn-space-4); pointer-events: none; }
+.tn-dialog { position: relative; display: flex; width: min(var(--tn-layout-dialog-width), calc(100vw - var(--tn-space-8))); max-height: calc(90vh - var(--tn-space-8)); flex-direction: column; overflow: hidden; border: var(--tn-border-width) solid var(--tn-color-border); border-radius: var(--tn-radius-lg); background: var(--tn-color-bg-elevated); box-shadow: var(--tn-shadow-lg); pointer-events: auto; }
+.tn-dialog__header, .tn-dialog__body, .tn-dialog__footer { padding: var(--tn-space-4) var(--tn-space-5); }
+.tn-dialog__header { border-bottom: var(--tn-border-width) solid var(--tn-color-border-translucent); }
+.tn-dialog__title { margin: 0; font-size: var(--tn-font-size-2xl); font-weight: var(--tn-font-weight-semibold); }
+.tn-dialog__description { margin: var(--tn-space-1) 0 0; color: var(--tn-color-text-tertiary); }
+.tn-dialog__body { min-height: 0; overflow: auto; }
+.tn-dialog__footer { display: flex; justify-content: flex-end; gap: var(--tn-space-2); border-top: var(--tn-border-width) solid var(--tn-color-border-translucent); }
+.tn-dialog__close { position: absolute; top: var(--tn-space-2); right: var(--tn-space-2); display: inline-flex; padding: var(--tn-space-2); border: 0; border-radius: var(--tn-radius-sm); background: transparent; color: var(--tn-color-text-tertiary); cursor: pointer; }
+.tn-dialog__close:hover { background: var(--tn-color-hover-surface); color: var(--tn-color-text-primary); }
+.tn-dialog__overlay.is-entering, .tn-dialog.is-entering { animation: tn-dialog-in var(--tn-duration-base) var(--tn-ease-emphasized); }
+.tn-dialog__overlay.is-exiting, .tn-dialog.is-exiting { animation: tn-dialog-out var(--tn-duration-fast) var(--tn-ease-standard); }
+@keyframes tn-dialog-in { from { opacity: 0; } }
+@keyframes tn-dialog-out { to { opacity: 0; } }

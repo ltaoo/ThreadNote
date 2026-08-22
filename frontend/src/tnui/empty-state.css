@@ -1,0 +1,5 @@
+.tn-empty-state { display: grid; justify-items: center; gap: var(--tn-space-2); padding: var(--tn-space-8); color: var(--tn-color-text-secondary); text-align: center; }
+.tn-empty-state__icon { color: var(--tn-color-text-tertiary); }
+.tn-empty-state__title { margin: 0; color: var(--tn-color-text-primary); font-size: var(--tn-font-size-xl); font-weight: var(--tn-font-weight-semibold); }
+.tn-empty-state__description { max-width: 44ch; margin: 0; }
+.tn-empty-state__actions { display: flex; gap: var(--tn-space-2); margin-top: var(--tn-space-2); }

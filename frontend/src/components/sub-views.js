@@ -1,4 +1,4 @@
-import { NotFoundPageView } from "../pages/notfound/index.js";
+import { NotFoundPageView } from "@/pages/notfound/index.js";
 
 export function RouterSubViews(props) {
   const subViews = ref(props.view.subViews);
@@ -58,7 +58,7 @@ export function RouterSubViews(props) {
       nodes.push(p$);
       return View(
         {
-          class: classnames(displayed),
+          class: displayed,
           style: {},
           dataset: {
             name: subView.name,

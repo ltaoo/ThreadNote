@@ -37,26 +37,6 @@
   border-radius: var(--tn-radius-xl);
 }
 
-.memo-list > .memo-card:hover,
-.memo-list > .memo-card:focus-within,
-.memo-project-memo-list > .memo-card:hover,
-.memo-project-memo-list > .memo-card:focus-within {
-  background: var(--tn-color-bg-surface);
-  border-color: var(--tn-color-primary-border);
-  box-shadow:
-    var(--tn-shadow-md),
-    inset 0 var(--tn-border-width) 0 var(--tn-color-fill-translucent);
-  z-index: var(--tn-z-raised);
-}
-
-.memo-list > .memo-card.is-highlighted,
-.memo-project-memo-list > .memo-card.is-highlighted {
-  animation: none;
-  background: var(--tn-color-primary-soft);
-  border-color: var(--tn-color-primary-border-strong);
-  box-shadow: inset 0 0 0 1px var(--tn-color-primary-border);
-}
-
 .memo-card-head {
   align-items: center;
   margin-bottom: var(--tn-space-4);
@@ -115,7 +95,10 @@
 }
 
 .memo-card-actions-buttons {
-  transition: opacity var(--tn-duration-fast) var(--tn-ease-standard);
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  min-height: var(--tn-control-height-sm);
 }
 
 .memo-card-head-actions {
@@ -128,41 +111,62 @@
 .memo-card-head-actions .memo-action-button {
   opacity: 0;
   pointer-events: none;
-  transition:
-    background-color var(--tn-duration-fast) var(--tn-ease-standard),
-    color var(--tn-duration-fast) var(--tn-ease-standard),
-    opacity var(--tn-duration-fast) var(--tn-ease-standard);
+  transition: background-color var(--tn-duration-fast) var(--tn-ease-standard);
+  transform: none;
 }
 
 .memo-card-head-actions .memo-pin-action.is-active {
   background: var(--tn-color-primary-soft);
   color: var(--tn-color-primary-text);
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.memo-card-actions-buttons {
   opacity: 0.42;
-}
-
-.memo-card:hover .memo-card-actions-buttons,
-.memo-card:focus-within .memo-card-actions-buttons {
-  opacity: 1;
-}
-
-.memo-card.is-pinned .memo-card-head-actions .memo-action-button,
-.memo-card:hover .memo-card-head-actions .memo-action-button,
-.memo-card:focus-within .memo-card-head-actions .memo-action-button {
-  opacity: 1;
   pointer-events: auto;
 }
 
-.memo-card.is-pinned .memo-card-head-actions,
-.memo-card:hover .memo-card-head-actions,
-.memo-card:focus-within .memo-card-head-actions {
-  border-color: var(--tn-color-border-translucent);
-  background: var(--tn-color-bg-elevated);
-  box-shadow: var(--tn-shadow-xs);
+.memo-card-actions .memo-action-button {
+  color: var(--tn-color-text-tertiary);
+  flex: 0 0 var(--tn-control-height-sm);
+  height: var(--tn-control-height-sm);
+  opacity: 0.42;
+  transform: none;
+  transition: background-color var(--tn-duration-fast) var(--tn-ease-standard);
+  width: var(--tn-control-height-sm);
+}
+
+.memo-card-head-actions .memo-action-button svg,
+.memo-card-actions .memo-action-button svg {
+  color: currentColor;
+  height: 16px;
+  transform: none;
+  transition: none;
+  width: 16px;
+}
+
+.memo-card-actions .memo-reaction-add-btn:hover {
+  background: var(--tn-color-hover-surface);
+  border-color: transparent;
+  color: var(--tn-color-text-primary);
+}
+
+.memo-card-actions .memo-action-button:hover {
+  opacity: 1;
+}
+
+.memo-card.is-active .memo-card-head-actions .memo-action-button {
+  opacity: 0.42;
+  pointer-events: auto;
+}
+
+.memo-card.is-active .memo-card-head-actions .memo-action-button:hover,
+.memo-card-head-actions .memo-pin-action.is-active:hover {
+  opacity: 1;
+}
+
+.memo-list > .memo-card.is-active,
+.memo-project-memo-list > .memo-card.is-active {
+  border-color: var(--tn-color-primary-border);
+  box-shadow:
+    var(--tn-shadow-md),
+    inset 0 var(--tn-border-width) 0 var(--tn-color-fill-translucent);
 }
 
 .memo-list > .memo-card.is-pinned,
@@ -192,34 +196,8 @@
 }
 
 .memo-card-more-menu {
-  right: 0;
-  bottom: calc(100% + var(--tn-space-1-5));
   min-width: 210px;
   max-width: min(260px, calc(100vw - var(--tn-space-4)));
-  transform-origin: right bottom;
-  animation: memo-card-more-enter var(--tn-duration-fast) var(--tn-ease-emphasized) both;
-}
-
-.memo-card-more-menu[hidden] {
-  display: none;
-}
-
-.memo-card-more-item svg {
-  width: 15px;
-  height: 15px;
-  flex: none;
-}
-
-@keyframes memo-card-more-enter {
-  from {
-    opacity: 0;
-    transform: translateY(var(--tn-space-1)) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 .memo-card-reading {
@@ -262,13 +240,15 @@
 }
 
 .memo-card-actions {
-  min-height: var(--tn-control-height-md);
-  gap: var(--tn-space-2);
-  margin-top: var(--tn-space-5);
-  padding: var(--tn-space-2) var(--tn-space-2-5);
-  border: var(--tn-border-width) solid var(--tn-color-border-translucent);
-  border-radius: var(--tn-radius-md);
-  background: color-mix(in srgb, var(--tn-color-bg-subtle) 66%, transparent);
+  min-height: var(--tn-control-height-sm);
+  gap: var(--tn-space-1-5);
+  margin-top: var(--tn-space-4);
+  padding: var(--tn-space-3) 0 0;
+  border: 0;
+  border-top: var(--tn-border-width) solid
+    color-mix(in srgb, var(--tn-color-border-translucent) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
 }
 
 .memo-card-operation-meta {
@@ -348,8 +328,7 @@
   border-color: var(--tn-color-primary-border-strong);
 }
 
-.memo-reaction-badge,
-.memo-reaction-add-btn {
+.memo-reaction-badge {
   border-color: var(--tn-color-border-translucent);
 }
 
@@ -476,7 +455,6 @@
 
 /* Comments are stable annotation cards, never branches on a decorative rail. */
 .memo-comments {
-  background: color-mix(in srgb, var(--tn-color-bg-subtle) 62%, transparent);
   border-top: 0;
   border-radius: var(--tn-radius-lg);
   gap: var(--tn-space-3);
@@ -513,7 +491,8 @@
 }
 
 .memo-comments .memo-comment {
-  background: color-mix(in srgb, var(--tn-color-bg-surface) 90%, transparent);
+  /* background: color-mix(in srgb, var(--tn-color-bg-surface) 90%, transparent); */
+  background: color-mix(in srgb, var(--tn-color-bg-subtle) 62%, transparent);
   border: var(--tn-border-width) solid transparent;
   border-radius: var(--tn-radius-md);
   box-shadow: var(--tn-shadow-xs);
@@ -527,9 +506,8 @@
   width: 100%;
 }
 
-.memo-comments .memo-comment:hover,
-.memo-comments .memo-comment:focus-within {
-  background: var(--tn-color-bg-surface);
+.memo-comments .memo-comment.is-active {
+  /* background: var(--tn-color-bg-surface); */
   border-color: var(--tn-color-primary-border);
   box-shadow: var(--tn-shadow-sm);
 }
@@ -589,8 +567,7 @@
   display: none;
 }
 
-.memo-comments .memo-comment:hover .memo-comment-bubble,
-.memo-comments .memo-comment:focus-within .memo-comment-bubble {
+.memo-comments .memo-comment.is-active .memo-comment-bubble {
   border-color: transparent;
   box-shadow: none;
   transform: none;
@@ -613,8 +590,7 @@
   transition: opacity var(--tn-duration-fast) var(--tn-ease-standard);
 }
 
-.memo-comments .memo-comment:hover .memo-comment-hover-actions,
-.memo-comments .memo-comment:focus-within .memo-comment-hover-actions {
+.memo-comments .memo-comment.is-active .memo-comment-hover-actions {
   opacity: 1;
   pointer-events: auto;
   transform: none;
@@ -705,17 +681,6 @@
 .memo-empty-state h2 {
   font-family: var(--tn-font-family-display);
   font-weight: var(--tn-font-weight-semibold);
-}
-
-@media (hover: none) {
-  .memo-card-actions-buttons {
-    opacity: 0.72;
-  }
-
-  .memo-card-head-actions .memo-action-button {
-    opacity: 0.72;
-    pointer-events: auto;
-  }
 }
 
 @media (max-width: 720px) {

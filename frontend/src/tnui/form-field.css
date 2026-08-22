@@ -1,0 +1,4 @@
+.tn-form-field { display: grid; gap: var(--tn-space-1-5); }
+.tn-form-field__description, .tn-form-field__error { font-size: var(--tn-font-size-xs); line-height: var(--tn-line-height-snug); }
+.tn-form-field__description { color: var(--tn-color-text-tertiary); }
+.tn-form-field__error { color: var(--tn-color-danger); }

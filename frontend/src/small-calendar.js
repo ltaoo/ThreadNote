@@ -1,4 +1,4 @@
-import { SmallCalendarModel } from "./small-calendar-model.js?v=20260820-calendar-navigation";
+import { SmallCalendarModel } from "./small-calendar-model.js";
 import { Timeless } from "./timeless-icons.js";
 
 function dayAriaLabel(day) {

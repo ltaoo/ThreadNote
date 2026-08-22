@@ -1,4 +1,4 @@
-import { fileDisplayName } from "../../domain/memo-resources.js";
+import { fileDisplayName } from "@/domain/memo-resources.js";
 
 const FILE_BROWSER_ACTIONS = new Set(["copy", "source", "view"]);
 
