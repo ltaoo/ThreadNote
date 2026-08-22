@@ -21,6 +21,9 @@ func TestGitHubGitSyncPushAndPull(t *testing.T) {
 	}
 	setActiveVault(first_ctx)
 	defer setActiveVault(nil)
+	if err := first_ctx.fs.write_file(".gitignore", []byte(".velo\n.DS_Store\n"), 0644); err != nil {
+		t.Fatalf("write legacy gitignore: %v", err)
+	}
 
 	resolved_config, err := configure_vault_github_sync(context.Background(), first_ctx, GitHubGitSyncConfig{RemoteURL: remote_root})
 	if err != nil {
@@ -32,7 +35,11 @@ func TestGitHubGitSyncPushAndPull(t *testing.T) {
 	run_git_test(t, first_root, "config", "user.name", "Velo Test")
 	run_git_test(t, first_root, "config", "user.email", "velo@example.invalid")
 
-	first_memo, err := createVaultMemo(first_ctx, MemoCreateRequest{Content: "first synced memo"})
+	first_project, err := createVaultProject(first_ctx, ProjectCreateRequest{Name: "Synced project"})
+	if err != nil {
+		t.Fatalf("create first project: %v", err)
+	}
+	first_memo, err := createVaultMemo(first_ctx, MemoCreateRequest{Content: "first synced memo", ProjectID: first_project.ID})
 	if err != nil {
 		t.Fatalf("create first memo: %v", err)
 	}
@@ -59,12 +66,12 @@ func TestGitHubGitSyncPushAndPull(t *testing.T) {
 	}
 
 	remote_files := run_git_test(t, remote_parent, "--git-dir", remote_root, "ls-tree", "-r", "--name-only", "refs/heads/main")
-	for _, expected_path := range []string{".gitignore", ".velo/sync.json", ".velo/vault.json", first_memo.Path} {
+	for _, expected_path := range []string{".gitignore", "projects.json", first_memo.Path} {
 		if !contains_git_path(remote_files, expected_path) {
 			t.Fatalf("remote files do not contain %q:\n%s", expected_path, remote_files)
 		}
 	}
-	for _, excluded_path := range []string{".velo/memo-index.db", ".velo/storage.json"} {
+	for _, excluded_path := range []string{".velo/memo-index.db", ".velo/storage.json", ".velo/sync.json", ".velo/vault.json"} {
 		if contains_git_path(remote_files, excluded_path) {
 			t.Fatalf("machine-local file %q was pushed:\n%s", excluded_path, remote_files)
 		}
@@ -77,9 +84,20 @@ func TestGitHubGitSyncPushAndPull(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open cloned vault: %v", err)
 	}
+	setActiveVault(second_ctx)
+	if _, err := configure_vault_github_sync(context.Background(), second_ctx, GitHubGitSyncConfig{RemoteURL: remote_root}); err != nil {
+		t.Fatalf("configure cloned vault sync: %v", err)
+	}
 	second_driver, ok := second_ctx.sync_driver.(*github_git_sync_driver)
 	if !ok {
 		t.Fatalf("reloaded sync driver = %T, want github git driver", second_ctx.sync_driver)
+	}
+	second_projects, err := listVaultProjects(second_ctx)
+	if err != nil {
+		t.Fatalf("list cloned projects: %v", err)
+	}
+	if len(second_projects.Projects) != 1 || second_projects.Projects[0].Name != first_project.Name {
+		t.Fatalf("cloned projects = %#v, want synced project", second_projects.Projects)
 	}
 
 	second_memo, err := createVaultMemo(first_ctx, MemoCreateRequest{Content: "second synced memo"})
@@ -169,6 +187,10 @@ func TestGitHubGitSyncValidationAndStatusParsing(t *testing.T) {
 	}
 	if updated := merge_managed_gitignore(merged); updated != merged {
 		t.Fatalf("managed gitignore is not idempotent:\n%s", updated)
+	}
+	legacy_merged := merge_managed_gitignore(".velo\n")
+	if strings.Contains(legacy_merged, "!.velo/") {
+		t.Fatalf("legacy .velo ignore should remain effective:\n%s", legacy_merged)
 	}
 }
 

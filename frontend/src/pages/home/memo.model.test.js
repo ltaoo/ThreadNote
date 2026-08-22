@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  memoFeedCollectionSignature,
   MemoFeedPaginationModel,
   MemoListModel,
   filterMemoList,
@@ -55,6 +56,23 @@ const memos = [
     visibility: "PRIVATE",
   },
 ];
+
+test("memo feed collection signature changes when visible memo IDs change", function () {
+  const initial = memoFeedCollectionSignature([memos[0], memos[1]]);
+
+  assert.notEqual(
+    memoFeedCollectionSignature([memos[2], memos[0], memos[1]]),
+    initial,
+  );
+  assert.notEqual(memoFeedCollectionSignature([memos[0]]), initial);
+  assert.equal(
+    memoFeedCollectionSignature([
+      { ...memos[0], content: "updated presentation" },
+      memos[1],
+    ]),
+    initial,
+  );
+});
 
 test("memo list model loads and normalizes vault memos", async function () {
   const vm$ = MemoListModel({

@@ -228,12 +228,17 @@ func openVaultDirectory(value string, createIfMissing bool) (*VaultContext, bool
 		}
 		existingVault = true
 	} else if is_vault_file_not_exist(err) {
-		if !createIfMissing {
+		has_source_data, source_err := vault_has_source_data(workspace_fs)
+		if source_err != nil {
+			return nil, false, source_err
+		}
+		if !createIfMissing && !has_source_data {
 			return nil, false, fmt.Errorf("vault config directory does not exist")
 		}
 		if err := workspace_fs.make_dir_all(vaultConfigDirName, 0755); err != nil {
 			return nil, false, fmt.Errorf("create .velo directory: %w", err)
 		}
+		existingVault = has_source_data
 	} else {
 		return nil, false, fmt.Errorf("stat .velo directory: %w", err)
 	}
@@ -266,6 +271,9 @@ func openVaultDirectory(value string, createIfMissing bool) (*VaultContext, bool
 		MemoCommentDir: memoCommentDir,
 		fs:             workspace_fs,
 	}
+	if err := ensure_vault_projects_from_memos(vault_ctx); err != nil {
+		return nil, false, fmt.Errorf("recover vault projects: %w", err)
+	}
 	vault_ctx.sync_driver, err = load_vault_sync_driver(vault_ctx)
 	if err != nil {
 		return nil, false, err
@@ -274,6 +282,23 @@ func openVaultDirectory(value string, createIfMissing bool) (*VaultContext, bool
 		return nil, false, fmt.Errorf("migrate legacy items to tasks: %w", err)
 	}
 	return vault_ctx, existingVault, nil
+}
+
+func vault_has_source_data(workspace_fs vault_fs) (bool, error) {
+	for _, path := range []string{
+		vault_projects_path(),
+		vaultMemoDirName,
+		vaultMemoCommentDirName,
+		"tasks",
+		"items",
+	} {
+		if _, err := workspace_fs.stat_file(path); err == nil {
+			return true, nil
+		} else if !is_vault_file_not_exist(err) {
+			return false, fmt.Errorf("stat vault source path %q: %w", path, err)
+		}
+	}
+	return false, nil
 }
 
 func cleanVaultPath(value string) (string, error) {

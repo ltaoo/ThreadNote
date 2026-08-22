@@ -132,6 +132,7 @@ import {
   scrollMemoTocLine,
 } from "./home_memo_helpers.js";
 import {
+  memoFeedCollectionSignature,
   MemoFeedPaginationModel,
   MemoListModel,
 } from "./memo.model.js";
@@ -730,6 +731,8 @@ export function mountMemosHome(root, options = {}) {
 
   let composerEditor = null;
   let composerAutoSaveTimer = null;
+  let composerDraftMutation = Promise.resolve();
+  let composerDraftRevision = 0;
   let composerDraftStatusTimer = null;
   let commentEditEditor = null;
   let commentEditEditorCommentId = "";
@@ -2321,6 +2324,10 @@ export function mountMemosHome(root, options = {}) {
         // 暂停桌面窗口聚焦时自动读取粘贴板并触发右下角预览。
         // requestClipboardLatest({ maxAgeMs: CLIPBOARD_FOREGROUND_MAX_AGE_MS });
       }
+      if (payload.type === "vault_changed") {
+        window.location.reload();
+        return;
+      }
       if (payload.type === "edit_memo_request" && payload.memoId) {
         startEdit(payload.memoId);
       }
@@ -3225,6 +3232,7 @@ export function mountMemosHome(root, options = {}) {
     }
 
     state.saving = true;
+    ui.composerPublishButton.setLoading(true);
     renderComposerStatus(content);
 
     var yamlResult = extractYamlFrontmatter(content);
@@ -3276,7 +3284,10 @@ export function mountMemosHome(root, options = {}) {
             rememberComposerProject("");
           }
           state.visibility = DEFAULT_VISIBILITY;
+          composerDraftRevision += 1;
+          cancelComposerAutoSave();
           composerEditor.setText("");
+          cancelComposerAutoSave();
           removeDraftFromState(COMPOSER_DRAFT_ID);
           hideComposerDraftStatus();
           state.composerPreviewVisible = false;
@@ -3284,23 +3295,36 @@ export function mountMemosHome(root, options = {}) {
           state.activeFilter = "all";
           clearActiveTags();
           smallCalendarModel.setSelectedDate("", { silent: true });
+          const cleanup_draft = enqueueComposerDraftMutation(function () {
+            return deleteMemoDraftInVault(COMPOSER_DRAFT_ID);
+          });
           renderAll();
           renderComposerStatus("");
+          refreshMemosFromVault();
           refreshTasksFromVault();
           refreshMemoStatsFromVault();
           showToast(
             "已发布到 " + projectLabel(normalized && normalized.projectId),
           );
-          deleteMemoDraftInVault(COMPOSER_DRAFT_ID).catch(function (err) {
-            showToast("清理草稿失败: " + errorMessage(err));
-          });
           if (options.source !== "vim-wq") {
             window.requestAnimationFrame(() => {
               if (composerEditor && els.composerHost.isConnected)
                 composerEditor.focus();
             });
           }
-          return { ok: true, message: "已发布" };
+          return cleanup_draft.then(
+            function () {
+              removeDraftFromState(COMPOSER_DRAFT_ID);
+              hideComposerDraftStatus();
+              return { ok: true, message: "已发布" };
+            },
+            function (err) {
+              removeDraftFromState(COMPOSER_DRAFT_ID);
+              hideComposerDraftStatus();
+              showToast("清理草稿失败: " + errorMessage(err));
+              return { ok: true, message: "已发布，但草稿清理失败" };
+            },
+          );
         },
         function (err) {
           showToast("发布失败: " + errorMessage(err));
@@ -3309,8 +3333,31 @@ export function mountMemosHome(root, options = {}) {
       )
       .finally(function () {
         state.saving = false;
+        ui.composerPublishButton.setLoading(false);
         renderComposerStatus(composerEditor.getText());
       });
+  }
+
+  function cancelComposerAutoSave() {
+    if (!composerAutoSaveTimer) return;
+    window.clearTimeout(composerAutoSaveTimer);
+    composerAutoSaveTimer = null;
+  }
+
+  function enqueueComposerDraftMutation(mutation) {
+    const run_mutation = function () {
+      return mutation();
+    };
+    const result = composerDraftMutation.then(run_mutation, run_mutation);
+    composerDraftMutation = result.then(
+      function () {
+        return undefined;
+      },
+      function () {
+        return undefined;
+      },
+    );
+    return result;
   }
 
   function hideComposerDraftStatus() {
@@ -3337,14 +3384,19 @@ export function mountMemosHome(root, options = {}) {
       if (!composerEditor) return;
       var content = composerEditor.getText();
       if (!content.trim()) return;
-      upsertMemoDraftInVault({
+      const draft_payload = {
         content: content,
         id: COMPOSER_DRAFT_ID,
         kind: "composer",
         projectId: state.composerProjectId,
         visibility: state.visibility,
+      };
+      const draft_revision = composerDraftRevision;
+      enqueueComposerDraftMutation(function () {
+        return upsertMemoDraftInVault(draft_payload);
       }).then(
         function (draft) {
+          if (draft_revision !== composerDraftRevision) return;
           upsertDraftInState(draft);
           showComposerDraftStatus();
         },
@@ -3366,14 +3418,21 @@ export function mountMemosHome(root, options = {}) {
       });
     }
 
-    return upsertMemoDraftInVault({
+    const draft_payload = {
       content,
       id: COMPOSER_DRAFT_ID,
       kind: "composer",
       projectId: state.composerProjectId,
       visibility: state.visibility,
+    };
+    const draft_revision = composerDraftRevision;
+    return enqueueComposerDraftMutation(function () {
+      return upsertMemoDraftInVault(draft_payload);
     }).then(
       function (draft) {
+        if (draft_revision !== composerDraftRevision) {
+          return { ok: true, message: "draft superseded" };
+        }
         upsertDraftInState(draft);
         showToast("草稿已保存");
         showComposerDraftStatus();
@@ -3387,17 +3446,22 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function clearComposerDraft(options = {}) {
+    composerDraftRevision += 1;
     hideComposerDraftStatus();
     removeDraftFromState(COMPOSER_DRAFT_ID);
     if (options.clearEditor && composerEditor) {
+      cancelComposerAutoSave();
       composerEditor.setText("");
+      cancelComposerAutoSave();
       renderComposerStatus("");
     }
     if (options.clearEditor) {
       state.composerPreviewVisible = false;
       renderComposerPreview();
     }
-    return deleteMemoDraftInVault(COMPOSER_DRAFT_ID).then(
+    return enqueueComposerDraftMutation(function () {
+      return deleteMemoDraftInVault(COMPOSER_DRAFT_ID);
+    }).then(
       function () {
         if (options.message) showToast(options.message);
         return { ok: true, message: options.message || "empty draft cleared" };
@@ -5755,6 +5819,7 @@ export function mountMemosHome(root, options = {}) {
         activeFilter: state.activeFilter,
         activeProjectFilter: state.activeProjectFilter,
         activeTags: normalizeActiveTags(state.activeTags),
+        memoCollection: memoFeedCollectionSignature(memo_presentations),
         query: state.query,
         selectedDate: smallCalendarModel.state.selectedDate,
         sortDesc: state.sortDesc,
@@ -5763,7 +5828,7 @@ export function mountMemosHome(root, options = {}) {
         memo_feed_view_mounted &&
         memo_feed_render_key !== next_render_key
       ) {
-        logMemoPagination("info", "controller-feed-filter-remount", {
+        logMemoPagination("info", "controller-feed-collection-remount", {
           activeFilter: state.activeFilter,
           memoCount: memo_presentations.length,
         });
@@ -6370,7 +6435,7 @@ export function mountMemosHome(root, options = {}) {
     logMemoPagination("info", "controller-initial-page-start");
     state.feedLoading = true;
     ui.memoFeedLoading.as(true);
-    memo_feed_model.reset().then(
+    return memo_feed_model.reset().then(
       function (page) {
         syncMemoFeedPage(page);
         logMemoPagination("info", "controller-initial-page-complete", {

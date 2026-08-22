@@ -57,7 +57,7 @@ App 负责：
 Vault 是用户选择的本地工作区目录，是 memo、project 和附件存储的领域根。一个 vault 目录至少包含：
 
 - `.velo/vault.json`：vault 自身元数据。
-- `.velo/projects.json`：project 列表和 active project。
+- `projects.json`：project 列表和 active project。
 - `memo/`：memo Markdown 文件目录。
 - `storage/` 或配置指定目录：默认本地对象存储根。
 
@@ -93,7 +93,7 @@ Vault Registry 是本机级别的 vault 索引，不属于某个具体 vault。�
 
 ### Project
 
-Project 是 memo 的轻量分组。它不是独立目录，而是保存在 `.velo/projects.json` 中的结构化记录。
+Project 是 memo 的轻量分组。它不是独立目录，而是保存在 Vault 根目录 `projects.json` 中的结构化记录。
 
 `ProjectRecord` 核心字段：
 
@@ -427,7 +427,7 @@ Update 是桌面应用级能力，不属于 memo 领域，但属于项目核心�
 | --- | --- | --- | --- |
 | 全局 vault registry | `~/.velo/data.json` | JSON | 本机最近 vault 和 active vault |
 | Vault 元数据 | `{vault}/.velo/vault.json` | JSON | vault ID、名称、schema version |
-| Project 列表 | `{vault}/.velo/projects.json` | JSON | projects 和 activeProjectId |
+| Project 列表 | `{vault}/projects.json` | JSON | projects 和 activeProjectId |
 | Memo | `{vault}/memo/YYYY/MM/*.md` | Markdown + front matter | memo 正文和元数据 |
 | Cloud storage settings | Velo Store key `demo-desktop:settings:cloud-storage:v1` | JSON | 当前 vault 的存储配置 |
 | 默认本地附件 | `{vault}/storage/memos/...` | 文件 | provider 为 local 的默认对象存储 |
@@ -487,7 +487,7 @@ App
   ├─ Velo Store
   └─ Active Vault
        ├─ Vault metadata (.velo/vault.json)
-       ├─ Projects (.velo/projects.json)
+       ├─ Projects (projects.json)
        │    └─ ProjectRecord
        ├─ Memos (memo/YYYY/MM/*.md)
        │    ├─ tags

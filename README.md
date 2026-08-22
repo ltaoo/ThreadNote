@@ -187,9 +187,9 @@ THREADNOTE_SELF_UPDATE_TEST=1 go test ./internal/service \
 
 ```text
 your-vault/
+├── projects.json                # Project 列表（需同步）
 ├── .velo/
 │   ├── vault.json               # Vault 身份与名称
-│   ├── projects.json            # Project 列表
 │   ├── boards.json              # 看板及流程规则
 │   ├── milestones.json          # 里程碑
 │   ├── hooks.json               # Webhook 配置

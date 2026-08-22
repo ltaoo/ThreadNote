@@ -7,6 +7,14 @@ import { logMemoPagination } from "@/domain/memo-pagination-log.js";
 
 import { memoDateKey } from "./memo-date.js";
 
+export function memoFeedCollectionSignature(memos) {
+  return JSON.stringify(
+    (Array.isArray(memos) ? memos : []).map(function (memo) {
+      return String(memo?.id || "").trim();
+    }),
+  );
+}
+
 /** @typedef {import("./home.models").HomeMemoRecord} HomeMemoRecord */
 /** @typedef {import("./home.models").MemoListConditions} MemoListConditions */
 /** @typedef {import("./home.models").MemoListModelInstance} MemoListModelInstance */
