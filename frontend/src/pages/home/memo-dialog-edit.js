@@ -15,8 +15,10 @@ import { MemoEditDialogModel } from "./memo-dialog-edit.model.js";
 import { renderMemoMarkdown } from "./memo-markdown.js";
 import { escapeHTML } from "./memo-utils.js";
 
-function dom_node(element$) {
-  return element$?.$elm?.get$elm?.() || element$?.$elm || null;
+function mounted_element(event) {
+  const target = event?.target || event;
+  if (typeof target?.get$elm === "function") return target.get$elm();
+  return target?.$elm || target || null;
 }
 
 function project_options(projects) {
@@ -100,14 +102,16 @@ export function MemoEditDialogView(props) {
   editor_host$ = View(
     {
       class: "memo-editor-host memo-dialog-editor-host",
+      hidden: editor_hidden_,
       attributes: {
         "data-editor-switch-host": "true",
-        hidden: editor_hidden_,
         n: "memo-edit-editor-host",
       },
-      onMounted() {
-        const editor_host = dom_node(editor_host$);
-        const vim_status_host = dom_node(vim_status$);
+      onMounted(event) {
+        const editor_host = mounted_element(event);
+        const vim_status_host = editor_host
+          ?.closest?.("[data-memo-dialog]")
+          ?.querySelector?.('[n="memo-edit-vim-status"]');
         if (!editor_host) return;
         editor_ = createMiniEditor(editor_host, {
           memoItems() {

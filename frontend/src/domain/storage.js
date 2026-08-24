@@ -38,6 +38,7 @@ export function normalizeCloudStorageSettings(value) {
 
 export function normalizeCloudStorageProfile(profile) {
   const value = profile && typeof profile === "object" ? profile : {};
+  const provider = String(value.provider || "s3").trim().toLowerCase() || "s3";
   return {
     accessKeyId: String(value.accessKeyId || "").trim(),
     bucket: String(value.bucket || "").trim(),
@@ -48,9 +49,9 @@ export function normalizeCloudStorageProfile(profile) {
     local: normalizeLocalStorageSettings(value.local),
     name: String(value.name || "").trim(),
     pathPrefix: String(value.pathPrefix || "").trim(),
-    provider: String(value.provider || "s3").trim() || "s3",
+    provider,
     publicBaseUrl: String(value.publicBaseUrl || "").trim(),
-    region: String(value.region || "").trim(),
+    region: String(value.region || "").trim() || (provider === "r2" ? "auto" : ""),
     secretAccessKey: String(value.secretAccessKey || ""),
     sessionToken: String(value.sessionToken || "").trim(),
     useSSL: value.useSSL !== false,
@@ -154,25 +155,35 @@ export function publicCloudStorageObjectUrl(storage, key) {
   const encodedKey = encodeObjectKey(key);
   if (!encodedKey) return "";
   if (isLocalCloudStorage(storage)) {
-    return "/api/oss/assets?storageId=" + encodeURIComponent(sanitizeStorageId(storage.id)) + "&path=" + encodeURIComponent(String(key || "").replace(/^\/+/, ""));
+    return cloudStorageAssetProxyUrl(storage.id, key);
   }
   const publicBaseUrl = String(storage.publicBaseUrl || "").trim().replace(/\/+$/, "");
   if (publicBaseUrl) return publicBaseUrl + "/" + encodedKey;
+  return cloudStorageAssetProxyUrl(storage.id, key);
+}
 
-  const endpoint = normalizeOSSEndpoint(storage.endpoint, storage.useSSL);
-  if (!endpoint) return "";
-  if (storage.forcePathStyle) {
-    return endpoint.replace(/\/+$/, "") + "/" + encodeURIComponent(String(storage.bucket || "").replace(/^\/+|\/+$/g, "")) + "/" + encodedKey;
-  }
+export function cloudStorageAssetProxyUrl(storageId, key) {
+  const id = sanitizeStorageId(storageId);
+  const cleanKey = String(key || "").replace(/^\/+/, "");
+  if (!id || !cleanKey) return "";
+  return "/api/oss/assets?storageId=" + encodeURIComponent(id) + "&path=" + encodeURIComponent(cleanKey);
+}
+
+export function parseCloudStorageAssetProxyUrl(value, baseUrl) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const base = String(baseUrl || "http://threadnote.local").trim() || "http://threadnote.local";
   try {
-    const url = new URL(endpoint);
-    url.hostname = String(storage.bucket || "").replace(/\.+$/g, "") + "." + url.hostname;
-    url.pathname = "/" + encodedKey;
-    url.search = "";
-    url.hash = "";
-    return url.toString();
+    const parsed = new URL(raw, base);
+    const expectedOrigin = new URL(base).origin;
+    if (parsed.pathname !== "/api/oss/assets") return null;
+    if (!raw.startsWith("/") && parsed.origin !== expectedOrigin) return null;
+    const storageId = sanitizeStorageId(parsed.searchParams.get("storageId") || parsed.searchParams.get("storageID") || "");
+    const key = String(parsed.searchParams.get("path") || parsed.searchParams.get("key") || "").replace(/^\/+/, "");
+    if (!storageId || !key) return null;
+    return { key, storageId };
   } catch (_) {
-    return endpoint.replace(/\/+$/, "") + "/" + encodedKey;
+    return null;
   }
 }
 
@@ -207,6 +218,11 @@ export function missingCloudStorageFields(config) {
 export function isLocalCloudStorage(config) {
   const provider = String((config && config.provider) || "").trim().toLowerCase();
   return provider === "local" || provider === "local-oss";
+}
+
+export function isR2CloudStorage(config) {
+  const provider = String((config && config.provider) || "").trim().toLowerCase();
+  return provider === "r2";
 }
 
 export function normalizeLocalStorageSettings(value) {

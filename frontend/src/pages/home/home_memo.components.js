@@ -1806,6 +1806,40 @@ function CommentComposerView(props) {
       attributes: { n: "memo-comment-composer" },
     },
     [
+      Show({
+        when: reactiveWhen(props.replyTo),
+        ok() {
+          return View(
+            {
+              class: "memo-dialog-reply-to memo-comment-composer-reply-to",
+              attributes: { n: "memo-comment-composer-reply-source" },
+            },
+            [
+              View(
+                {
+                  as: "span",
+                  class: "memo-dialog-reply-to-label",
+                  attributes: {
+                    n: "memo-comment-composer-reply-source-label",
+                  },
+                },
+                ["回复"],
+              ),
+              View(
+                {
+                  as: "span",
+                  class: "memo-dialog-reply-to-content",
+                  attributes: {
+                    n: "memo-comment-composer-reply-source-content",
+                    title: props.replyToTitle || props.replyTo,
+                  },
+                },
+                [props.replyTo],
+              ),
+            ],
+          );
+        },
+      }),
       View(
         {
           class: "memo-editor-switch",
@@ -1898,15 +1932,40 @@ function CommentComposerView(props) {
 
 function MemoCommentsView(props) {
   const { Button, For, View } = props.runtime;
+  const state_ = props.state;
+  const comments_count_ = computed(state_, function (state) {
+    return state.comments.length;
+  });
+  const commenting_ = computed(state_, function (state) {
+    return state.commenting;
+  });
+  const expanded_ = computed(state_, function (state) {
+    return state.expanded;
+  });
+  const has_overflow_ = computed(state_, function (state) {
+    return state.hasOverflow;
+  });
+  const reply_to_ = computed(state_, function (state) {
+    return state.replyTo;
+  });
+  const reply_to_title_ = computed(state_, function (state) {
+    return state.replyToTitle;
+  });
+  const toggle_label_ = computed(state_, function (state) {
+    return state.toggleLabel;
+  });
+  const visible_comments_ = computed(state_, function (state) {
+    return state.visibleComments;
+  });
   const list_class_ = computed(
-    reactiveWhen(props.expanded),
+    expanded_,
     function (expanded) {
       if (expanded) return "memo-comment-list is-expanded";
       return "memo-comment-list is-collapsed";
     },
   );
   const aria_expanded_ = computed(
-    reactiveWhen(props.expanded),
+    expanded_,
     function (expanded) {
       if (expanded) return "true";
       return "false";
@@ -1942,7 +2001,7 @@ function MemoCommentsView(props) {
       //   ],
       // ),
       Show({
-        when: reactiveWhen(props.comments.length),
+        when: comments_count_,
         ok() {
           return View(
             {
@@ -1951,7 +2010,7 @@ function MemoCommentsView(props) {
             },
             [
               For({
-                each: props.visibleComments,
+                each: visible_comments_,
                 render(comment) {
                   return MemoCommentView({ comment, runtime: props.runtime });
                 },
@@ -1961,7 +2020,7 @@ function MemoCommentsView(props) {
         },
       }),
       Show({
-        when: reactiveWhen(props.hasOverflow),
+        when: has_overflow_,
         ok() {
           return Button(
             {
@@ -1976,7 +2035,7 @@ function MemoCommentsView(props) {
             [
               View(
                 { as: "span", attributes: { n: "memo-comments-toggle-label" } },
-                [props.toggleLabel],
+                [toggle_label_],
               ),
               Timeless.Icon({
                 name: "chevron-down",
@@ -1987,12 +2046,15 @@ function MemoCommentsView(props) {
         },
       }),
       Show({
-        when: reactiveWhen(props.commenting),
+        when: commenting_,
         ok() {
+          const state = state_.value;
           return CommentComposerView({
+            replyTo: reply_to_,
+            replyToTitle: reply_to_title_,
             runtime: props.runtime,
-            visibility: props.commentVisibility,
-            visibilitySelect: props.commentVisibilitySelect,
+            visibility: state.visibility,
+            visibilitySelect: state.visibilitySelect,
           });
         },
       }),
@@ -2023,6 +2085,28 @@ export function MemoCardView(props) {
   const runtime = props.runtime || TimelessPrimitive;
   const { Button, RichText, View } = runtime;
   const active_ = memo.active || ref(false);
+  const comment_state_ = memo.commentState ||
+    ref({
+      commentCount: Number(memo.commentCount || 0),
+      commenting: Boolean(memo.commenting),
+      comments: Array.isArray(memo.comments) ? memo.comments : [],
+      expanded: Boolean(memo.commentsExpanded),
+      hasOverflow: Boolean(memo.commentsOverflow),
+      replyTo: memo.commentReplyTo || "",
+      replyToTitle: memo.commentReplyToTitle || "",
+      toggleLabel: memo.commentsToggleLabel || "",
+      visibility: memo.commentVisibility || "PRIVATE",
+      visibilitySelect: memo.commentVisibilitySelect || null,
+      visibleComments: Array.isArray(memo.visibleComments)
+        ? memo.visibleComments
+        : [],
+    });
+  const comment_count_ = computed(comment_state_, function (state) {
+    return state.commentCount;
+  });
+  const comments_visible_ = computed(comment_state_, function (state) {
+    return !memo.editing && (state.comments.length > 0 || state.commenting);
+  });
   const class_name_ = computed(active_, function (active) {
     return `${memo.className || "memo-card"}${active ? " is-active" : ""}`;
   });
@@ -2395,7 +2479,7 @@ export function MemoCardView(props) {
                 [
                   iconActionButton(runtime, {
                     action: "commentMemo",
-                    count: memo.commentCount,
+                    count: comment_count_,
                     icon: "message-square-more",
                     label: "评论",
                     meaning: "memo-comment-button",
@@ -2435,20 +2519,11 @@ export function MemoCardView(props) {
             ],
           ),
           Show({
-            when: reactiveWhen(
-              !memo.editing && (memo.comments.length || memo.commenting),
-            ),
+            when: comments_visible_,
             ok() {
               return MemoCommentsView({
-                commentVisibility: memo.commentVisibility,
-                commentVisibilitySelect: memo.commentVisibilitySelect,
-                commenting: memo.commenting,
-                comments: memo.comments,
-                expanded: memo.commentsExpanded,
-                hasOverflow: memo.commentsOverflow,
                 runtime,
-                toggleLabel: memo.commentsToggleLabel,
-                visibleComments: memo.visibleComments,
+                state: comment_state_,
               });
             },
           }),

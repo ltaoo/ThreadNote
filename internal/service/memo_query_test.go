@@ -95,6 +95,9 @@ func TestVaultMemoQueryStoreSupportsPagingFilteringAndStats(t *testing.T) {
 	if stats.Public != 1 || stats.Private != 1 || stats.Protected != 1 || stats.Secret != 1 {
 		t.Fatalf("stats visibility = %#v", stats)
 	}
+	if stats.Unassigned != 3 || len(stats.ProjectCounts) != 0 {
+		t.Fatalf("stats projects = %#v", stats)
+	}
 
 	loaded_memo, err := query_store.Get(context.Background(), public_memo.ID)
 	if err != nil {
@@ -244,6 +247,60 @@ func TestVaultMemoQueryStoreRebuildsCorruptDatabase(t *testing.T) {
 	}
 	if page.Total != 1 || len(page.Memos) != 1 || page.Memos[0].Content != "survives rebuild" {
 		t.Fatalf("rebuilt page = %#v", page)
+	}
+}
+
+func TestRebuildVaultMemoQueryIndexReplacesDerivedDatabase(t *testing.T) {
+	vault_ctx, _, err := openVaultDirectory(t.TempDir(), true)
+	if err != nil {
+		t.Fatalf("open vault: %v", err)
+	}
+	project, err := createVaultProject(vault_ctx, ProjectCreateRequest{Name: "Indexed project"})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	project_memo := create_test_memo(t, vault_ctx, "2026-08-05T10:00:00Z", "PUBLIC", false, "project memo")
+	if _, err := updateVaultMemo(vault_ctx, MemoUpdateRequest{ID: project_memo.ID, ProjectID: &project.ID}); err != nil {
+		t.Fatalf("assign project: %v", err)
+	}
+	create_test_memo(t, vault_ctx, "2026-08-04T10:00:00Z", "PRIVATE", false, "unassigned memo")
+
+	query_store, err := new_vault_memo_query_store(vault_ctx)
+	if err != nil {
+		t.Fatalf("create query store: %v", err)
+	}
+	t.Cleanup(func() { close_cached_memo_query_store(vault_ctx) })
+	if _, err := query_store.List(context.Background(), MemoListQuery{}); err != nil {
+		t.Fatalf("initialize query store: %v", err)
+	}
+	sqlite_store := query_store.(*sqlite_memo_query_store)
+	if _, err := sqlite_store.database.Exec("CREATE TABLE stale_marker (value TEXT)"); err != nil {
+		t.Fatalf("create stale marker: %v", err)
+	}
+
+	stats, err := rebuild_vault_memo_query_index(context.Background(), vault_ctx)
+	if err != nil {
+		t.Fatalf("rebuild memo index: %v", err)
+	}
+	if stats.Total != 2 || stats.Unassigned != 1 || stats.ProjectCounts[project.ID] != 1 {
+		t.Fatalf("rebuilt stats = %#v", stats)
+	}
+	if !sqlite_store.closed {
+		t.Fatal("previous memo index store should be closed")
+	}
+	next_store := cached_memo_query_store(vault_ctx)
+	if next_store == nil || next_store == query_store {
+		t.Fatal("rebuilt memo index store should replace the cached store")
+	}
+	var stale_table_count int
+	err = next_store.(*sqlite_memo_query_store).database.QueryRow(
+		"SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'stale_marker'",
+	).Scan(&stale_table_count)
+	if err != nil {
+		t.Fatalf("query rebuilt schema: %v", err)
+	}
+	if stale_table_count != 0 {
+		t.Fatal("rebuilt database should not retain stale tables")
 	}
 }
 

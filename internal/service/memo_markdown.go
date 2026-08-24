@@ -1,6 +1,8 @@
 package service
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -63,8 +65,43 @@ func readMemoFile(ctx *VaultContext, path string) (MemoRecord, error) {
 }
 
 func writeMemoRecord(vault_ctx *VaultContext, memo MemoRecord) error {
+	memo, err := write_memo_record_file(vault_ctx, memo)
+	if err != nil {
+		return err
+	}
+	upsert_cached_memo_query_index(vault_ctx, memo)
+	mirror_memo_record_to_d1(vault_ctx, memo)
+	return nil
+}
+
+func write_memo_record_file(vault_ctx *VaultContext, memo MemoRecord) (MemoRecord, error) {
 	if memo.ID == "" {
-		return fmt.Errorf("memo id is required")
+		return MemoRecord{}, fmt.Errorf("memo id is required")
+	}
+	if memo.Path == "" {
+		memo.Path = memoRelativePath(memo)
+	}
+	workspace_fs, err := require_vault_fs(vault_ctx)
+	if err != nil {
+		return MemoRecord{}, err
+	}
+	relative_path, err := workspace_fs.relative_path(memo.Path)
+	if err != nil {
+		return MemoRecord{}, err
+	}
+	if relative_path != vaultMemoDirName && !strings.HasPrefix(relative_path, vaultMemoDirName+"/") {
+		return MemoRecord{}, fmt.Errorf("memo path must be inside memo directory")
+	}
+	if err := workspace_fs.write_file_atomic(relative_path, []byte(renderMemoMarkdownFile(memo)), 0644); err != nil {
+		return MemoRecord{}, err
+	}
+	memo.Path = relative_path
+	return memo, nil
+}
+
+func cache_remote_memo_record(vault_ctx *VaultContext, local_store *sqlite_memo_query_store, memo MemoRecord) error {
+	if local_store == nil {
+		return fmt.Errorf("local Memo cache is unavailable")
 	}
 	if memo.Path == "" {
 		memo.Path = memoRelativePath(memo)
@@ -78,14 +115,20 @@ func writeMemoRecord(vault_ctx *VaultContext, memo MemoRecord) error {
 		return err
 	}
 	if relative_path != vaultMemoDirName && !strings.HasPrefix(relative_path, vaultMemoDirName+"/") {
-		return fmt.Errorf("memo path must be inside memo directory")
-	}
-	if err := workspace_fs.write_file_atomic(relative_path, []byte(renderMemoMarkdownFile(memo)), 0644); err != nil {
-		return err
+		return fmt.Errorf("D1 Memo path must be inside memo directory")
 	}
 	memo.Path = relative_path
-	upsert_cached_memo_query_index(vault_ctx, memo)
-	return nil
+	next_raw := []byte(renderMemoMarkdownFile(memo))
+	current_raw, read_err := workspace_fs.read_file(relative_path)
+	if read_err != nil && !is_vault_file_not_exist(read_err) {
+		return read_err
+	}
+	if !bytes.Equal(current_raw, next_raw) {
+		if err := workspace_fs.write_file_atomic(relative_path, next_raw, 0644); err != nil {
+			return err
+		}
+	}
+	return local_store.upsert_memo(context.Background(), memo)
 }
 
 func renderMemoMarkdownFile(memo MemoRecord) string {

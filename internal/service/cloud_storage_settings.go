@@ -77,6 +77,9 @@ func normalizeCloudStorageSettings(settings CloudStorageSettings) CloudStorageSe
 		cfg.PathPrefix = strings.TrimSpace(cfg.PathPrefix)
 		cfg.PublicBaseURL = strings.TrimSpace(cfg.PublicBaseURL)
 		cfg.Region = strings.TrimSpace(cfg.Region)
+		if is_r2_oss_config(cfg) && cfg.Region == "" {
+			cfg.Region = "auto"
+		}
 		if isLocalOSSConfig(cfg) {
 			cfg.Local = normalizeLocalOSSSettings(cfg.Local)
 		} else {

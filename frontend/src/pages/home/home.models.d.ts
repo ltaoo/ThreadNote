@@ -283,6 +283,7 @@ export interface HomeTaskPresentation {
   badge: string;
   complete: boolean;
   completionCheckbox: unknown;
+  completionCheckboxDestroy?(): void;
   id: string;
   meta: HomeMetaPresentation[];
   note?: string;
@@ -324,6 +325,8 @@ export interface MemoCardPresentation {
   backlinks: number;
   className: string;
   commentCount: number;
+  commentReplyTo: string;
+  commentReplyToTitle: string;
   commentVisibility: MemoVisibility | string;
   commenting: boolean;
   comments: HomeMemoCommentRecord[];
@@ -362,6 +365,19 @@ export interface MemoCardPresentation {
 
 export interface MemoCardViewModel extends MemoCardPresentation {
   active: ReactiveRef<boolean>;
+  commentState: ReactiveRef<{
+    commentCount: number;
+    commenting: boolean;
+    comments: HomeMemoCommentRecord[];
+    expanded: boolean;
+    hasOverflow: boolean;
+    replyTo: string;
+    replyToTitle: string;
+    toggleLabel: string;
+    visibility: MemoVisibility | string;
+    visibilitySelect: unknown;
+    visibleComments: MemoCommentPresentation[];
+  }>;
   clearActive(): false;
   destroy(): void;
   isActiveSource(source: string): boolean;
@@ -423,6 +439,7 @@ export interface HomeElementRegistry {
   attachInput?: HTMLInputElement | null;
   calendar?: HTMLElement | null;
   composerHost?: HTMLElement | null;
+  memoEditDialogHost?: HTMLElement | null;
   memoList?: HTMLElement | null;
   memoMain?: HTMLElement | null;
   projectFilterSelect?: HTMLSelectElement | null;

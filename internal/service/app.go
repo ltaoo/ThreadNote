@@ -199,7 +199,7 @@ func Run(assets Assets) {
 		if _, err := registerActiveVault(startupVault); err != nil {
 			logger.Warn().Msgf("Failed to update active vault registry: %v", err)
 		}
-		b.Store = store.NewWithDir(startupVault.VeloDir)
+		b.Store = vault_settings_store(startupVault)
 		initialPathname = "/home/index"
 		logger.Info().Msgf("Active vault: %s", startupVault.RootDir)
 	} else if dir, err := globalVeloDir(); err == nil {

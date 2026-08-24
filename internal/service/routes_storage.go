@@ -9,6 +9,7 @@ import (
 )
 
 func registerStorageRoutes(b *velo.Box) {
+	register_memo_storage_routes(b)
 	b.Get("/api/settings/editor", func(c *velo.BoxContext) interface{} {
 		raw := b.Store.Get(editorSettingsKey)
 		settings, err := loadStoredEditorSettings(raw)
@@ -75,6 +76,18 @@ func registerStorageRoutes(b *velo.Box) {
 			return c.Error(err.Error())
 		}
 		return c.Ok(velo.H{"success": true, "config": settings})
+	})
+
+	b.Post("/api/settings/cloud-storage/rebuild-index", func(c *velo.BoxContext) interface{} {
+		vault_ctx, err := requireActiveVault()
+		if err != nil {
+			return c.Error(err.Error())
+		}
+		stats, err := rebuild_vault_memo_query_index(c.Context(), vault_ctx)
+		if err != nil {
+			return c.Error(err.Error())
+		}
+		return c.Ok(velo.H{"success": true, "stats": stats})
 	})
 
 	b.Get("/api/settings/cloud-storage/delete", func(c *velo.BoxContext) interface{} {
@@ -212,9 +225,16 @@ func registerStorageRoutes(b *velo.Box) {
 			return nil
 		}
 		if !isLocalOSSConfig(cfg) {
-			endpoint := normalizeOSSEndpoint(cfg.Endpoint, cfg.UseSSL)
-			c.Writer.Header().Set("Location", publicOSSObjectURL(cfg, endpoint, objectPath))
-			c.Writer.WriteHeader(http.StatusFound)
+			if strings.TrimSpace(cfg.PublicBaseURL) != "" {
+				endpoint := normalizeOSSEndpoint(cfg.Endpoint, cfg.UseSSL)
+				c.Writer.Header().Set("Location", publicOSSObjectURL(cfg, endpoint, objectPath))
+				c.Writer.WriteHeader(http.StatusFound)
+				return nil
+			}
+			response_started, stream_err := stream_remote_oss_asset(c.Context(), c.Writer, c.Request, cfg, objectPath)
+			if stream_err != nil && !response_started {
+				writePlainError(c.Writer, remote_oss_error_status(stream_err), stream_err.Error())
+			}
 			return nil
 		}
 		if err := serveLocalOSSAsset(c.Writer, cfg, objectPath); err != nil {

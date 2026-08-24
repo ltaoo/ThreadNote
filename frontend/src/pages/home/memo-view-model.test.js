@@ -99,6 +99,48 @@ test("MemoCardViewModel exposes external active control", function () {
   second.destroy();
 });
 
+test("MemoCardViewModel keeps comments reactive across presentation updates", function () {
+  const first_comment = { id: "comment-1", memoId: "memo-1" };
+  const second_comment = {
+    id: "comment-2",
+    memoId: "memo-1",
+    replyTo: "comment-1",
+  };
+  const model = createMemoCardViewModel({
+    presentation: {
+      commentCount: 1,
+      comments: [first_comment],
+      id: "memo-1",
+      visibleComments: [first_comment],
+    },
+  });
+
+  assert.equal(model.commentState.value.commentCount, 1);
+  assert.equal(model.commentState.value.commenting, false);
+  assert.deepEqual(model.commentState.value.visibleComments, [first_comment]);
+
+  model.updatePresentation({
+    commentCount: 2,
+    commentReplyTo: "第一条评论",
+    commentReplyToTitle: "第一条评论的完整内容",
+    commenting: true,
+    comments: [first_comment, second_comment],
+    commentsExpanded: true,
+    id: "memo-1",
+    visibleComments: [first_comment, second_comment],
+  });
+
+  assert.equal(model.commentState.value.commentCount, 2);
+  assert.equal(model.commentState.value.commenting, true);
+  assert.equal(model.commentState.value.expanded, true);
+  assert.equal(model.commentState.value.replyTo, "第一条评论");
+  assert.deepEqual(model.commentState.value.visibleComments, [
+    first_comment,
+    second_comment,
+  ]);
+  model.destroy();
+});
+
 test("MemoCardViewModel stays active while its reaction menu is open", function () {
   let menu_listener = null;
   let menu_destroy_count = 0;

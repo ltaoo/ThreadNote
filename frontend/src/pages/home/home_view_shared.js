@@ -1,6 +1,7 @@
 import { Timeless, TimelessPrimitive } from "@/timeless-icons.js";
 
 export function reactiveWhen(value) {
+  if (isRef(value)) return computed(value, Boolean);
   return ref(Boolean(value));
 }
 

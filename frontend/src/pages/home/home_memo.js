@@ -160,8 +160,49 @@ export default function HomeMemoPageView(props) {
       ),
       MemoInspector(vm$),
       MemoOverlays(vm$),
+      View(
+        {
+          attributes: {
+            "data-memo-edit-dialog-host": "true",
+            n: "home-memo-edit-dialog-host",
+          },
+        },
+        [],
+      ),
     ],
   );
+}
+
+export function prependMemoFeedItem(host, props = {}) {
+  const runtime = props.runtime || TimelessPrimitive;
+  if (!host || !props.memo || !runtime?.DOM) return null;
+
+  const view = MemoCardView({
+    memo: props.memo,
+    projects: props.projects || [],
+    runtime,
+  });
+  const rendered = runtime.DOM.buildAndRender(view);
+  const empty = host.querySelector('[data-n="memo-feed-empty"]');
+  empty?.remove();
+  const first_card = host.querySelector("[data-memo-card]");
+  // Timeless 0.31.4 For cannot prepend safely, so mount only the new card.
+  host.insertBefore(rendered.dom, first_card || host.firstChild);
+  let destroyed = false;
+  globalThis.queueMicrotask(function () {
+    if (!destroyed) view.onMounted?.({ target: rendered.vnode });
+  });
+
+  return {
+    destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      view.beforeUnmounted?.();
+      rendered.dom?.remove?.();
+      view.onUnmounted?.();
+      rendered.vnode?.destroy?.();
+    },
+  };
 }
 
 export function MemoFeedView(props = {}) {

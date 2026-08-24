@@ -12,7 +12,7 @@ import {
   resolveMemoReferenceTarget,
 } from "@/domain/memos.js";
 import { codeBlockFence, fileDisplayName, isFileAttachment, isImageAttachment } from "@/domain/memo-resources.js";
-import { parseAssetReference, parseImageQueryParams } from "@/domain/storage.js";
+import { parseAssetReference, parseCloudStorageAssetProxyUrl, parseImageQueryParams } from "@/domain/storage.js";
 import { formatRelativeDate } from "./memo-date.js";
 import { cloudStorageById, loadEditorSettings, normalizeFileEditor, normalizeFileEditorRules, resolveAssetUrl } from "./memo-editor.js";
 import { escapeAttr, escapeHTML } from "./memo-utils.js";
@@ -1363,12 +1363,10 @@ function isLocalAssetReference(value) {
 
 function isLocalOSSAssetURL(value) {
   const raw = String(value || "").trim();
-  try {
-    const parsed = new URL(raw, window.location.origin);
-    return parsed.pathname === "/api/oss/assets" && (parsed.origin === window.location.origin || raw.startsWith("/"));
-  } catch (_) {
-    return /^\/api\/oss\/assets(?:\?|$)/i.test(raw);
-  }
+  const asset = parseCloudStorageAssetProxyUrl(raw, window.location.origin);
+  if (!asset) return false;
+  const storage = typeof cloudStorageById === "function" ? cloudStorageById(asset.storageId) : null;
+  return storage ? editorStorageIsLocal(storage) : true;
 }
 
 function editorStorageIsLocal(storage) {

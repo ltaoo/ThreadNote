@@ -171,6 +171,16 @@ export function loadMemoStatsFromVault() {
   );
 }
 
+export function loadPinnedMemosFromVault(limit = 200) {
+  return loadMemoPageFromVault({
+    archived: false,
+    limit,
+    pinned: true,
+  }).then(function (page) {
+    return Array.isArray(page.memos) ? page.memos : [];
+  });
+}
+
 export function loadMemoFromVault(id) {
   const memo_id = String(id || "").trim();
   if (!memo_id) return Promise.reject(new Error("memo id is required"));

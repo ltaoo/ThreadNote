@@ -232,27 +232,16 @@ func sanitizeObjectName(name string) string {
 func publicOSSObjectURL(cfg OSSConfig, endpoint string, key string) string {
 	escapedKey := escapedObjectKey(key)
 	if isLocalOSSConfig(cfg) {
-		return localOSSAssetURL(cfg.ID, key)
+		return oss_asset_proxy_url(cfg.ID, key)
 	}
 	if base := strings.TrimRight(strings.TrimSpace(cfg.PublicBaseURL), "/"); base != "" {
 		return base + "/" + escapedKey
 	}
-	if cfg.ForcePathStyle {
-		return strings.TrimRight(endpoint, "/") + "/" + url.PathEscape(strings.Trim(cfg.Bucket, "/")) + "/" + escapedKey
-	}
-	parsed, err := url.Parse(endpoint)
-	if err == nil && parsed.Host != "" {
-		parsed.Host = strings.Trim(cfg.Bucket, ".") + "." + parsed.Host
-		parsed.Path = "/" + escapedKey
-		parsed.RawQuery = ""
-		parsed.Fragment = ""
-		return parsed.String()
-	}
-	return strings.TrimRight(endpoint, "/") + "/" + escapedKey
+	return oss_asset_proxy_url(cfg.ID, key)
 }
 
-func localOSSAssetURL(storageID string, key string) string {
-	id := sanitizeStorageID(storageID)
+func oss_asset_proxy_url(storage_id string, key string) string {
+	id := sanitizeStorageID(storage_id)
 	if id == "" {
 		id = "default"
 	}
@@ -261,6 +250,10 @@ func localOSSAssetURL(storageID string, key string) string {
 		return ""
 	}
 	return "/api/oss/assets?storageId=" + url.QueryEscape(id) + "&path=" + url.QueryEscape(cleanKey)
+}
+
+func is_r2_oss_config(cfg OSSConfig) bool {
+	return strings.EqualFold(strings.TrimSpace(cfg.Provider), "r2")
 }
 
 func escapedObjectKey(key string) string {

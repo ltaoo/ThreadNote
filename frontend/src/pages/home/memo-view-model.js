@@ -28,6 +28,7 @@ export function detachedMemoRenderContext(state, source_id, options = {}) {
 const MEMO_CARD_VIEW_MODEL_RESERVED_KEYS = new Set([
   "active",
   "clearActive",
+  "commentState",
   "destroy",
   "isActiveSource",
   "moreMenuDestroy",
@@ -42,6 +43,26 @@ const MEMO_CARD_VIEW_MODEL_RESERVED_KEYS = new Set([
   "updatePresentation",
 ]);
 
+function memoCardCommentState(presentation = {}) {
+  return Object.freeze({
+    commentCount: Number(presentation.commentCount || 0),
+    commenting: Boolean(presentation.commenting),
+    comments: Array.isArray(presentation.comments)
+      ? presentation.comments.slice()
+      : [],
+    expanded: Boolean(presentation.commentsExpanded),
+    hasOverflow: Boolean(presentation.commentsOverflow),
+    replyTo: String(presentation.commentReplyTo || ""),
+    replyToTitle: String(presentation.commentReplyToTitle || ""),
+    toggleLabel: String(presentation.commentsToggleLabel || ""),
+    visibility: presentation.commentVisibility || "PRIVATE",
+    visibilitySelect: presentation.commentVisibilitySelect || null,
+    visibleComments: Array.isArray(presentation.visibleComments)
+      ? presentation.visibleComments.slice()
+      : [],
+  });
+}
+
 export class MemoCardViewModel {
   constructor(options = {}) {
     const create_ref = options.createRef || globalThis.Timeless?.ref;
@@ -50,6 +71,7 @@ export class MemoCardViewModel {
     }
 
     this.active = create_ref(false);
+    this.commentState = create_ref(memoCardCommentState());
     this._active_sources = new Set();
     this._destroy_more_menu = null;
     this._destroy_reaction_menu = null;
@@ -79,6 +101,7 @@ export class MemoCardViewModel {
 
   updatePresentation(presentation = {}) {
     if (this._destroyed) return this;
+    this.commentState.as(memoCardCommentState(presentation));
     const current_more_menu = this.moreMenu;
     const next_more_menu = presentation?.moreMenu;
     const next_more_menu_destroy = presentation?.moreMenuDestroy;
@@ -250,6 +273,7 @@ export class MemoCardViewModel {
     this._destroyed = true;
     this._active_sources.clear();
     this.active.destroy?.();
+    this.commentState.destroy?.();
     this._on_destroy?.(this);
     this._on_destroy = null;
   }

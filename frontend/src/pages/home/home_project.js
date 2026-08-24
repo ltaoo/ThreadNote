@@ -60,6 +60,25 @@ export function createHomeProjectController(options) {
 
   function project_memo_count(project_id) {
     const normalized_project_id = normalizeProjectID(project_id);
+    const indexed_counts = state.memoStats?.projectCounts;
+    if (
+      normalized_project_id &&
+      indexed_counts &&
+      typeof indexed_counts === "object"
+    ) {
+      return Object.prototype.hasOwnProperty.call(
+        indexed_counts,
+        normalized_project_id,
+      )
+        ? Math.max(0, Number(indexed_counts[normalized_project_id]) || 0)
+        : 0;
+    }
+    if (!normalized_project_id) {
+      const indexed_unassigned = Number(state.memoStats?.unassigned);
+      if (Number.isFinite(indexed_unassigned)) {
+        return Math.max(0, indexed_unassigned);
+      }
+    }
     return state.memos.filter(
       (memo) =>
         !memo.archived &&
@@ -99,6 +118,11 @@ export function createHomeProjectController(options) {
 
   function render_projects() {
     const projects = state.projects.filter((project) => !project.archived);
+    const indexed_active_count = Number(state.memoStats?.active);
+    const active_memo_count = Number.isFinite(indexed_active_count)
+      ? Math.max(0, indexed_active_count)
+      : state.memos.filter((memo) => !memo.archived).length;
+    const unassigned_memo_count = project_memo_count("");
     const project_presentations = projects.map((project) => ({
       color: projectThemeColor(project.color),
       count: project_memo_count(project.id),
@@ -108,14 +132,12 @@ export function createHomeProjectController(options) {
     options.publishSidebarProjects?.(project_presentations);
     ui.feedProjectSelect.setOptions([
       {
-        count: state.memos.filter((memo) => !memo.archived).length,
+        count: active_memo_count,
         label: "全部",
         value: "all",
       },
       {
-        count: state.memos.filter(
-          (memo) => !memo.projectId && !memo.archived,
-        ).length,
+        count: unassigned_memo_count,
         label: "未归属",
         value: "unassigned",
       },
@@ -147,15 +169,13 @@ export function createHomeProjectController(options) {
       ProjectOptionsView({
         baseOptions: [
           {
-            count: state.memos.filter((memo) => !memo.archived).length,
+            count: active_memo_count,
             kind: "all",
             label: "全部",
             value: "all",
           },
           {
-            count: state.memos.filter(
-              (memo) => !memo.projectId && !memo.archived,
-            ).length,
+            count: unassigned_memo_count,
             kind: "unassigned",
             label: "未归属",
             value: "unassigned",

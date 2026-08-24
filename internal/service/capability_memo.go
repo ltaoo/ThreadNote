@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-
-	"github.com/ltaoo/velo/store"
 )
 
 type memo_list_input struct {
@@ -297,7 +295,7 @@ func register_memo_draft_capabilities(capability_service *CapabilityService) {
 }
 
 func capability_memo_delete_options(call_ctx context.Context, vault_ctx *VaultContext, cleanup_assets bool, delete_tasks bool) MemoDeleteOptions {
-	vault_store := store.NewWithDir(vault_ctx.VeloDir)
+	vault_store := vault_settings_store(vault_ctx)
 	return MemoDeleteOptions{
 		CleanupAssets:   cleanup_assets,
 		DeleteTasks:     delete_tasks,

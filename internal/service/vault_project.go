@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ltaoo/velo/store"
 	"github.com/rs/zerolog"
 )
 
@@ -53,17 +54,24 @@ type VaultFile struct {
 	UpdatedAt     string `json:"updatedAt"`
 }
 type VaultContext struct {
-	Entry            VaultEntry `json:"entry"`
-	RootDir          string     `json:"rootDir"`
-	VeloDir          string     `json:"veloDir"`
-	MemoDir          string     `json:"memoDir"`
-	MemoCommentDir   string     `json:"memoCommentDir"`
-	PrivateUnlocked  bool       `json:"-"`
-	fs               vault_fs
-	logger           *zerolog.Logger
-	memo_query_mutex sync.Mutex
-	memo_query_store MemoQueryStore
-	sync_driver      sync_driver
+	Entry                        VaultEntry `json:"entry"`
+	RootDir                      string     `json:"rootDir"`
+	VeloDir                      string     `json:"veloDir"`
+	MemoDir                      string     `json:"memoDir"`
+	MemoCommentDir               string     `json:"memoCommentDir"`
+	PrivateUnlocked              bool       `json:"-"`
+	fs                           vault_fs
+	logger                       *zerolog.Logger
+	memo_query_mutex             sync.Mutex
+	memo_query_store             MemoQueryStore
+	memo_storage_mutex           sync.Mutex
+	memo_storage_operation_mutex sync.Mutex
+	memo_storage_remote          *d1_memo_store
+	memo_storage_signature       string
+	memo_storage_state_mutex     sync.Mutex
+	settings_store               *store.Store
+	settings_store_mutex         sync.Mutex
+	sync_driver                  sync_driver
 }
 
 type VaultOpenRequest struct {

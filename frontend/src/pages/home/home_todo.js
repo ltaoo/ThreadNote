@@ -31,6 +31,11 @@ import {
 import { HomePageHeader, HomePageToast } from "./home_page_header.js";
 import { formatDateTime } from "./home_memo_helpers.js";
 import { HomeTodoPageModel } from "./home_todo.model.js";
+import {
+  bindTaskCompletionCheckbox,
+  taskCompletionChecked,
+} from "./memo-task-checkbox.model.js";
+import { persistMemoTaskLine } from "./memo-task-source.model.js";
 import { closestElement, copyText } from "./memo-utils.js";
 import {
   appendTimelessHost,
@@ -82,6 +87,7 @@ export function createHomeTodoController(options) {
   } = options;
   const els = elements;
   const projectLabel = options.projectLabel;
+  const pending_task_completion_ids = new Set();
 
   function findMemo(memo_id) {
     return state.memos.find((memo) => memo.id === memo_id) || null;
@@ -285,6 +291,13 @@ export function createHomeTodoController(options) {
       checked: complete,
       label: "切换任务完成状态",
     });
+    const completion_checkbox_unsubscribe = bindTaskCompletionCheckbox(
+      completion_checkbox,
+      complete,
+      function () {
+        toggleExistingTaskCompletion(task.id, completion_checkbox);
+      },
+    );
     const priority_labels = { high: "高", low: "低", medium: "中", none: "" };
     const meta = [];
     if (task.projectId) meta.push({ label: options.projectLabel(task.projectId) });
@@ -332,6 +345,10 @@ export function createHomeTodoController(options) {
       badge: priority_labels[task.priority || "none"],
       complete,
       completionCheckbox: completion_checkbox,
+      completionCheckboxDestroy() {
+        completion_checkbox_unsubscribe();
+        completion_checkbox.destroy?.();
+      },
       id: task.id,
       meta,
       priority: task.priority || "none",
@@ -438,25 +455,22 @@ export function createHomeTodoController(options) {
 
   function toggleExistingTaskCompletion(taskId, checkbox) {
     const id = String(taskId || "").trim();
-    if (!id || !checkbox) return;
-    const checked = checkbox.checked;
+    if (!id || !checkbox || pending_task_completion_ids.has(id)) return;
+    const checked = taskCompletionChecked(checkbox);
     const completedInFilter = state.taskFilter;
-    const taskCard = checkbox
-      ? closestElement(checkbox, "[data-task-id]")
-      : null;
-    const isProjectTask = Boolean(
-      taskCard && taskCard.classList.contains("memo-project-todo-item"),
-    );
+    const isProjectTask = state.activeView === "project-detail";
     const existingTask = state.tasks.find((item) => item && item.id === id);
     const sourceMemoId =
       existingTask && existingTask.source ? existingTask.source.memoId : "";
     const sourceLine =
       existingTask && existingTask.source ? existingTask.source.line : 0;
-    checkbox.disabled = true;
+    pending_task_completion_ids.add(id);
+    if (typeof checkbox.disable === "function") checkbox.disable();
+    else checkbox.disabled = true;
     const request = checked
       ? completeTask(id)
       : updateTask(id, { completedAt: "", status: "open" });
-    request.then(
+    return request.then(
       function (task) {
         const summary = normalizeTaskSummary(task);
         if (checked) {
@@ -468,9 +482,14 @@ export function createHomeTodoController(options) {
           item.id === id && summary ? summary : item,
         );
         if (isProjectTask) renderProjectDetail();
-        else replaceTaskCard(taskCard, summary);
+        else renderAll();
+        let memo_sync_request = Promise.resolve();
         if (sourceMemoId && sourceLine > 0) {
-          syncMemoTaskLine(sourceMemoId, sourceLine, checked);
+          memo_sync_request = syncMemoTaskLine(
+            sourceMemoId,
+            sourceLine,
+            checked,
+          );
         }
         if (checked && task.boardId) {
           var board = findBoard(task.boardId);
@@ -492,7 +511,10 @@ export function createHomeTodoController(options) {
             }
           }
         }
-        showToast(checked ? "已完成任务" : "已取消完成");
+        return memo_sync_request.then(function () {
+          showToast(checked ? "已完成任务" : "已取消完成");
+          return task;
+        });
       },
       function (err) {
         renderAll();
@@ -500,28 +522,26 @@ export function createHomeTodoController(options) {
           (checked ? "完成任务失败: " : "取消完成失败: ") + errorMessage(err),
         );
       },
-    );
+    ).finally(function () {
+      pending_task_completion_ids.delete(id);
+    });
   }
 
   function syncMemoTaskLine(memoId, line, checked) {
-    var memo = findMemo(memoId);
-    if (!memo) return;
-    var lines = memo.content.split("\n");
-    var index = line - 1;
-    if (!lines[index]) return;
-    var updatedLine = updateTaskLine(lines[index], checked);
-    if (updatedLine === lines[index]) return;
-    lines[index] = updatedLine;
-    var content = lines.join("\n");
-    var patch = { content: content, updatedAt: new Date().toISOString() };
-    // update local state first
-    state.memos = state.memos.map(function (item) {
-      if (item.id !== memoId) return item;
-      return Object.assign({}, item, patch);
-    });
-    // persist to vault (fire-and-forget, don't re-render)
-    updateMemoInVault(memoId, patch).catch(function (err) {
+    const memo_id = String(memoId || "").trim();
+    return persistMemoTaskLine({
+      checked,
+      line,
+      memo: findMemo(memo_id),
+      memoId: memo_id,
+      onLocalUpdate(updated_memo) {
+        state.memos = state.memos.map(function (item) {
+          return item.id === memo_id ? updated_memo : item;
+        });
+      },
+    }).catch(function (err) {
       showToast("同步 memo 失败: " + errorMessage(err));
+      return { changed: false, memo: null };
     });
   }
 
@@ -1377,7 +1397,11 @@ export function TaskCollectionsView(props = {}) {
                 tn.Checkbox({
                   store: item.completionCheckbox,
                   onUnmounted() {
-                    item.completionCheckbox?.destroy?.();
+                    if (item.completionCheckboxDestroy) {
+                      item.completionCheckboxDestroy();
+                    } else {
+                      item.completionCheckbox?.destroy?.();
+                    }
                   },
                   attributes: {
                     "aria-label": "切换任务完成状态",

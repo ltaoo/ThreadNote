@@ -50,6 +50,7 @@ import {
   loadMemoFromVault,
   loadMemoHistoryFromVault,
   loadMemoHistoryVersionFromVault,
+  loadPinnedMemosFromVault,
   loadMemoStatsFromVault,
   loadMemos,
   restoreMemoHistoryVersionFromVault,
@@ -136,6 +137,7 @@ import {
   MemoFeedPaginationModel,
   MemoListModel,
 } from "./memo.model.js";
+import { memoTaskCheckboxChange } from "./memo-task-checkbox.model.js";
 import {
   activeViewMeta,
   applyContentOpsToString,
@@ -187,7 +189,7 @@ import {
   SourceEditDialogView,
   TagListView,
 } from "./home_memo.components.js";
-import { MemoFeedView } from "./home_memo.js";
+import { MemoFeedView, prependMemoFeedItem } from "./home_memo.js";
 import {
   appendTimelessHost,
   ConfirmDeleteView,
@@ -360,6 +362,7 @@ export function createMemosPageState(initial_view = "memos") {
     ...createHomeBoardState(),
     memoRefIndex: null,
     memoStats: null,
+    pinnedMemos: [],
     memoDrafts: [],
     memoDialog: null,
     memos: loadMemos(),
@@ -455,7 +458,7 @@ export function createMemosPageUIState() {
       placeholder: "未归属",
     }),
     composerPublishButton: new TimelessPrimitive.vm.ButtonCore({
-      disabled: true,
+      disabled: false,
       size: "sm",
       variant: "primary",
     }),
@@ -745,6 +748,8 @@ export function mountMemosHome(root, options = {}) {
   let acpChatController = null;
   let memo_feed_view_mounted = false;
   let memo_feed_render_key = "";
+  let manually_prepended_feed_items = [];
+  const pending_memo_task_line_changes = new Map();
   let source_edit_visibility_ = DEFAULT_VISIBILITY;
   let source_edit_flags_ = {
     archived: false,
@@ -1089,6 +1094,7 @@ export function mountMemosHome(root, options = {}) {
   refreshProjectsFromVault();
   refreshMemosFromVault();
   refreshMemoStatsFromVault();
+  refreshPinnedMemosFromVault();
   refreshMemoCommentsFromVault();
   refreshMemoDraftsFromVault();
   refreshTasksFromVault();
@@ -1235,6 +1241,7 @@ export function mountMemosHome(root, options = {}) {
       if (memoDialogEditor) memoDialogEditor.destroy();
       if (memoDialogController) memoDialogController.destroy();
       if (acpChatController) acpChatController.destroy();
+      destroyManuallyPrependedFeedItems();
       unmountTimelessView(els.memoList);
       disconnectProjectScrollObserver();
       unmountTimelessView(els.calendar);
@@ -1327,6 +1334,9 @@ export function mountMemosHome(root, options = {}) {
   function handleWindowFocus() {
     state.clipboardForeground = true;
     refreshEditorSettings();
+    refreshMemoStatsFromVault({ render: false });
+    refreshPinnedMemosFromVault();
+    refreshProjectsFromVault();
     // 暂停窗口聚焦时自动读取粘贴板并触发右下角预览。
     // requestClipboardLatest({ maxAgeMs: CLIPBOARD_FOREGROUND_MAX_AGE_MS });
   }
@@ -1750,6 +1760,7 @@ export function mountMemosHome(root, options = {}) {
     state.commentPreviewVisible = false;
     state.commentingMemoId = "";
     state.commentDraft = "";
+    state.replyToCommentId = "";
     state.query = "";
     smallCalendarModel.setSelectedDate("", { silent: true });
     state.linksDomainFilter = "";
@@ -2832,14 +2843,14 @@ export function mountMemosHome(root, options = {}) {
     );
 
     host.addEventListener("change", function (event) {
-      if (!event.target.matches("[data-task-line]")) return;
-      const memoId = event.target.dataset.taskSourceMemoId;
-      const lineIndex = Number(event.target.dataset.taskLine);
-      if (!memoId || Number.isNaN(lineIndex)) return;
-      const checked = event.target.checked;
+      const task_change = memoTaskCheckboxChange(event.target);
+      if (!task_change) return;
+      const memoId = task_change.control.dataset.taskSourceMemoId;
+      if (!memoId) return;
+      const checked = task_change.checked;
       // Update memo content directly without triggering full re-render
-      syncSourceMemoTaskLine(memoId, lineIndex, checked);
-      var linkedTask = findLinkedTask(memoId, "", lineIndex + 1);
+      syncSourceMemoTaskLine(memoId, task_change.lineIndex, checked);
+      var linkedTask = findLinkedTask(memoId, "", task_change.lineIndex + 1);
       if (linkedTask) {
         completeLinkedTaskFromSource(linkedTask, checked);
       }
@@ -2998,22 +3009,26 @@ export function mountMemosHome(root, options = {}) {
     const memoDialog = closestElement(event.target, "[data-memo-dialog]");
     if (memoDialog && root.contains(memoDialog)) return;
 
-    if (event.target.matches("[data-task-line]")) {
-      const commentNode = closestElement(event.target, "[data-comment-id]");
+    const task_change = memoTaskCheckboxChange(event.target);
+    if (task_change) {
+      const commentNode = closestElement(
+        task_change.control,
+        "[data-comment-id]",
+      );
       if (commentNode) {
         toggleCommentTask(
           commentNode.dataset.commentId,
-          Number(event.target.dataset.taskLine),
-          event.target.checked,
+          task_change.lineIndex,
+          task_change.checked,
         );
         return;
       }
-      const memoNode = closestElement(event.target, "[data-memo-id]");
+      const memoNode = closestElement(task_change.control, "[data-memo-id]");
       if (!memoNode) return;
       toggleTask(
         memoNode.dataset.memoId,
-        Number(event.target.dataset.taskLine),
-        event.target.checked,
+        task_change.lineIndex,
+        task_change.checked,
       );
       return;
     }
@@ -3276,33 +3291,25 @@ export function mountMemosHome(root, options = {}) {
       })
       .then(
         function (memo) {
-          const normalized = normalizeMemoPayload(memo);
-          state.memos = [normalized].filter(Boolean).concat(state.memos);
+          const normalized = upsertMemoInState(memo);
+          memo_feed_model.replaceMemos(state.memos);
           saveMemos(state.memos);
           if (state.activeProjectFilter === "all") {
             state.composerProjectId = "";
             rememberComposerProject("");
           }
           state.visibility = DEFAULT_VISIBILITY;
-          composerDraftRevision += 1;
-          cancelComposerAutoSave();
-          composerEditor.setText("");
-          cancelComposerAutoSave();
-          removeDraftFromState(COMPOSER_DRAFT_ID);
-          hideComposerDraftStatus();
-          state.composerPreviewVisible = false;
+          clearComposerDraft({ clearEditor: true });
           state.activeView = "memos";
           state.activeFilter = "all";
           clearActiveTags();
           smallCalendarModel.setSelectedDate("", { silent: true });
-          const cleanup_draft = enqueueComposerDraftMutation(function () {
-            return deleteMemoDraftInVault(COMPOSER_DRAFT_ID);
-          });
-          renderAll();
+          renderAll({ feed: false });
+          prependCreatedMemoToFeed(normalized);
           renderComposerStatus("");
-          refreshMemosFromVault();
-          refreshTasksFromVault();
-          refreshMemoStatsFromVault();
+          refreshTasksFromVault({ render: false });
+          refreshMemoStatsFromVault({ render: false });
+          refreshPinnedMemosFromVault();
           showToast(
             "已发布到 " + projectLabel(normalized && normalized.projectId),
           );
@@ -3446,13 +3453,15 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function clearComposerDraft(options = {}) {
-    composerDraftRevision += 1;
+    if (composerAutoSaveTimer) window.clearTimeout(composerAutoSaveTimer);
+    composerAutoSaveTimer = null;
     hideComposerDraftStatus();
     removeDraftFromState(COMPOSER_DRAFT_ID);
     if (options.clearEditor && composerEditor) {
       cancelComposerAutoSave();
       composerEditor.setText("");
-      cancelComposerAutoSave();
+      if (composerAutoSaveTimer) window.clearTimeout(composerAutoSaveTimer);
+      composerAutoSaveTimer = null;
       renderComposerStatus("");
     }
     if (options.clearEditor) {
@@ -3495,7 +3504,28 @@ export function mountMemosHome(root, options = {}) {
   function startComment(memoId) {
     const memo = findMemo(memoId);
     if (!memo) return;
-    openMemoDialog("comment", memo.id);
+    if (
+      state.commentingMemoId === memo.id &&
+      !state.replyToCommentId &&
+      commentEditor
+    ) {
+      commentEditor.focus();
+      return;
+    }
+
+    closeMemoDialog({ silent: true });
+    if (state.commentingMemoId !== memo.id) state.commentDraft = "";
+    state.replyToCommentId = "";
+    state.commentingMemoId = memo.id;
+    state.commentPreviewVisible = false;
+    state.commentEditingId = "";
+    state.commentEditDraft = "";
+    state.commentEditPreviewVisible = false;
+    state.editingId = "";
+    state.editDraft = "";
+    state.editPreviewVisible = false;
+    state.expandedCommentListMemoIds.add(memo.id);
+    renderFeed();
   }
 
   function startCommentEdit(commentId) {
@@ -3545,6 +3575,7 @@ export function mountMemosHome(root, options = {}) {
   function cancelComment(options = {}) {
     state.commentingMemoId = "";
     state.commentDraft = "";
+    state.replyToCommentId = "";
     state.commentPreviewVisible = false;
     renderFeed();
     if (options.message) showToast(options.message);
@@ -3573,13 +3604,21 @@ export function mountMemosHome(root, options = {}) {
       state.commentVisibility === "SECRET"
         ? "PRIVATE"
         : state.commentVisibility;
-    return createMemoCommentInVault(memoId, content, commentVis)
+    const replyTo = state.replyToCommentId || "";
+    return createMemoCommentInVault(
+      memoId,
+      content,
+      commentVis,
+      undefined,
+      replyTo,
+    )
       .then(
         function (comment) {
           upsertCommentInState(comment);
           state.expandedCommentListMemoIds.add(memoId);
           state.commentingMemoId = "";
           state.commentDraft = "";
+          state.replyToCommentId = "";
           state.commentPreviewVisible = false;
           renderFeed();
           refreshTasksFromVault();
@@ -3642,9 +3681,14 @@ export function mountMemosHome(root, options = {}) {
 
     if (dialogKind === "edit") {
       closeMemoDialog({ silent: true });
+      const dialog_host = els.memoEditDialogHost;
+      if (!dialog_host) {
+        showToast("无法打开 memo 编辑器");
+        return;
+      }
       var draft = findDraft(memoEditDraftId(memo.id));
       state.memoDialog = { kind: "edit", memoId: memo.id, saving: false };
-      memoDialogController = mountMemoEditDialog(root, {
+      memoDialogController = mountMemoEditDialog(dialog_host, {
         memo: memo,
         initialDraft: draft ? draft.content : null,
         memos: state.memos,
@@ -4123,7 +4167,14 @@ export function mountMemosHome(root, options = {}) {
       return;
     }
     if (!card) return;
+    memo_card_view_models.get(id)?.destroy();
+    const scroll_container = els.memoList.parentElement;
+    const scroll_top = scroll_container?.scrollTop || 0;
+    unmountTimelessView(els.memoList);
+    memo_feed_view_mounted = false;
+    memo_feed_render_key = "";
     renderFeedCollection();
+    if (scroll_container) scroll_container.scrollTop = scroll_top;
     syncMemoExpandControls();
   }
 
@@ -4154,6 +4205,9 @@ export function mountMemosHome(root, options = {}) {
             state.commentEditDraft = "";
             state.commentEditPreviewVisible = false;
           }
+          if (state.replyToCommentId === comment.id) {
+            state.replyToCommentId = "";
+          }
           renderFeed();
           showToast("已删除评论");
         },
@@ -4167,20 +4221,33 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function replyToComment(commentId) {
-    var parentComment = findComment(commentId);
+    const parentComment = findComment(commentId);
     if (!parentComment) return;
-    var memo = findMemo(parentComment.memoId);
+    const memo = findMemo(parentComment.memoId);
     if (!memo) return;
-    console.log("[replyToComment] opening dialog - parentComment:", {
-      id: parentComment.id,
-      content: compactText(parentComment.content || "", 100),
-      memoId: parentComment.memoId,
-    });
-    state.replyToCommentId = commentId;
-    openMemoDialog("comment", memo.id);
-    if (state.memoDialog && memoDialogEditor) {
-      memoDialogEditor.focus();
+
+    if (
+      state.commentingMemoId === memo.id &&
+      state.replyToCommentId === commentId &&
+      commentEditor
+    ) {
+      commentEditor.focus();
+      return;
     }
+
+    closeMemoDialog({ silent: true });
+    if (state.commentingMemoId !== memo.id) state.commentDraft = "";
+    state.replyToCommentId = commentId;
+    state.commentingMemoId = memo.id;
+    state.commentPreviewVisible = false;
+    state.commentEditingId = "";
+    state.commentEditDraft = "";
+    state.commentEditPreviewVisible = false;
+    state.editingId = "";
+    state.editDraft = "";
+    state.editPreviewVisible = false;
+    state.expandedCommentListMemoIds.add(memo.id);
+    renderFeed();
   }
 
   function openCommentReplies(commentId) {
@@ -4262,12 +4329,14 @@ export function mountMemosHome(root, options = {}) {
       state.commentEditDraft = "";
       state.commentEditPreviewVisible = false;
       state.commentPreviewVisible = false;
+      state.replyToCommentId = "";
       renderFeed();
       return Promise.resolve({ ok: true, message: "quit" });
     }
     syncCommentDraftFromEditor();
     state.commentingMemoId = "";
     state.commentPreviewVisible = false;
+    state.replyToCommentId = "";
     renderFeed();
     return Promise.resolve({ ok: true, message: "quit" });
   }
@@ -4655,6 +4724,7 @@ export function mountMemosHome(root, options = {}) {
 
   function updateMemo(memoId, patch) {
     let nextMemo = null;
+    const existing_memo = findMemo(memoId);
     state.memos = state.memos.map((memo) => {
       if (memo.id !== memoId) return memo;
       nextMemo = {
@@ -4664,6 +4734,13 @@ export function mountMemosHome(root, options = {}) {
       };
       return nextMemo;
     });
+    if (!nextMemo && existing_memo) {
+      nextMemo = {
+        ...existing_memo,
+        ...patch,
+        updatedAt: patch.updatedAt || existing_memo.updatedAt,
+      };
+    }
     saveMemos(state.memos);
     renderAll();
     if (nextMemo) {
@@ -4676,17 +4753,27 @@ export function mountMemosHome(root, options = {}) {
           );
           saveMemos(state.memos);
           renderAll();
+          let tasks_refreshed = Promise.resolve();
           if (Object.prototype.hasOwnProperty.call(patch, "content")) {
-            refreshTasksFromVault();
+            tasks_refreshed = refreshTasksFromVault();
           }
           if (
-            ["archived", "pinned", "private", "visibility"].some(
+            ["archived", "pinned", "private", "projectId", "visibility"].some(
               (field) => Object.prototype.hasOwnProperty.call(patch, field),
             )
           ) {
             refreshMemoStatsFromVault();
           }
-          return { ok: true, message: "已保存" };
+          if (
+            ["archived", "pinned"].some((field) =>
+              Object.prototype.hasOwnProperty.call(patch, field),
+            )
+          ) {
+            refreshPinnedMemosFromVault();
+          }
+          return tasks_refreshed.then(function () {
+            return { ok: true, message: "已保存" };
+          });
         },
         function (err) {
           showToast("保存失败: " + errorMessage(err));
@@ -4871,10 +4958,23 @@ export function mountMemosHome(root, options = {}) {
     const lines = memo.content.split("\n");
     if (!lines[lineIndex]) return;
     lines[lineIndex] = updateTaskLine(lines[lineIndex], checked);
-    updateMemo(memoId, {
+    const change_key = memoTaskLineChangeKey(memoId, lineIndex);
+    const change_token = Symbol("memo-task-line-change");
+    pending_memo_task_line_changes.set(change_key, change_token);
+    return updateMemo(memoId, {
       content: lines.join("\n"),
       updatedAt: new Date().toISOString(),
+    }).then(function (result) {
+      if (pending_memo_task_line_changes.get(change_key) === change_token) {
+        pending_memo_task_line_changes.delete(change_key);
+        renderAll();
+      }
+      return result;
     });
+  }
+
+  function memoTaskLineChangeKey(memoId, lineIndex) {
+    return String(memoId || "") + ":" + String(lineIndex);
   }
 
   function toggleCommentTask(commentId, lineIndex, checked) {
@@ -4926,6 +5026,7 @@ export function mountMemosHome(root, options = {}) {
             if (state.commentingMemoId === memoId) {
               state.commentingMemoId = "";
               state.commentDraft = "";
+              state.replyToCommentId = "";
               state.commentPreviewVisible = false;
             }
             if (preservedMemo) {
@@ -4935,6 +5036,7 @@ export function mountMemosHome(root, options = {}) {
             renderAll();
             refreshTasksFromVault();
             refreshMemoStatsFromVault();
+            refreshPinnedMemosFromVault();
             if (
               result &&
               Array.isArray(result.assetErrors) &&
@@ -5156,7 +5258,7 @@ export function mountMemosHome(root, options = {}) {
     els.attachInput.click();
   }
 
-  function renderAll() {
+  function renderAll(options = {}) {
     if (destroyed) return;
     root
       .querySelectorAll(
@@ -5176,7 +5278,7 @@ export function mountMemosHome(root, options = {}) {
     renderCalendar();
     renderTags();
     renderPinned();
-    renderMainContent();
+    if (options.feed !== false) renderMainContent();
     renderPinDialog();
     if (memoQuickSearchModel.snapshot().open) {
       syncMemoQuickSearchSources();
@@ -5298,6 +5400,7 @@ export function mountMemosHome(root, options = {}) {
 
   function renderACPChat() {
     if (acpChatController) return;
+    destroyManuallyPrependedFeedItems();
     unmountTimelessView(els.memoList);
     acpChatController = mountACPChat(els.memoList);
   }
@@ -5447,7 +5550,7 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function renderPinned() {
-    const pinned = scopedMemos()
+    const pinned = state.pinnedMemos
       .filter((memo) => memo.pinned && !memo.archived)
       .slice(0, 3);
     ui.pinnedSectionHidden.as(pinned.length === 0);
@@ -5710,20 +5813,26 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function syncMemoTaskCheckboxes() {
-    var checkboxes = els.memoList.querySelectorAll(
-      'input[type="checkbox"][data-task-line][data-task-source-memo-id]',
+    var task_controls = els.memoList.querySelectorAll(
+      "[data-task-line][data-task-source-memo-id]",
     );
     var pending = [];
-    checkboxes.forEach(function (checkbox) {
-      if (checkbox.checked) return;
-      var memoId = checkbox.dataset.taskSourceMemoId || "";
-      var lineIndex = Number(checkbox.dataset.taskLine);
-      if (!memoId || Number.isNaN(lineIndex)) return;
+    task_controls.forEach(function (task_control) {
+      const task_change = memoTaskCheckboxChange(task_control);
+      if (!task_change || task_change.checked) return;
+      var memoId = task_control.dataset.taskSourceMemoId || "";
+      var lineIndex = task_change.lineIndex;
+      if (!memoId) return;
+      if (
+        pending_memo_task_line_changes.has(
+          memoTaskLineChangeKey(memoId, lineIndex),
+        )
+      ) return;
       // source.line is 1-based; data-task-line is 0-based
       var linkedTask = findLinkedTask(memoId, "", lineIndex + 1);
       if (linkedTask && linkedTask.status === "completed") {
         pending.push({
-          checkbox: checkbox,
+          checkbox: task_control,
           memoId: memoId,
           line: lineIndex + 1,
         });
@@ -5803,6 +5912,12 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function renderFeedCollection() {
+    if (manually_prepended_feed_items.length) {
+      destroyManuallyPrependedFeedItems();
+      unmountTimelessView(els.memoList);
+      memo_feed_view_mounted = false;
+      memo_feed_render_key = "";
+    }
     const memos = visibleMemos();
     const memo_presentations = memos.map(safeMemoView);
     const visible_memo_ids = new Set(
@@ -5875,6 +5990,31 @@ export function mountMemosHome(root, options = {}) {
     stale_view_models.forEach(function ([, view_model]) {
       view_model.destroy();
     });
+  }
+
+  function prependCreatedMemoToFeed(memo) {
+    if (!memo || options.section !== "memos" || state.activeView !== "memos") {
+      return;
+    }
+    const visible = visibleMemos().some(function (item) {
+      return item && item.id === memo.id;
+    });
+    if (!visible) return;
+    const mounted = prependMemoFeedItem(els.memoList, {
+      memo: safeMemoView(memo),
+      projects: projectOptionsPresentation(),
+    });
+    if (!mounted) return;
+    manually_prepended_feed_items.unshift(mounted);
+    syncMemoExpandControls();
+    syncMemoTaskCheckboxes();
+  }
+
+  function destroyManuallyPrependedFeedItems() {
+    manually_prepended_feed_items.forEach(function (mounted) {
+      mounted.destroy();
+    });
+    manually_prepended_feed_items = [];
   }
 
   function memoStatsPresentation(memo) {
@@ -6193,6 +6333,16 @@ export function mountMemosHome(root, options = {}) {
     ];
     const editing = memo.id === state.editingId;
     const commenting = state.commentingMemoId === memo.id;
+    const reply_to_comment = commenting
+      ? findComment(state.replyToCommentId)
+      : null;
+    const reply_to_content =
+      reply_to_comment && reply_to_comment.memoId === memo.id
+        ? String(reply_to_comment.content || "").replace(/\n/g, " ").trim()
+        : "";
+    const comment_reply_to = reply_to_comment
+      ? compactText(reply_to_content, 80) || "comment:" + reply_to_comment.id
+      : "";
     const more_menu = memoMoreMenuModel(memo);
     const reaction_menu = memoReactionMenuModel(memo);
     return {
@@ -6205,6 +6355,8 @@ export function mountMemosHome(root, options = {}) {
         (memo.archived ? " is-archived" : "") +
         (private_visible ? " is-private" : ""),
       commentCount: comments.all.length,
+      commentReplyTo: comment_reply_to,
+      commentReplyToTitle: reply_to_content,
       commentVisibility: state.commentVisibility,
       commenting,
       commentVisibilitySelect: commenting
@@ -6367,7 +6519,14 @@ export function mountMemosHome(root, options = {}) {
     const tagCount = extractTags(text).length;
     const chars = text.trim().length;
     ui.composerStatus.as(`${chars} 字符 / ${tagCount} 标签`);
-    const disabled = chars === 0 || state.saving;
+    // The editor can publish its final change while focus is moving to the
+    // button (notably during IME composition). Keeping an empty composer
+    // clickable lets createMemo read and validate the editor's latest text on
+    // that same click instead of swallowing it as a disabled-button click.
+    const disabled = state.saving;
+    if (ui.composerPublishButton.state.loading !== state.saving) {
+      ui.composerPublishButton.setLoading(state.saving);
+    }
     if (disabled === ui.composerPublishButton.state.disabled) return;
     if (disabled) ui.composerPublishButton.disable();
     else ui.composerPublishButton.enable();
@@ -6462,16 +6621,36 @@ export function mountMemosHome(root, options = {}) {
     });
   }
 
-  function refreshMemoStatsFromVault() {
+  function refreshMemoStatsFromVault(options = {}) {
+    const render_feed_content = options.render !== false;
     loadMemoStatsFromVault().then(
       function (stats) {
         state.memoStats = stats || null;
-        scheduleRenderAll();
+        if (render_feed_content) scheduleRenderAll();
+        else renderAll({ feed: false });
       },
       function (err) {
         if (typeof globalThis.invoke === "function") {
           showToast("读取 memo 统计失败: " + errorMessage(err));
         }
+      },
+    );
+  }
+
+  function refreshPinnedMemosFromVault() {
+    return loadPinnedMemosFromVault().then(
+      function (memos) {
+        state.pinnedMemos = (Array.isArray(memos) ? memos : [])
+          .map(normalizeMemoPayload)
+          .filter(Boolean);
+        renderPinned();
+        return state.pinnedMemos;
+      },
+      function (err) {
+        if (typeof globalThis.invoke === "function") {
+          showToast("读取置顶 memo 失败: " + errorMessage(err));
+        }
+        return [];
       },
     );
   }
@@ -6631,7 +6810,10 @@ export function mountMemosHome(root, options = {}) {
   /** @returns {HomeMemoRecord[]} */
   function visibleMemos() {
     const selectedDate = smallCalendarModel.state.selectedDate;
-    return memoListModel.filterList(state.memos, {
+    const source_memos = state.activeFilter === "pinned"
+      ? state.pinnedMemos
+      : state.memos;
+    return memoListModel.filterList(source_memos, {
       activeFilter: state.activeFilter,
       activeProjectFilter: state.activeProjectFilter,
       activeTag: state.activeTag,
@@ -6664,7 +6846,8 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function findMemo(memoId) {
-    return state.memos.find((memo) => memo.id === memoId);
+    return state.memos.find((memo) => memo.id === memoId) ||
+      state.pinnedMemos.find((memo) => memo.id === memoId);
   }
 
   function handleSmallCalendarChange(change) {

@@ -82,6 +82,7 @@ export function HomeSectionPageModel(props, section) {
       composerHost: "[data-composer-host]",
       composerVimStatus: "[data-composer-vim-status]",
       memoList: "[data-memo-list]",
+      memoEditDialogHost: "[data-memo-edit-dialog-host]",
       memoMain: "[data-home-page-main]",
       memoSearchInput: "[data-memo-search-input]",
       memoSearchPalette: "[data-memo-search-palette]",

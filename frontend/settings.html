@@ -36,7 +36,8 @@
   <script src="/public/timeless/0.31.4/timeless.dom.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.web.umd.min.js"></script>
   <script type="module" src="/src/tnui.js"></script>
-  <script type="module" src="/src/settings-sync-view.js?v=20260822-vault-switch-fix1"></script>
+  <script type="module" src="/src/settings-sync-view.js?v=20260824-memo-index-rebuild-v2"></script>
+  <script type="module" src="/src/settings-memo-storage-view.js?v=20260824-d1-v1"></script>
   <style>
     :root {
       color-scheme: light;
@@ -983,7 +984,7 @@
       <header class="settings-header">
         <div>
           <h1 data-settings-title>云存储</h1>
-          <p data-settings-subtitle>S3/OSS 兼容对象存储配置</p>
+          <p data-settings-subtitle data-n="settings-storage-subtitle">Local、Cloudflare R2 与 S3/OSS 兼容对象存储配置</p>
         </div>
         <div class="setting-status" data-config-status>
           <span data-n="settings-config-status-icon"></span>
@@ -1032,6 +1033,7 @@
             <div class="settings-storage-actions" data-n="settings-vault-provider-actions">
               <span class="settings-storage-badge" data-n="settings-vault-provider-value">读取中</span>
               <button class="settings-button is-secondary" type="button" data-n="settings-vault-open-directory" hidden>打开目录</button>
+              <button class="settings-button is-secondary" type="button" data-n="settings-vault-rebuild-index">重建索引</button>
             </div>
           </div>
           <div class="settings-actions" data-n="settings-vault-provider-message-row">
@@ -1039,11 +1041,56 @@
           </div>
         </section>
 
+        <section class="settings-section" data-n="settings-memo-storage-section">
+          <div class="settings-profile-head" data-n="settings-memo-storage-heading">
+            <div class="settings-profile-title" data-n="settings-memo-storage-title">Memo 数据</div>
+          </div>
+          <div class="settings-shortcut-card is-vertical" data-n="settings-memo-storage-card">
+            <div data-n="settings-memo-storage-summary">
+              <div class="settings-shortcut-title" data-n="settings-memo-storage-summary-title">数据 Provider</div>
+              <div class="settings-shortcut-description" data-n="settings-memo-storage-description">正在读取 Memo 数据存储设置。</div>
+            </div>
+            <label class="settings-field" data-n="settings-memo-storage-provider-field">
+              <span class="settings-label-row" data-n="settings-memo-storage-provider-label">Provider</span>
+              <select class="settings-input" data-memo-storage-field="provider" data-n="settings-memo-storage-provider">
+                <option value="local" data-n="settings-memo-storage-provider-local">Local Markdown</option>
+                <option value="d1" data-n="settings-memo-storage-provider-d1">Cloudflare D1</option>
+              </select>
+            </label>
+            <div class="settings-grid" data-n="settings-memo-storage-d1-fields" hidden>
+              <label class="settings-field" data-n="settings-memo-storage-account-field">
+                <span class="settings-label-row" data-n="settings-memo-storage-account-label">Account ID</span>
+                <input class="settings-input" autocomplete="off" data-memo-storage-field="accountId" data-n="settings-memo-storage-account-id" placeholder="Cloudflare Account ID" />
+              </label>
+              <label class="settings-field" data-n="settings-memo-storage-database-field">
+                <span class="settings-label-row" data-n="settings-memo-storage-database-label">Database ID</span>
+                <input class="settings-input" autocomplete="off" data-memo-storage-field="databaseId" data-n="settings-memo-storage-database-id" placeholder="D1 Database UUID" />
+              </label>
+              <label class="settings-field" data-n="settings-memo-storage-token-field">
+                <span class="settings-label-row" data-n="settings-memo-storage-token-label">API Token</span>
+                <input class="settings-input" type="password" autocomplete="new-password" data-memo-storage-field="apiToken" data-n="settings-memo-storage-api-token" placeholder="Cloudflare API Token" />
+              </label>
+              <label class="settings-field" data-n="settings-memo-storage-api-base-field">
+                <span class="settings-label-row" data-n="settings-memo-storage-api-base-label">API Base URL</span>
+                <input class="settings-input" autocomplete="off" data-memo-storage-field="apiBaseUrl" data-n="settings-memo-storage-api-base-url" placeholder="https://api.cloudflare.com/client/v4" />
+              </label>
+            </div>
+            <div class="settings-storage-actions" data-n="settings-memo-storage-actions">
+              <button class="settings-button is-secondary" type="button" data-n="settings-memo-storage-test" hidden>测试连接</button>
+              <button class="settings-button is-primary" type="button" data-n="settings-memo-storage-save">保存设置</button>
+              <button class="settings-button is-secondary" type="button" data-n="settings-memo-storage-sync" hidden>合并同步到 D1</button>
+            </div>
+          </div>
+          <div class="settings-actions" data-n="settings-memo-storage-message-row">
+            <div class="settings-message" data-n="settings-memo-storage-message"></div>
+          </div>
+        </section>
+
         <section class="settings-section">
           <div class="settings-profile-head">
             <div class="settings-profile-title">存储配置</div>
             <span>
-              <button class="settings-button is-secondary" type="button" data-action="add-storage">新增远端</button>
+              <button class="settings-button is-secondary" type="button" data-action="add-storage" data-n="settings-add-r2-storage">新增 R2</button>
               <button class="settings-button is-secondary" type="button" data-action="add-local-storage">新增本地</button>
             </span>
           </div>
@@ -1444,7 +1491,7 @@
         }
 
         if (action.dataset.action === "add-storage") {
-          openStorageEditor("", "s3");
+          openStorageEditor("", "r2");
           return;
         }
 
@@ -3369,6 +3416,7 @@
           "local": "Local",
           "local-oss": "Local",
           "qiniu-kodo": "Qiniu Kodo",
+          "r2": "Cloudflare R2",
           "s3": "S3",
           "tencent-cos": "Tencent COS",
         };

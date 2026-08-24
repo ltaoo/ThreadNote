@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   loadMemoFromVault,
   loadMemoPageFromVault,
+  loadPinnedMemosFromVault,
   loadMemoStatsFromVault,
 } from "./memo-repository.js";
 
@@ -55,8 +56,17 @@ test("memo repository exposes storage-independent page, stats, and detail APIs",
   assert.deepEqual(await loadMemoStatsFromVault(), { active: 2, total: 3 });
   assert.equal((await loadMemoFromVault("memo-1")).id, "memo-1");
   assert.deepEqual(
+    (await loadPinnedMemosFromVault(3)).map(function (memo) {
+      return memo.id;
+    }),
+    ["memo-1"],
+  );
+  assert.match(calls[3].url, /archived=false/);
+  assert.match(calls[3].url, /limit=3/);
+  assert.match(calls[3].url, /pinned=true/);
+  assert.deepEqual(
     calls.map(function (call) { return call.options.method; }),
-    ["GET", "GET", "GET"],
+    ["GET", "GET", "GET", "GET"],
   );
 });
 

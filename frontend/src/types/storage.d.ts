@@ -1,4 +1,4 @@
-export type StorageProvider = "s3" | "aliyun-oss" | "qiniu" | "local" | "local-oss" | string;
+export type StorageProvider = "r2" | "s3" | "aliyun-oss" | "qiniu" | "local" | "local-oss" | string;
 
 export type LocalStorageRootMode = "vault" | "absolute";
 

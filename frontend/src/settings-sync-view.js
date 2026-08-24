@@ -188,6 +188,7 @@ export function mountSettingsSyncView(options = {}) {
   const provider_value = root.querySelector('[data-n="settings-vault-provider-value"]');
   const provider_description = root.querySelector('[data-n="settings-vault-provider-description"]');
   const open_button = root.querySelector('[data-n="settings-vault-open-directory"]');
+  const rebuild_button = root.querySelector('[data-n="settings-vault-rebuild-index"]');
   const message = document_ref.querySelector('[data-n="settings-vault-provider-message"]');
   const model = options.model || SettingsSyncModel(options.modelOptions || {});
 
@@ -197,19 +198,22 @@ export function mountSettingsSyncView(options = {}) {
     open_button.hidden = !state.canOpenDirectory;
     open_button.disabled = state.loading || state.openingDirectory;
     open_button.textContent = state.openingDirectory ? "正在打开…" : "打开目录";
-    if (message) {
-      message.textContent = state.message || "";
-      message.style.color = state.messageType === "warning"
-        ? "var(--danger)"
-        : state.messageType === "ready"
-          ? "var(--accent-strong)"
-          : "";
-    }
+    rebuild_button.disabled = state.loading || state.rebuildingIndex;
+    rebuild_button.textContent = state.rebuildingIndex ? "正在重建…" : "重建索引";
+    message.textContent = state.message || "";
+    message.style.color = state.messageType === "warning"
+      ? "var(--danger)"
+      : state.messageType === "ready"
+        ? "var(--accent-strong)"
+        : "";
   }
 
   const unsubscribe = model.subscribe(render);
   open_button.addEventListener("click", function () {
     model.openDirectory();
+  });
+  rebuild_button.addEventListener("click", function () {
+    model.rebuildIndex();
   });
   model.init();
 

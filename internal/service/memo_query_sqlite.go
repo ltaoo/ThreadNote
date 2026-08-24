@@ -310,6 +310,32 @@ func (store *sqlite_memo_query_store) Stats(call_ctx context.Context) (MemoStats
 	if err != nil {
 		return MemoStats{}, fmt.Errorf("read memo stats: %w", err)
 	}
+	stats.ProjectCounts = map[string]int{}
+	rows, err := store.database.QueryContext(call_ctx, `
+		SELECT project_id, COUNT(*)
+		FROM memo_index_records
+		WHERE archived = 0
+		GROUP BY project_id
+	`)
+	if err != nil {
+		return MemoStats{}, fmt.Errorf("read memo project stats: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var project_id string
+		var memo_count int
+		if err := rows.Scan(&project_id, &memo_count); err != nil {
+			return MemoStats{}, fmt.Errorf("scan memo project stats: %w", err)
+		}
+		if project_id == "" {
+			stats.Unassigned = memo_count
+			continue
+		}
+		stats.ProjectCounts[project_id] = memo_count
+	}
+	if err := rows.Err(); err != nil {
+		return MemoStats{}, fmt.Errorf("read memo project stats: %w", err)
+	}
 	return stats, nil
 }
 

@@ -1,4 +1,5 @@
 import { errorText } from "./domain/native.js";
+import { rebuildMemoIndex } from "./domain/memo-index.js";
 import { loadVaultSync, openVaultSyncDirectory } from "./domain/vault-sync.js";
 
 const PROVIDER_LABELS = {
@@ -33,6 +34,7 @@ export function SettingsSyncModel(options = {}) {
   const services = {
     loadVaultSync,
     openVaultSyncDirectory,
+    rebuildMemoIndex,
     ...(options.services || {}),
   };
   const listeners_ = new Set();
@@ -46,6 +48,7 @@ export function SettingsSyncModel(options = {}) {
     openingDirectory: false,
     provider: "",
     providerLabel: providerLabel(""),
+    rebuildingIndex: false,
   });
 
   function publish(patch) {
@@ -112,6 +115,37 @@ export function SettingsSyncModel(options = {}) {
           openingDirectory: false,
           message: "打开 Vault 目录失败：" + errorText(err),
           messageType: "warning",
+        });
+        return false;
+      }
+    },
+
+    async rebuildIndex() {
+      if (destroyed_ || state_.rebuildingIndex) return false;
+      publish({
+        message: "正在扫描 Vault 并重建 Memo 索引…",
+        messageType: "",
+        rebuildingIndex: true,
+      });
+      try {
+        const result = await services.rebuildMemoIndex();
+        if (destroyed_) return false;
+        const stats = result && typeof result.stats === "object"
+          ? result.stats
+          : {};
+        const total = Math.max(0, Number(stats.total) || 0);
+        const pinned = Math.max(0, Number(stats.pinned) || 0);
+        publish({
+          message: `索引重建完成：${total} 条 Memo，${pinned} 条置顶`,
+          messageType: "ready",
+          rebuildingIndex: false,
+        });
+        return true;
+      } catch (err) {
+        publish({
+          message: "重建 Memo 索引失败：" + errorText(err),
+          messageType: "warning",
+          rebuildingIndex: false,
         });
         return false;
       }

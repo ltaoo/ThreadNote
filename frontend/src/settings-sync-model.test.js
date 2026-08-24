@@ -22,6 +22,7 @@ test("settings sync model exposes the current local provider", async function ()
     openingDirectory: false,
     provider: "local",
     providerLabel: "Local",
+    rebuildingIndex: false,
   });
   model.destroy();
 });
@@ -98,4 +99,41 @@ test("settings sync model keeps load and open errors in model state", async func
   assert.equal(open_model.getState().openingDirectory, false);
   assert.match(open_model.getState().message, /finder unavailable/);
   open_model.destroy();
+});
+
+test("settings sync model rebuilds the memo index and reports indexed totals", async function () {
+  let rebuild_count = 0;
+  const model = SettingsSyncModel({
+    services: {
+      async loadVaultSync() {
+        return { provider: "local", usesLocalDirectory: true };
+      },
+      async rebuildMemoIndex() {
+        rebuild_count += 1;
+        return { stats: { pinned: 3, total: 271 } };
+      },
+    },
+  });
+
+  await model.init();
+  assert.equal(await model.rebuildIndex(), true);
+  assert.equal(rebuild_count, 1);
+  assert.equal(model.getState().rebuildingIndex, false);
+  assert.equal(model.getState().message, "索引重建完成：271 条 Memo，3 条置顶");
+  model.destroy();
+});
+
+test("settings sync model exposes memo index rebuild failures", async function () {
+  const model = SettingsSyncModel({
+    services: {
+      async rebuildMemoIndex() {
+        throw new Error("index locked");
+      },
+    },
+  });
+
+  assert.equal(await model.rebuildIndex(), false);
+  assert.equal(model.getState().rebuildingIndex, false);
+  assert.match(model.getState().message, /index locked/);
+  model.destroy();
 });

@@ -349,6 +349,7 @@ func deleteVaultMemoWithOptions(ctx *VaultContext, id string, options MemoDelete
 		result.AssetsSkipped += cleanup.AssetsSkipped
 		result.AssetErrors = append(result.AssetErrors, cleanup.AssetErrors...)
 	}
+	mirror_memo_delete_to_d1(ctx, memo.ID)
 	return result, nil
 }
 

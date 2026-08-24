@@ -208,6 +208,31 @@ your-vault/
 
 Memo 使用 YAML front matter 保存结构化元数据，正文保持为普通 Markdown。版本历史以相邻的 `*.history.json` 文件保存。任务使用独立 JSON 文件，因此数据无需专有数据库即可读取。旧版本的 `items/*.json` 会在打开 Vault 时迁移为 Task，原文件备份到 `.velo/migrations/items-to-tasks-v1/`。
 
+### Cloudflare D1 Memo 数据
+
+在“设置 → 云存储 → Memo 数据”中可将 Provider 从 Local Markdown 切换为 Cloudflare D1。需要填写：
+
+- Account ID：Cloudflare 账户 ID
+- Database ID：已创建的 D1 Database UUID
+- API Token：至少具有目标账户 `D1 Read` 与 `D1 Write` 权限
+- API Base URL：默认 `https://api.cloudflare.com/client/v4`，通常无需修改
+
+依次执行“测试连接”“保存设置”“合并同步到 D1”。应用会通过 Cloudflare D1 REST API 自动创建 `threadnote_memos` 表并上传当前 Vault 的 Memo；首次同步采用非破坏性合并，不会删除 D1 中当前设备尚未缓存的 Memo。API Token 只保存在当前 Vault 的本机配置 `.velo/storage.json`，设置接口不会返回 Token 明文。
+
+D1 保存 Memo 正文与结构化元数据，并作为已同步状态下的主查询源；本地 `memo/**/*.md` 继续作为离线缓存，保留版本历史、任务联动和本地文件能力。D1 写入失败或存在未完成的合并同步时，查询自动回退到本地 SQLite 索引。当前 Project、Task、评论与历史文件仍属于 Local Vault 数据，跨设备同步这些数据时仍需使用 Vault 的 GitHub 同步。
+
+### Cloudflare R2 图片与附件
+
+在“设置 → 云存储”中选择“新增 R2”，填写以下连接信息后，可将新上传的图片和附件保存到 Cloudflare R2：
+
+- Endpoint：`https://<ACCOUNT_ID>.r2.cloudflarestorage.com`
+- Region：`auto`
+- Bucket：R2 Bucket 名称
+- Access Key ID / Secret Access Key：具有目标 Bucket 读写权限的 S3 API 凭据
+- Public Base URL：可选；私有 Bucket 保持为空，应用会通过本机鉴权接口读取对象
+
+Memo 中保存的是 `@assets/<storage-id>/<object-key>` 稳定引用，而不是临时 URL。未配置 Public Base URL 时，图片、附件和 Range 请求由后端使用 S3 签名代理到 R2，不需要把 Bucket 设为公开。R2 凭据保存在当前 Vault 的本机配置 `.velo/storage.json` 中，该文件不会由内置 GitHub 同步提交。
+
 本机 Vault 注册表位于 `~/.velo/data.json`，记录最近打开的 Vault 和当前活动 Vault。后端与前端结构化日志统一写入固定文件 `~/.myapp/app.log`；前端记录带有 `"component":"frontend"`，可用 `rg '"component":"frontend"' ~/.myapp/app.log` 快速筛选。
 
 ## 常用快捷键

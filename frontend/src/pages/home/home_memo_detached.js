@@ -87,6 +87,7 @@ import {
   collectMemoHeadings,
   renderMemoMarkdown,
 } from "./memo-markdown.js";
+import { memoTaskCheckboxChange } from "./memo-task-checkbox.model.js";
 import { formatRelativeDate } from "./memo-date.js";
 import {
   memoQuickSearchContextKey,
@@ -1034,13 +1035,17 @@ export function mountDetachedMemoWindow(root, options = {}) {
   }
 
   function handleChange(event) {
-    if (event.target.matches("[data-task-line]")) {
-      const commentNode = closestElement(event.target, "[data-comment-id]");
+    const task_change = memoTaskCheckboxChange(event.target);
+    if (task_change) {
+      const commentNode = closestElement(
+        task_change.control,
+        "[data-comment-id]",
+      );
       if (commentNode) {
         toggleDetachedCommentTask(
           commentNode.dataset.commentId,
-          Number(event.target.dataset.taskLine),
-          event.target.checked,
+          task_change.lineIndex,
+          task_change.checked,
         );
       }
       return;
