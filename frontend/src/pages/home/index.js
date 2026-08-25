@@ -5,15 +5,15 @@ import {
   renderWithErrorBoundary,
 } from "@/route-status.js";
 
-const FILTERS = Object.freeze([
-  { count: "allNavCount", icon: "grid-3x3", id: "all", label: "全部" },
-  { icon: "arrow-down-to-line", id: "pinned", label: "置顶" },
-  { icon: "file-lock", id: "private", label: "仅自己" },
-  { icon: "rss", id: "public", label: "公开" },
-  { icon: "inbox", id: "archive", label: "归档" },
-]);
-
-const COLLECTIONS = Object.freeze([
+const MEMO_MENU = Object.freeze([
+  {
+    count: "data-all-nav-count",
+    element: "allNavCount",
+    filter: "all",
+    icon: "grid-3x3",
+    id: "memos",
+    label: "Memo",
+  },
   {
     count: "data-todo-nav-count",
     element: "todoNavCount",
@@ -27,20 +27,6 @@ const COLLECTIONS = Object.freeze([
     icon: "clock",
     id: "milestones",
     label: "里程碑",
-  },
-  {
-    count: "data-link-nav-count",
-    element: "linkNavCount",
-    icon: "file-symlink",
-    id: "links",
-    label: "超链接",
-  },
-  {
-    count: "data-code-nav-count",
-    element: "codeNavCount",
-    icon: "braces",
-    id: "codeblocks",
-    label: "代码片段",
   },
   {
     count: "data-file-nav-count",
@@ -57,18 +43,42 @@ const COLLECTIONS = Object.freeze([
     label: "图片",
   },
   {
-    count: "data-clipboard-nav-count",
-    element: "clipboardNavCount",
-    icon: "copy",
-    id: "clipboard",
-    label: "粘贴板",
-  },
-  {
     count: "data-board-nav-count",
     element: "boardNavCount",
     icon: "panel-left",
     id: "boards",
     label: "看板",
+  },
+  {
+    count: "data-chat-nav-count",
+    element: "chatNavCount",
+    icon: "message-square-more",
+    id: "chat",
+    label: "Chat",
+  },
+]);
+
+const TOOL_MENU = Object.freeze([
+  {
+    count: "data-link-nav-count",
+    element: "linkNavCount",
+    icon: "file-symlink",
+    id: "links",
+    label: "超链接",
+  },
+  {
+    count: "data-code-nav-count",
+    element: "codeNavCount",
+    icon: "braces",
+    id: "codeblocks",
+    label: "代码片段",
+  },
+  {
+    count: "data-clipboard-nav-count",
+    element: "clipboardNavCount",
+    icon: "copy",
+    id: "clipboard",
+    label: "粘贴板",
   },
   {
     count: "data-rules-nav-count",
@@ -78,38 +88,12 @@ const COLLECTIONS = Object.freeze([
     label: "流程配置",
   },
   {
-    count: "data-chat-nav-count",
-    element: "chatNavCount",
-    icon: "message-square-more",
-    id: "chat",
-    label: "Chat",
-  },
-  {
     action: "openSettings",
     icon: "settings",
     id: "settings",
     label: "设置",
   },
 ]);
-
-function filterButtonClass(vm$, filter) {
-  return Timeless.combine(
-    {
-      activeFilter: vm$.state.activeFilter,
-      activeProjectId: vm$.ui.activeProjectId,
-      activeTag: vm$.state.activeTag,
-      activeView: vm$.state.activeView,
-    },
-    function (state) {
-      const active =
-        state.activeView === "memos" &&
-        state.activeFilter === filter &&
-        !state.activeProjectId &&
-        !state.activeTag;
-      return "memo-nav-button" + (active ? " is-active" : "");
-    },
-  );
-}
 
 function collectionButtonClass(vm$, view) {
   return computed(vm$.state.activeView, function (active_view) {
@@ -130,65 +114,6 @@ function projectButtonClass(vm$, project_id) {
       return "memo-nav-button memo-project-item" +
         (active ? " is-active" : "");
     },
-  );
-}
-
-function SidebarFilters(vm$) {
-  return View(
-    {
-      as: "nav",
-      class: "memo-nav",
-      attributes: {
-        "aria-label": "Memo filters",
-        n: "memo-filter-navigation",
-      },
-    },
-    [
-      For({
-        each: FILTERS,
-        render(item) {
-          const children = [
-            Timeless.Icon({
-              attributes: { n: `memo-navigation-${item.id}-icon` },
-              name: item.icon,
-              size: 16,
-            }),
-            View(
-              {
-                as: "span",
-                attributes: { n: `memo-navigation-${item.id}-label` },
-              },
-              [item.label],
-            ),
-          ];
-          if (item.count) {
-            children.push(
-              View(
-                {
-                  as: "strong",
-                  attributes: {
-                    "data-all-nav-count": "true",
-                    n: "all-memo-count",
-                  },
-                },
-                [vm$.ui[item.count]],
-              ),
-            );
-          }
-          return Timeless.Button(
-            {
-              class: filterButtonClass(vm$, item.id),
-              attributes: {
-                "data-filter": item.id,
-                n: `memo-navigation-${item.id}`,
-                type: "button",
-              },
-            },
-            children,
-          );
-        },
-      }),
-    ],
   );
 }
 
@@ -298,86 +223,66 @@ function SidebarProjects(vm$) {
   );
 }
 
-function SidebarCollections(vm$) {
+function SidebarMenu(vm$, items, props) {
   return View(
     {
-      class: "memo-sidebar-section",
-      attributes: { n: "memo-collection-navigation-section" },
+      as: "nav",
+      class: "memo-nav memo-collection-nav" +
+        (props.class ? " " + props.class : ""),
+      attributes: {
+        "aria-label": props.label,
+        n: props.name,
+      },
     },
     [
-      View(
-        {
-          class: "memo-sidebar-heading",
-          attributes: { n: "memo-collection-navigation-heading" },
-        },
-        [
-          View(
-            {
-              as: "span",
-              attributes: { n: "memo-collection-navigation-title" },
-            },
-            ["聚合"],
-          ),
-        ],
-      ),
-      View(
-        {
-          as: "nav",
-          class: "memo-nav memo-collection-nav",
-          attributes: {
-            "aria-label": "Memo collections",
-            n: "memo-collection-navigation",
-          },
-        },
-        [
-          For({
-            each: COLLECTIONS,
-            render(item) {
-              const children = [
-                Timeless.Icon({
-                  attributes: { n: `memo-navigation-${item.id}-icon` },
-                  name: item.icon,
-                  size: 16,
-                }),
-                View(
-                  {
-                    as: "span",
-                    attributes: { n: `memo-navigation-${item.id}-label` },
-                  },
-                  [item.label],
-                ),
-              ];
-              if (item.count) {
-                children.push(
-                  View(
-                    {
-                      as: "strong",
-                      attributes: {
-                        [item.count]: "true",
-                        n: `memo-navigation-${item.id}-count`,
-                      },
-                    },
-                    [vm$.ui[item.element]],
-                  ),
-                );
-              }
-              return Timeless.Button(
+      For({
+        each: items,
+        render(item) {
+          const children = [
+            Timeless.Icon({
+              attributes: { n: `memo-navigation-${item.id}-icon` },
+              name: item.icon,
+              size: 16,
+            }),
+            View(
+              {
+                as: "span",
+                attributes: { n: `memo-navigation-${item.id}-label` },
+              },
+              [item.label],
+            ),
+          ];
+          if (item.count) {
+            children.push(
+              View(
                 {
-                  class: collectionButtonClass(vm$, item.id),
+                  as: "strong",
                   attributes: {
-                    ...(item.action
-                      ? { "data-action": item.action }
-                      : { "data-view": item.id }),
-                    n: `memo-navigation-${item.id}`,
-                    type: "button",
+                    [item.count]: "true",
+                    n: `memo-navigation-${item.id}-count`,
                   },
                 },
-                children,
-              );
+                [vm$.ui[item.element]],
+              ),
+            );
+          }
+          return Timeless.Button(
+            {
+              class: collectionButtonClass(vm$, item.id),
+              attributes: {
+                ...(item.action
+                  ? { "data-action": item.action }
+                  : item.filter
+                    ? { "data-filter": item.filter }
+                    : { "data-view": item.id }),
+                n: `memo-navigation-${item.id}`,
+                type: "button",
+              },
             },
-          }),
-        ],
-      ),
+            children,
+          );
+        },
+      }),
     ],
   );
 }
@@ -435,9 +340,16 @@ function HomeSidebar(vm$) {
               ),
             ],
           ),
-          SidebarFilters(vm$),
+          SidebarMenu(vm$, MEMO_MENU, {
+            label: "Memo menu",
+            name: "memo-navigation",
+          }),
           SidebarProjects(vm$),
-          SidebarCollections(vm$),
+          SidebarMenu(vm$, TOOL_MENU, {
+            class: "memo-sidebar-section",
+            label: "Tool menu",
+            name: "tool-navigation",
+          }),
         ],
       ),
     ],

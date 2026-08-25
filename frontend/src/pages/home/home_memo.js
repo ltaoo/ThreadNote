@@ -46,6 +46,23 @@ function Tool(vm$) {
       }),
       View(
         {
+          class: "memo-filter-wrap",
+          attributes: { n: "home-memo-filter" },
+        },
+        [
+          tn.Select({
+            class: "memo-feed-filter-select",
+            contentClass: "memo-feed-filter-select-menu",
+            store: vm$.ui.feedFilterSelect.store,
+            attributes: {
+              "aria-label": "Memo filter",
+              n: "home-memo-filter-select",
+            },
+          }),
+        ],
+      ),
+      View(
+        {
           class: "memo-project-filter-wrap",
           attributes: { n: "home-memo-project-filter" },
         },

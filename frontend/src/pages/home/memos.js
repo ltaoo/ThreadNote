@@ -478,6 +478,17 @@ export function createMemosPageUIState() {
     feedResetButton: new TimelessPrimitive.vm.ButtonCore({
       variant: "ghost",
     }),
+    feedFilterSelect: createSelectControl({
+      defaultValue: "all",
+      options: [
+        { label: "全部", value: "all" },
+        { label: "置顶", value: "pinned" },
+        { label: "仅自己", value: "private" },
+        { label: "公开", value: "public" },
+        { label: "归档", value: "archive" },
+      ],
+      placeholder: "全部",
+    }),
     feedProjectSelect: createSelectControl({
       defaultValue: "all",
       options: [
@@ -790,6 +801,21 @@ export function mountMemosHome(root, options = {}) {
       setActiveTags(tags);
       smallCalendarModel.setSelectedDate("", { silent: true });
       renderAll();
+    },
+  );
+  const unsubscribe_feed_filter_select = ui.feedFilterSelect.onValueChange(
+    function (filter) {
+      const next_filter = String(filter || "all");
+      if (next_filter === state.activeFilter) return;
+      state.activeView = "memos";
+      state.activeProjectId = "";
+      state.activeFilter = next_filter;
+      clearActiveTags();
+      smallCalendarModel.setSelectedDate("", { silent: true });
+      renderAll();
+      options.history?.push(homeRouteName("memos"), {
+        filter: state.activeFilter,
+      });
     },
   );
   if (els.composerHost) composerEditor = createComposerEditor("");
@@ -1248,6 +1274,7 @@ export function mountMemosHome(root, options = {}) {
       smallCalendarModel.destroy();
       unsubscribe_composer_project_select?.();
       unsubscribe_composer_visibility_select?.();
+      unsubscribe_feed_filter_select?.();
       unsubscribe_feed_project_select?.();
       unsubscribe_feed_search_clear?.();
       unsubscribe_feed_tag_select?.();
@@ -1805,18 +1832,6 @@ export function mountMemosHome(root, options = {}) {
       runComposerCommand(
         command.dataset.command || command.dataset.editorCommand,
       );
-      return;
-    }
-
-    const filter = closestElement(event.target, "[data-filter]");
-    if (filter && root.contains(filter)) {
-      state.activeView = "memos";
-      state.activeProjectId = "";
-      state.activeFilter = filter.dataset.filter;
-      clearActiveTags();
-      smallCalendarModel.setSelectedDate("", { silent: true });
-      renderAll();
-      navigateHomeView("memos");
       return;
     }
 
@@ -4182,7 +4197,7 @@ export function mountMemosHome(root, options = {}) {
     state.memoRefIndex = buildMemoReferenceIndex(state.memos);
     renderProjects();
     renderViewButtons();
-    renderFilterButtons();
+    renderFilterControls();
     renderCalendar();
     renderTags();
     renderPinned();
@@ -5274,7 +5289,7 @@ export function mountMemosHome(root, options = {}) {
     renderComposerProjectSelect();
     ui.composerVisibilitySelect.setValue(state.visibility);
     renderViewButtons();
-    renderFilterButtons();
+    renderFilterControls();
     renderCalendar();
     renderTags();
     renderPinned();
@@ -5490,7 +5505,7 @@ export function mountMemosHome(root, options = {}) {
     });
   }
 
-  function renderFilterButtons() {
+  function renderFilterControls() {
     const indexed_active_count = Number(state.memoStats?.active);
     const can_use_indexed_count =
       !state.activeProjectFilter || state.activeProjectFilter === "all";
@@ -5499,6 +5514,7 @@ export function mountMemosHome(root, options = {}) {
         ? indexed_active_count
         : scopedMemos().filter((memo) => !memo.archived).length;
     ui.allNavCount.as(String(activeMemoCount));
+    ui.feedFilterSelect.setValue(state.activeFilter || "all");
     publishSidebar({ allNavCount: String(activeMemoCount) });
   }
 

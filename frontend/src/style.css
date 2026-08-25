@@ -179,6 +179,27 @@
   --tn-color-editor-selection: rgba(43, 111, 182, 0.2);
   --tn-color-editor-selection-ring: rgba(43, 111, 182, 0.34);
 
+  /* Button states keep each variant legible instead of sharing one hover fill. */
+  --tn-button-default-bg: var(--tn-color-bg-interactive);
+  --tn-button-default-bg-hover: #dfd9cd;
+  --tn-button-default-bg-active: #d3ccbe;
+  --tn-button-primary-bg: var(--tn-color-primary-fill);
+  --tn-button-primary-bg-hover: var(--tn-color-primary-fill-hover);
+  --tn-button-primary-bg-active: var(--tn-color-primary-fill-active);
+  --tn-button-primary-border: var(--tn-color-primary-border);
+  --tn-button-primary-border-hover: var(--tn-color-primary-border-strong);
+  --tn-button-primary-text: var(--tn-color-on-primary);
+  --tn-button-secondary-bg: var(--tn-color-bg-subtle);
+  --tn-button-secondary-bg-hover: var(--tn-color-bg-interactive);
+  --tn-button-secondary-bg-active: #ded8cc;
+  --tn-button-secondary-border: var(--tn-color-border);
+  --tn-button-secondary-border-hover: var(--tn-color-border-strong);
+  --tn-button-danger-bg: var(--tn-color-danger);
+  --tn-button-danger-bg-hover: #ad2f40;
+  --tn-button-danger-bg-active: #942538;
+  --tn-button-danger-text: var(--tn-color-text-inverse);
+  --tn-button-loading-opacity: 0.82;
+
   /* Form overlays: a compact paper index rather than a generic menu. */
   --tn-control-panel-bg: #fffdf8;
   --tn-control-panel-rule: rgba(135, 80, 0, 0.14);
@@ -322,6 +343,11 @@
   --tn-color-info-soft: rgba(120, 184, 244, 0.14);
   --tn-color-info-border: rgba(120, 184, 244, 0.36);
   --tn-color-focus-ring: rgba(255, 193, 92, 0.38);
+  --tn-button-default-bg-hover: #403c34;
+  --tn-button-default-bg-active: #49443b;
+  --tn-button-secondary-bg-active: #413d35;
+  --tn-button-danger-bg-hover: #ff9ba4;
+  --tn-button-danger-bg-active: #df6975;
   --tn-control-panel-bg: #27251f;
   --tn-control-panel-rule: rgba(255, 193, 92, 0.15);
   --tn-control-placeholder: #a39c91;
