@@ -103,15 +103,6 @@ function project_option_view(runtime, store, state_, option) {
             ),
             [option.label],
           ),
-          View(
-            semantic_props(
-              runtime,
-              { as: "span", class: "project-select-option-caption" },
-              "",
-              `project-select-option-${option.key}-caption`,
-            ),
-            [option.value ? "Project" : "没有关联 Project"],
-          ),
         ],
       ),
       View(
@@ -296,15 +287,6 @@ export function ProjectSelect(props = {}) {
               "project-select-selected-label",
             ),
             [selected_label_],
-          ),
-          View(
-            semantic_props(
-              runtime,
-              { as: "span", class: "project-select-trigger-caption" },
-              "",
-              "project-select-selected-caption",
-            ),
-            ["归属"],
           ),
         ],
       ),

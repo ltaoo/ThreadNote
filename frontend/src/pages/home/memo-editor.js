@@ -291,6 +291,9 @@ function createMiniEditor(host, options) {
   });
 
   const removePlugins = installMemoEditorPlugins(editor, editorOptions);
+  const removeVimSearch = vimEnabled
+    ? installVimSearchRequest(host, editorOptions)
+    : function () {};
   const removeStatus = vimEnabled ? installVimStatus(host, editor, editorOptions.vimStatusHost) : function () {};
   const removeVimFocus = vimEnabled ? installVimEditingMode(host, editor) : function () {};
   const removeSubmit = installSubmitShortcut(host, editorOptions);
@@ -335,8 +338,10 @@ function createMiniEditor(host, options) {
       removeIndent();
       removeDrop();
       removeVimFocus();
+      removeVimSearch();
       removeStatus();
       removePlugins();
+      editorOptions.onVimSearchClose?.();
       editor.destroy();
     },
     focus() {
@@ -393,6 +398,19 @@ function createMiniEditor(host, options) {
   function syncEmptyState() {
     host.classList.toggle("is-empty", editor.getText().length === 0);
   }
+}
+
+function installVimSearchRequest(host, options) {
+  function handleSearchRequest(event) {
+    if (typeof options.onVimSearch !== "function") return;
+    if (options.onVimSearch(event.detail) === false) return;
+    event.preventDefault();
+  }
+
+  host.addEventListener("vim-search-request", handleSearchRequest);
+  return function () {
+    host.removeEventListener("vim-search-request", handleSearchRequest);
+  };
 }
 
 function installVimEditingMode(host, editor) {

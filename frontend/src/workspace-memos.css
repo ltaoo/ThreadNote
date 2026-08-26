@@ -23,6 +23,23 @@
     box-shadow var(--tn-duration-base) var(--tn-ease-standard);
 }
 
+.home-memo-page .memo-list[data-virtual-list] {
+  display: block;
+  padding: 0;
+}
+
+.home-memo-page .memo-list[data-virtual-list]
+  .memo-list-collapse.is-collapsed > .memo-content {
+  max-height: 36lh;
+  overflow: hidden;
+}
+
+.home-memo-page .memo-list[data-virtual-list] > .memo-feed-load-more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--tn-space-2);
+}
+
 .memo-list > .memo-card + .memo-card,
 .memo-project-memo-list > .memo-card + .memo-card {
   border-top-color: var(--tn-color-border-translucent);

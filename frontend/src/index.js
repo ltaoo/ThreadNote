@@ -57,6 +57,12 @@ function ApplicationRootView() {
  */
 function render($root) {
   const { innerWidth, innerHeight, location } = window;
+  globalThis.FrontendLogger?.info("application render started", {
+    component: "application",
+    height: innerHeight,
+    pathname: location.pathname,
+    width: innerWidth,
+  });
   history.$router.prepare(location);
   app
     .start({
@@ -64,15 +70,26 @@ function render($root) {
       height: innerHeight,
     })
     .then(() => {
+      globalThis.FrontendLogger?.info("application model ready", {
+        component: "application",
+        pathname: window.location.pathname,
+      });
       restoreWindowState();
       startWindowStateSnapshots();
     });
   Timeless.DOM.render(ApplicationRootView(), $root);
+  globalThis.FrontendLogger?.info("application view rendered", {
+    component: "application",
+    pathname: window.location.pathname,
+  });
 }
 
 document.addEventListener("DOMContentLoaded", function () {
   const $root = document.querySelector("#root");
   if (!$root) {
+    globalThis.FrontendLogger?.error("application root missing", {
+      component: "application",
+    });
     console.error("[Render] Root element not found");
     return;
   }

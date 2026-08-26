@@ -13,6 +13,7 @@ const HOME_VIEW_ROUTE_KEYS = Object.freeze({
   files: "file",
   images: "image",
   links: "link",
+  logs: "logs",
   memos: "memo",
   milestones: "milestone",
   rules: "rule",
@@ -109,9 +110,10 @@ export function HomePageModel(props) {
         const active_filter = String(filter.dataset.filter || "all");
         workspace$.methods.activate("memos");
         workspace$.methods.activateFilter(active_filter);
-        props.history.push(home_route_name("memos"), {
-          filter: active_filter,
-        });
+        props.history.push(
+          home_route_name("memos"),
+          active_filter === "all" ? {} : { filter: active_filter },
+        );
         return;
       }
 

@@ -305,7 +305,6 @@
   border-radius: var(--tn-radius-xl);
   box-shadow: var(--tn-shadow-sm);
   margin: 0 auto;
-  max-width: var(--tn-layout-content-max);
 }
 
 .memo-composer:focus-within {
@@ -357,6 +356,8 @@
   line-height: var(--tn-line-height-reading);
   min-height: 116px;
   padding: 17px 18px;
+  position: relative;
+  z-index: 2;
 }
 
 .memo-editor-host::before {
@@ -391,6 +392,40 @@
 
 .memo-composer-vim-status:empty {
   display: none;
+}
+
+.memo-composer-vim-search {
+  align-items: center;
+  display: none;
+  flex: 1 1 auto;
+  gap: var(--tn-space-1);
+  min-width: 120px;
+}
+
+.memo-composer-vim-search.is-active {
+  display: flex;
+}
+
+.memo-composer-vim-search.is-active ~ .memo-composer-character-status {
+  display: none;
+}
+
+.memo-composer-vim-search-prefix {
+  color: var(--tn-color-text-secondary);
+  font-family: var(--tn-font-family-mono);
+}
+
+.memo-composer-vim-search-input {
+  background: transparent;
+  border: 0;
+  color: var(--tn-color-text-primary);
+  flex: 1 1 auto;
+  box-shadow: none;
+  font-family: var(--tn-font-family-mono);
+  min-height: 24px;
+  min-width: 0;
+  outline: 0;
+  padding: 0 var(--tn-space-1);
 }
 
 .memo-composer-character-status {

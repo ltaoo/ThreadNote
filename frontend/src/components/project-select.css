@@ -90,12 +90,6 @@
   white-space: nowrap;
 }
 
-.project-select-trigger-caption {
-  color: var(--tn-color-text-tertiary);
-  font-size: var(--tn-font-size-2xs);
-  margin-top: 2px;
-}
-
 .project-select-count {
   align-items: center;
   background: color-mix(in srgb, var(--tn-color-bg-interactive) 78%, transparent);
@@ -295,12 +289,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.project-select-option-caption {
-  color: var(--tn-color-text-tertiary);
-  font-size: var(--tn-font-size-2xs);
-  margin-top: 2px;
 }
 
 .project-select-option-meta {

@@ -51,21 +51,27 @@ func appMode() string {
 	return appAssets.Mode
 }
 
-func setupLogger() *zerolog.Logger {
-	homeDir, _ := os.UserHomeDir()
-	logDir := filepath.Join(homeDir, ".myapp")
-	os.MkdirAll(logDir, 0755)
-	logFile, err := os.OpenFile(filepath.Join(logDir, "app.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+func application_log_path() string {
+	home_dir, _ := os.UserHomeDir()
+	return filepath.Join(home_dir, ".myapp", "app.log")
+}
+
+func setup_logger() *zerolog.Logger {
+	log_path := application_log_path()
+	os.MkdirAll(filepath.Dir(log_path), 0755)
+	log_file, err := os.OpenFile(log_path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 
 	var writer io.Writer
 	if err != nil {
 		writer = zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	} else if appMode() == "release" {
-		writer = logFile
+		writer = log_file
 	} else {
-		writer = io.MultiWriter(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}, logFile)
+		writer = io.MultiWriter(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}, log_file)
 	}
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	logger := zerolog.New(writer).With().Timestamp().Logger()
+	logger.Info().Str("component", "application").Str("log_path", log_path).Msg("application logger initialized")
 	return &logger
 }
 
@@ -171,7 +177,7 @@ func showMainWindow(b *velo.Box, logger *zerolog.Logger) {
 func Run(assets Assets) {
 	appAssets = assets
 
-	logger := setupLogger()
+	logger := setup_logger()
 	restart_manager := urestart.NewManager()
 	logger.Info().Msgf("Version: %s, Velo: %s, Mode: %s, OS: %s/%s", appVersion(), velo.GetVersion(), appMode(), runtime.GOOS, runtime.GOARCH)
 

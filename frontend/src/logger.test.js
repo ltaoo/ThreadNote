@@ -116,3 +116,33 @@ test("Logger uses sendBeacon while a window is unloading", async () => {
   assert.equal(beacons[0].url, "/report");
   assert.equal(beacons[0].body.entries.at(-1).message, "window closing");
 });
+
+test("Logger records backend request lifecycle without exposing sensitive values", async () => {
+  const { context, reports } = create_logger_harness();
+
+  await context.invoke("/api/memos?token=secret-value", {
+    method: "POST",
+    args: {
+      content: "private memo body",
+      memoId: "memo-1",
+      password: "do-not-log",
+    },
+  });
+  await context.Logger.flushNow();
+
+  const report = reports.find((entry) => entry.url === "/report");
+  const entries = report.options.args.entries;
+  const started = entries.find(
+    (entry) => entry.message === "frontend backend request started",
+  );
+  const completed = entries.find(
+    (entry) => entry.message === "frontend backend request completed",
+  );
+  assert.ok(started);
+  assert.ok(completed);
+  assert.equal(started.url, "/api/memos?token=[Redacted]");
+  assert.equal(started.args.password, "[Redacted]");
+  assert.equal(started.args.content, "[Content length=17]");
+  assert.equal(started.args.memoId, "memo-1");
+  assert.equal(completed.response.code, 0);
+});

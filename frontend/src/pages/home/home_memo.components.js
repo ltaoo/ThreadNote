@@ -58,6 +58,7 @@ export function MemoHeaderActions(vm$) {
 }
 
 export function MemoComposer(vm$) {
+  let vim_search_input_ = null;
   return View(
     {
       as: "section",
@@ -195,6 +196,62 @@ export function MemoComposer(vm$) {
                   },
                 },
                 [],
+              ),
+              View(
+                {
+                  class: computed(
+                    vm$.ui.composerVimSearch.visible,
+                    function (visible) {
+                      return "memo-composer-vim-search" +
+                        (visible ? " is-active" : "");
+                    },
+                  ),
+                  attributes: { n: "home-memo-composer-vim-search" },
+                },
+                [
+                  View(
+                    {
+                      as: "span",
+                      class: "memo-composer-vim-search-prefix",
+                      attributes: {
+                        "aria-hidden": "true",
+                        n: "home-memo-composer-vim-search-prefix",
+                      },
+                    },
+                    ["/"],
+                  ),
+                  (vim_search_input_ = Input({
+                    class: "memo-composer-vim-search-input",
+                    type: "search",
+                    value: vm$.ui.composerVimSearch.query,
+                    placeholder: "搜索文本",
+                    attributes: {
+                      "aria-label": "Vim 搜索文本",
+                      autocomplete: "off",
+                      "data-composer-vim-search-input": "true",
+                      n: "home-memo-composer-vim-search-input",
+                      type: "search",
+                    },
+                    onInput(event) {
+                      vm$.ui.composerVimSearch.setQuery(
+                        event.currentTarget.value,
+                      );
+                    },
+                    onMounted() {
+                      vm$.ui.composerVimSearch.setFocusView(function () {
+                        vim_search_input_?.$elm?.focus?.();
+                        vim_search_input_?.$elm?.select?.();
+                      });
+                    },
+                    onKeyDown(event) {
+                      vm$.ui.composerVimSearch.handleKeyDown(event);
+                    },
+                    onUnmounted() {
+                      vim_search_input_ = null;
+                      vm$.ui.composerVimSearch.setFocusView(null);
+                    },
+                  })),
+                ],
               ),
               View(
                 {
@@ -2387,10 +2444,10 @@ export function MemoCardView(props) {
                               return Button(
                                 {
                                   class: "memo-expand-button",
+                                  onClick: memo.onExpand,
                                   attributes: {
                                     "aria-expanded": "false",
                                     "aria-label": "展开全文",
-                                    "data-action": "expandMemo",
                                     n: "memo-expand-button",
                                     title: "展开全文",
                                     type: "button",
@@ -2655,10 +2712,10 @@ export function PinnedMemoListView(props = {}) {
                     return Button(
                       {
                         class: "memo-expand-button memo-pinned-expand-button",
+                        onClick: memo.onExpand,
                         attributes: {
                           "aria-expanded": "false",
                           "aria-label": "展开全文",
-                          "data-action": "expandMemo",
                           n: "memo-pinned-expand",
                           title: "展开全文",
                           type: "button",
@@ -2760,6 +2817,11 @@ export function MemoDialogView(props = {}) {
     return Button(
       {
         class: class_name,
+        onClick(event) {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onAction?.(name);
+        },
         attributes: {
           "data-memo-dialog-action": name,
           n: "memo-dialog-" + name + "-button",
@@ -2783,6 +2845,7 @@ export function MemoDialogView(props = {}) {
       class: "tn-dialog--md memo-dialog-panel memo-comment-dialog-panel",
       store: props.store,
       attributes: {
+        "data-memo-dialog-content": "true",
         n: "memo-dialog-panel",
       },
     },

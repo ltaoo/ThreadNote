@@ -7,6 +7,8 @@ import {
 import { logMemoPagination } from "@/domain/memo-pagination-log.js";
 import { HomeWorkspaceModel } from "./home_workspace.model.js";
 
+const memo_load_more_distance = 800;
+
 /** @typedef {import("./home.models").HomeElementRegistry} HomeElementRegistry */
 /** @typedef {import("./home.models").HomePageProps} HomePageProps */
 /** @typedef {import("./home.models").HomeSection} HomeSection */
@@ -147,6 +149,9 @@ export function HomeSectionPageModel(props, section) {
           loadMoreMemos(source) {
             return methods.loadMoreMemos(source);
           },
+          memoScrollElement() {
+            return memo_main_scroll_element_;
+          },
           observeMemoLoadMoreSentinel(event) {
             methods.observeMemoLoadMoreSentinel(event);
           },
@@ -245,10 +250,9 @@ export function HomeSectionPageModel(props, section) {
       );
       scroll_event_count_ += 1;
       const now = Date.now();
-      const near_bottom = distance_to_bottom <= 240;
+      const near_bottom = distance_to_bottom <= memo_load_more_distance;
       if (
         scroll_event_count_ === 1 ||
-        near_bottom ||
         now - last_scroll_log_at_ >= 2000
       ) {
         last_scroll_log_at_ = now;
@@ -263,7 +267,8 @@ export function HomeSectionPageModel(props, section) {
       }
       if (
         scroll_top > 0 &&
-        distance_to_bottom <= 160 &&
+        distance_to_bottom <= memo_load_more_distance &&
+        Boolean(ui.memoFeedHasMore.value) &&
         !Boolean(ui.memoFeedLoading.value)
       ) {
         logMemoPagination("info", "native-scroll-threshold-reached", {
@@ -315,8 +320,8 @@ export function HomeSectionPageModel(props, section) {
           methods.loadMoreMemos("intersection-observer");
         },
         {
-          root: null,
-          rootMargin: "0px 0px 240px 0px",
+          root: memo_main_scroll_element_,
+          rootMargin: `0px 0px ${memo_load_more_distance}px 0px`,
           threshold: 0.01,
         },
       );

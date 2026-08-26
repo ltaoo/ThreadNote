@@ -162,6 +162,10 @@
   font-size: var(--tn-font-size-xs);
 }
 
+.tn-select__item-root {
+  display: contents;
+}
+
 .tn-select__item {
   display: flex;
   box-sizing: border-box;
@@ -186,8 +190,7 @@
     color var(--tn-duration-fast) var(--tn-ease-standard);
 }
 
-.tn-select__item:hover,
-.tn-select__item.is-focused {
+.tn-select__item.is-active {
   background: var(--tn-color-active-surface);
   color: var(--tn-color-text-primary);
 }

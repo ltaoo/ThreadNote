@@ -14,6 +14,16 @@
   const MAX_COLLECTION_SIZE = 80;
   const MAX_STRING_LENGTH = 16000;
   const VALID_LEVELS = new Set(["debug", "info", "warn", "error"]);
+  const SECRET_FIELD_PATTERN = /(?:authorization|cookie|credential|password|private[_-]?key|secret|token)/i;
+  const CONTENT_FIELD_NAMES = new Set([
+    "body",
+    "content",
+    "draft",
+    "html",
+    "markdown",
+    "notes",
+    "text",
+  ]);
 
   function truncate_string(value) {
     const text = String(value);
@@ -32,6 +42,26 @@
       };
     }
     return { error: truncate_string(error) };
+  }
+
+  function redacted_field_value(key, value) {
+    if (SECRET_FIELD_PATTERN.test(key)) {
+      return "[Redacted]";
+    }
+    const normalized_key = String(key)
+      .replace(/([a-z\d])([A-Z])/g, "$1_$2")
+      .toLowerCase();
+    const field_name = normalized_key.split(/[_-]/).pop();
+    if (CONTENT_FIELD_NAMES.has(field_name)) {
+      let length = 0;
+      try {
+        length = typeof value === "string"
+          ? value.length
+          : JSON.stringify(value).length;
+      } catch (_) {}
+      return `[Content length=${length}]`;
+    }
+    return null;
   }
 
   function sanitize_value(value, depth, seen) {
@@ -76,7 +106,10 @@
       const keys = Object.keys(value).slice(0, MAX_COLLECTION_SIZE);
       for (const key of keys) {
         try {
-          sanitized[key] = sanitize_value(value[key], depth + 1, seen);
+          const redacted = redacted_field_value(key, value[key]);
+          sanitized[key] = redacted === null
+            ? sanitize_value(value[key], depth + 1, seen)
+            : redacted;
         } catch (error) {
           sanitized[key] = `[Unserializable: ${error && error.message ? error.message : String(error)}]`;
         }
@@ -104,6 +137,13 @@
       return global.crypto.randomUUID();
     }
     return `frontend-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  function redact_url(value) {
+    return truncate_string(value).replace(
+      /([?&](?:authorization|cookie|credential|password|private[_-]?key|secret|token)=)[^&#]*/gi,
+      "$1[Redacted]",
+    );
   }
 
   function send_report(entries, unloading) {
@@ -364,6 +404,149 @@
 
   global.FrontendLogger = logger;
   global.Logger = logger;
+
+  function semantic_element(element) {
+    let current = element && element.nodeType === 3
+      ? element.parentElement || element.parentNode
+      : element;
+    for (let depth = 0; current && depth < 8; depth += 1) {
+      if (current.nodeType === 1) {
+        const semantic_name = current.getAttribute?.("data-n") ||
+          current.getAttribute?.("n");
+        if (semantic_name) return current;
+      }
+      current = current.parentElement || current.parentNode;
+    }
+    return element && element.nodeType === 1 ? element : null;
+  }
+
+  function event_fields(event) {
+    const element = semantic_element(event.target);
+    const owner = element?.closest?.(
+      "[data-memo-id], [data-comment-id], [data-task-id], [data-project-id]",
+    );
+    const dataset = element?.dataset || {};
+    const owner_dataset = owner?.dataset || {};
+    const fields = {
+      eventType: event.type,
+      targetTag: String(element?.tagName || "").toLowerCase(),
+      targetName: element?.getAttribute?.("data-n") ||
+        element?.getAttribute?.("n") ||
+        "",
+      action: dataset.action || "",
+      view: dataset.view || "",
+      memoId: dataset.memoId || owner_dataset.memoId || "",
+      commentId: dataset.commentId || owner_dataset.commentId || "",
+      taskId: dataset.taskId || owner_dataset.taskId || "",
+      projectId: dataset.projectId || owner_dataset.projectId || "",
+    };
+    if (event.type === "keydown") {
+      fields.key = event.key || "";
+      fields.altKey = Boolean(event.altKey);
+      fields.ctrlKey = Boolean(event.ctrlKey);
+      fields.metaKey = Boolean(event.metaKey);
+      fields.shiftKey = Boolean(event.shiftKey);
+    }
+    if (event.type === "change") {
+      fields.checked = typeof element?.checked === "boolean"
+        ? element.checked
+        : undefined;
+      fields.valueLength = typeof element?.value === "string"
+        ? element.value.length
+        : 0;
+    }
+    return fields;
+  }
+
+  function install_event_diagnostics() {
+    const document = global.document;
+    if (!document || typeof document.addEventListener !== "function") return;
+    ["click", "change", "submit"].forEach((event_name) => {
+      document.addEventListener(event_name, (event) => {
+        logger.info("frontend UI event", event_fields(event));
+      }, true);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (
+        event.key === "Enter" ||
+        event.key === "Escape" ||
+        event.key === "Tab" ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey
+      ) {
+        logger.info("frontend keyboard event", event_fields(event));
+      }
+    }, true);
+  }
+
+  function install_invoke_diagnostics() {
+    const original_invoke = global.invoke;
+    if (typeof original_invoke !== "function" || original_invoke.__threadnote_logged) {
+      return;
+    }
+    let request_sequence = 0;
+    const logged_invoke = function (url, options) {
+      const request_url = String(url || "");
+      if (request_url === REPORT_URL || request_url.startsWith("/api/logs")) {
+        return original_invoke.call(this, url, options);
+      }
+      const request_id = `${model.session_id}:${++request_sequence}`;
+      const started_at = Date.now();
+      const request_options = options || {};
+      logger.info("frontend backend request started", {
+        requestId: request_id,
+        method: String(request_options.method || "GET").toUpperCase(),
+        url: redact_url(request_url),
+        args: request_options.args,
+      });
+      let result;
+      try {
+        result = original_invoke.call(this, url, options);
+      } catch (error) {
+        logger.error("frontend backend request failed", {
+          requestId: request_id,
+          method: String(request_options.method || "GET").toUpperCase(),
+          url: redact_url(request_url),
+          durationMs: Date.now() - started_at,
+          ...error_fields(error),
+        });
+        throw error;
+      }
+      return Promise.resolve(result).then(
+        (response) => {
+          logger.info("frontend backend request completed", {
+            requestId: request_id,
+            method: String(request_options.method || "GET").toUpperCase(),
+            url: redact_url(request_url),
+            durationMs: Date.now() - started_at,
+            response,
+          });
+          return response;
+        },
+        (error) => {
+          logger.error("frontend backend request failed", {
+            requestId: request_id,
+            method: String(request_options.method || "GET").toUpperCase(),
+            url: redact_url(request_url),
+            durationMs: Date.now() - started_at,
+            ...error_fields(error),
+          });
+          throw error;
+        },
+      );
+    };
+    logged_invoke.__threadnote_logged = true;
+    global.invoke = logged_invoke;
+  }
+
+  install_event_diagnostics();
+  install_invoke_diagnostics();
+  if (typeof global.invoke !== "function") {
+    global.addEventListener("DOMContentLoaded", install_invoke_diagnostics, {
+      once: true,
+    });
+  }
 
   global.addEventListener("error", (event) => {
     const builder = logger.Error(event.error)

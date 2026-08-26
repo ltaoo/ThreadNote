@@ -37,13 +37,13 @@ function select_entry(select_store, entry) {
   }
 
   const observation = observe_store(entry);
-  return ui.SelectPrimitive.Item(
+  const item = ui.SelectPrimitive.Item(
     semantic_props(
       {
         select$: select_store,
         item$: entry,
         class: computed(observation.state_, (state) => [
-          state.focused ? "is-focused" : "",
+          state.focused ? "is-active" : "",
           state.selected ? "is-selected" : "",
           state.disabled ? "is-disabled" : "",
         ].filter(Boolean).join(" ")),
@@ -73,6 +73,22 @@ function select_entry(select_store, entry) {
         ],
       ),
     ],
+  );
+
+  return View(
+    semantic_props(
+      {
+        onMouseEnter() {
+          select_store.handleMouseEnterItem(entry);
+        },
+        onMouseLeave() {
+          select_store.handleMouseLeaveItem(entry);
+        },
+      },
+      "tn-select__item-root",
+      "select-option-root",
+    ),
+    [item],
   );
 }
 

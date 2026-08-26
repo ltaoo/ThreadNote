@@ -10,6 +10,6 @@
 .tn-dialog__close { position: absolute; top: var(--tn-space-2); right: var(--tn-space-2); display: inline-flex; padding: var(--tn-space-2); border: 0; border-radius: var(--tn-radius-sm); background: transparent; color: var(--tn-color-text-tertiary); cursor: pointer; }
 .tn-dialog__close:hover { background: var(--tn-color-hover-surface); color: var(--tn-color-text-primary); }
 .tn-dialog__overlay.is-entering, .tn-dialog.is-entering { animation: tn-dialog-in var(--tn-duration-base) var(--tn-ease-emphasized); }
-.tn-dialog__overlay.is-exiting, .tn-dialog.is-exiting { animation: tn-dialog-out var(--tn-duration-fast) var(--tn-ease-standard); }
+.tn-dialog__overlay.is-exiting, .tn-dialog.is-exiting { animation: tn-dialog-out var(--tn-duration-fast) var(--tn-ease-standard) forwards; }
 @keyframes tn-dialog-in { from { opacity: 0; } }
 @keyframes tn-dialog-out { to { opacity: 0; } }

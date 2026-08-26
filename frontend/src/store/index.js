@@ -81,6 +81,11 @@ const routes_configure = {
             pathname: "/home/index/chat",
             component: Timeless.lazy("@/pages/home/home_chat.js"),
           },
+          logs: {
+            title: "运行日志",
+            pathname: "/home/index/logs",
+            component: Timeless.lazy("@/pages/home/home_logs.js"),
+          },
         },
       },
       example: {
@@ -149,6 +154,13 @@ export const app = new Timeless.kit.ApplicationModel({
 
 history.onRouteChange(({ reason, view, href, ignore }) => {
   const { title } = view || {};
+  globalThis.FrontendLogger?.info("frontend route changed", {
+    component: "navigation",
+    ignored: Boolean(ignore),
+    pathname: view?.pathname || "",
+    reason: reason || "unknown",
+    routeName: view?.name || "",
+  });
   if (title) {
     app.setTitle(title);
   }

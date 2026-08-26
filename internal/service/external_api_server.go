@@ -124,7 +124,7 @@ func startExternalAPIServer(logger *zerolog.Logger) *http.Server {
 
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           newExternalAPIMux(cfg),
+		Handler:           new_external_api_mux_with_logger(cfg, logger),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	logger.Info().Str("addr", cfg.Addr).Bool("auth", cfg.Token != "").Msg("starting external API server")
@@ -148,6 +148,10 @@ func shutdownExternalAPIServer(server *http.Server, logger *zerolog.Logger) {
 }
 
 func newExternalAPIMux(cfg externalAPIServerConfig) http.Handler {
+	return new_external_api_mux_with_logger(cfg, nil)
+}
+
+func new_external_api_mux_with_logger(cfg externalAPIServerConfig, logger *zerolog.Logger) http.Handler {
 	api := &externalAPIHandler{capability_service: NewActiveCapabilityService()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/health", api.handleHealth)
@@ -158,7 +162,64 @@ func newExternalAPIMux(cfg externalAPIServerConfig) http.Handler {
 	mux.HandleFunc("/api/tasks/", api.handle_task)
 	mux.HandleFunc("/api/gtd/milestones", api.handleGTDMilestones)
 	mux.HandleFunc("/api/gtd/milestones/", api.handleGTDMilestone)
-	return externalAPIAuthMiddleware(cfg, mux)
+	handler := externalAPIAuthMiddleware(cfg, mux)
+	if logger == nil {
+		return handler
+	}
+	return external_api_logging_middleware(logger, handler)
+}
+
+type external_api_status_writer struct {
+	http.ResponseWriter
+	status_code int
+	written     int
+}
+
+func (w *external_api_status_writer) WriteHeader(status_code int) {
+	w.status_code = status_code
+	w.ResponseWriter.WriteHeader(status_code)
+}
+
+func (w *external_api_status_writer) Write(data []byte) (int, error) {
+	if w.status_code == 0 {
+		w.status_code = http.StatusOK
+	}
+	written, err := w.ResponseWriter.Write(data)
+	w.written += written
+	return written, err
+}
+
+func external_api_logging_middleware(logger *zerolog.Logger, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		started_at := time.Now()
+		status_writer := &external_api_status_writer{ResponseWriter: writer}
+		query_keys := make([]string, 0, len(request.URL.Query()))
+		for key := range request.URL.Query() {
+			query_keys = append(query_keys, key)
+		}
+		logger.Info().
+			Str("component", "external_api").
+			Str("method", request.Method).
+			Str("path", request.URL.Path).
+			Strs("query_keys", query_keys).
+			Int64("content_length", request.ContentLength).
+			Msg("external API request started")
+		defer func() {
+			status_code := status_writer.status_code
+			if status_code == 0 {
+				status_code = http.StatusOK
+			}
+			logger.Info().
+				Str("component", "external_api").
+				Str("method", request.Method).
+				Str("path", request.URL.Path).
+				Int("status", status_code).
+				Int("response_bytes", status_writer.written).
+				Dur("duration", time.Since(started_at)).
+				Msg("external API request completed")
+		}()
+		next.ServeHTTP(status_writer, request)
+	})
 }
 
 func (h *externalAPIHandler) handle_capabilities(w http.ResponseWriter, r *http.Request) {

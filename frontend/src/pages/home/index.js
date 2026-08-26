@@ -88,6 +88,11 @@ const TOOL_MENU = Object.freeze([
     label: "流程配置",
   },
   {
+    icon: "scroll-text",
+    id: "logs",
+    label: "运行日志",
+  },
+  {
     action: "openSettings",
     icon: "settings",
     id: "settings",

@@ -132,11 +132,7 @@ import {
   memoDocumentsWithComments,
   scrollMemoTocLine,
 } from "./home_memo_helpers.js";
-import {
-  memoFeedCollectionSignature,
-  MemoFeedPaginationModel,
-  MemoListModel,
-} from "./memo.model.js";
+import { MemoFeedPaginationModel, MemoListModel } from "./memo.model.js";
 import { memoTaskCheckboxChange } from "./memo-task-checkbox.model.js";
 import {
   activeViewMeta,
@@ -168,6 +164,7 @@ import {
   MemoQuickSearchModel,
   writeMemoQuickSearchOpenContext,
 } from "./memo-quick-search-model.js";
+import { MemoVimSearchModel } from "./memo-vim-search.model.js";
 import {
   closestAnchor,
   closestElement,
@@ -189,12 +186,28 @@ import {
   SourceEditDialogView,
   TagListView,
 } from "./home_memo.components.js";
-import { MemoFeedView, prependMemoFeedItem } from "./home_memo.js";
+import { MemoFeedView } from "./home_memo.js";
+import { mountMemoVirtualList } from "./memo-virtual-list.js";
 import {
   appendTimelessHost,
   ConfirmDeleteView,
 } from "./home_view_shared.js";
 import { mountACPChat } from "./chat.js";
+
+function logMemoExpansion(level, stage, fields = {}) {
+  const logger = globalThis.FrontendLogger || globalThis.Logger;
+  const write = logger?.[level] || logger?.info;
+  if (typeof write !== "function") return;
+  try {
+    write.call(logger, `memo expand ${stage}`, {
+      component: "memo_expand",
+      stage,
+      ...fields,
+    });
+  } catch (_) {
+    // Diagnostics must never interrupt the interaction being diagnosed.
+  }
+}
 
 /** @typedef {import("./home.models").HomeMemoRecord} HomeMemoRecord */
 /** @typedef {import("./home.models").MemoListModelInstance} MemoListModelInstance */
@@ -467,6 +480,7 @@ export function createMemosPageUIState() {
       size: "icon-sm",
       variant: "ghost",
     }),
+    composerVimSearch: MemoVimSearchModel(TimelessPrimitive),
     composerVisibilitySelect: createSelectControl({
       defaultValue: DEFAULT_VISIBILITY,
       options: [
@@ -757,9 +771,7 @@ export function mountMemosHome(root, options = {}) {
   let memoDialogEditor = null;
   let memoDialogController = null;
   let acpChatController = null;
-  let memo_feed_view_mounted = false;
-  let memo_feed_render_key = "";
-  let manually_prepended_feed_items = [];
+  let memo_virtual_list_controller = null;
   const pending_memo_task_line_changes = new Map();
   let source_edit_visibility_ = DEFAULT_VISIBILITY;
   let source_edit_flags_ = {
@@ -1158,12 +1170,19 @@ export function mountMemosHome(root, options = {}) {
   return {
     acceptClipboardItem,
     activateView(active_view) {
-      const already_active = state.activeView === active_view;
       activateWorkspaceView(active_view);
-      if (already_active) renderAll();
     },
     activateFilter(filter) {
       const next_filter = filter || "all";
+      if (
+        state.activeView === "memos" &&
+        !state.activeProjectId &&
+        state.activeFilter === next_filter &&
+        normalizeActiveTags(state.activeTags).length === 0 &&
+        !smallCalendarModel.state.selectedDate
+      ) {
+        return;
+      }
       logMemoPagination("info", "controller-filter-changed", {
         nextFilter: next_filter,
         previousFilter: state.activeFilter,
@@ -1267,7 +1286,8 @@ export function mountMemosHome(root, options = {}) {
       if (memoDialogEditor) memoDialogEditor.destroy();
       if (memoDialogController) memoDialogController.destroy();
       if (acpChatController) acpChatController.destroy();
-      destroyManuallyPrependedFeedItems();
+      memo_virtual_list_controller?.destroy();
+      memo_virtual_list_controller = null;
       unmountTimelessView(els.memoList);
       disconnectProjectScrollObserver();
       unmountTimelessView(els.calendar);
@@ -1300,6 +1320,12 @@ export function mountMemosHome(root, options = {}) {
         renderComposerStatus(nextValue);
         renderComposerPreview();
         scheduleComposerAutoSave();
+      },
+      onVimSearch(request) {
+        return ui.composerVimSearch.open(request);
+      },
+      onVimSearchClose() {
+        ui.composerVimSearch.close();
       },
       onCommit() {
         return createMemo({ source: "vim-wq" });
@@ -2125,9 +2151,6 @@ export function mountMemosHome(root, options = {}) {
         if (sourceMemo) openSourceEditDialog(sourceMemo);
       }
       break;
-    case "expandMemo":
-      expandMemo(memoId, action);
-      break;
     case "toggleMemoToc":
       toggleMemoToc(memoId);
       break;
@@ -2800,6 +2823,17 @@ export function mountMemosHome(root, options = {}) {
     }
 
     if (options.scroll === false) return true;
+    const comment_selector = comment_id
+      ? `[data-comment-id="${escapeCSSIdent(comment_id)}"]`
+      : "";
+    if (
+      memo_virtual_list_controller?.scrollToKey(memo.id, {
+        behavior: "smooth",
+        selector: comment_selector,
+      })
+    ) {
+      return true;
+    }
     window.requestAnimationFrame(function () {
       const target = comment_id
         ? els.memoList.querySelector(
@@ -3517,30 +3551,8 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function startComment(memoId) {
-    const memo = findMemo(memoId);
-    if (!memo) return;
-    if (
-      state.commentingMemoId === memo.id &&
-      !state.replyToCommentId &&
-      commentEditor
-    ) {
-      commentEditor.focus();
-      return;
-    }
-
-    closeMemoDialog({ silent: true });
-    if (state.commentingMemoId !== memo.id) state.commentDraft = "";
     state.replyToCommentId = "";
-    state.commentingMemoId = memo.id;
-    state.commentPreviewVisible = false;
-    state.commentEditingId = "";
-    state.commentEditDraft = "";
-    state.commentEditPreviewVisible = false;
-    state.editingId = "";
-    state.editDraft = "";
-    state.editPreviewVisible = false;
-    state.expandedCommentListMemoIds.add(memo.id);
-    renderFeed();
+    openMemoDialog("comment", memoId);
   }
 
   function startCommentEdit(commentId) {
@@ -3799,6 +3811,7 @@ export function mountMemosHome(root, options = {}) {
       unmountTimelessView(dialog);
       dialog.remove();
     }
+    removeMemoDialogPortal();
     state.memoDialog = null;
     state.replyToCommentId = "";
     if (options.message) showToast(options.message);
@@ -3825,6 +3838,17 @@ export function mountMemosHome(root, options = {}) {
     }
   }
 
+  function memoDialogContent() {
+    return event_document.querySelector("[data-memo-dialog-content]");
+  }
+
+  function removeMemoDialogPortal() {
+    const positioner = memoDialogContent()?.closest(".tn-dialog__positioner");
+    const overlay = positioner?.previousElementSibling;
+    if (overlay?.matches(".tn-dialog__overlay")) overlay.remove();
+    positioner?.remove();
+  }
+
   function renderMemoDialog() {
     const dialogState = state.memoDialog;
     if (!dialogState) return;
@@ -3844,6 +3868,7 @@ export function mountMemosHome(root, options = {}) {
       unmountTimelessView(existing);
       existing.remove();
     }
+    removeMemoDialogPortal();
 
     const dialog = appendTimelessHost(root, {
       attributes: {
@@ -3877,6 +3902,7 @@ export function mountMemosHome(root, options = {}) {
             : "",
         replyTo: replyToPreview,
         saveLabel: comment_editing ? "保存" : "评论",
+        onAction: runMemoDialogAction,
         store: openDialogStore({
           onCancel() {
             if (!state.memoDialog?.saving) closeMemoDialog();
@@ -3896,7 +3922,7 @@ export function mountMemosHome(root, options = {}) {
 
   function mountMemoDialogEditor() {
     const dialogState = state.memoDialog;
-    const dialog = root.querySelector("[data-memo-dialog]");
+    const dialog = memoDialogContent();
     const memo = dialogState ? findMemo(dialogState.memoId) : null;
     const host = dialog
       ? dialog.querySelector("[data-memo-dialog-editor-host]")
@@ -3964,7 +3990,7 @@ export function mountMemosHome(root, options = {}) {
 
   function renderMemoDialogPreview() {
     const dialogState = state.memoDialog;
-    const dialog = root.querySelector("[data-memo-dialog]");
+    const dialog = memoDialogContent();
     if (!dialogState || !dialog) return;
     renderEditorPreviewPanel(
       dialog.querySelector("[data-memo-dialog-preview]"),
@@ -3986,7 +4012,7 @@ export function mountMemosHome(root, options = {}) {
 
   function renderMemoDialogSaving() {
     const dialogState = state.memoDialog;
-    const dialog = root.querySelector("[data-memo-dialog]");
+    const dialog = memoDialogContent();
     if (!dialogState || !dialog) return;
     dialog.classList.toggle("is-saving", dialogState.saving);
     dialog
@@ -4171,25 +4197,7 @@ export function mountMemosHome(root, options = {}) {
     renderMemoChromeWithoutFeed();
     if (state.activeView !== "memos") return;
 
-    const selector = `[data-memo-id="${escapeCSSIdent(id)}"]`;
-    const card = els.memoList.querySelector(selector);
-    const memos = visibleMemos();
-    const memo = memos.find((item) => item.id === id);
-
-    if (!memo) {
-      renderFeedCollection();
-      syncMemoExpandControls();
-      return;
-    }
-    if (!card) return;
-    memo_card_view_models.get(id)?.destroy();
-    const scroll_container = els.memoList.parentElement;
-    const scroll_top = scroll_container?.scrollTop || 0;
-    unmountTimelessView(els.memoList);
-    memo_feed_view_mounted = false;
-    memo_feed_render_key = "";
     renderFeedCollection();
-    if (scroll_container) scroll_container.scrollTop = scroll_top;
     syncMemoExpandControls();
   }
 
@@ -4238,31 +4246,8 @@ export function mountMemosHome(root, options = {}) {
   function replyToComment(commentId) {
     const parentComment = findComment(commentId);
     if (!parentComment) return;
-    const memo = findMemo(parentComment.memoId);
-    if (!memo) return;
-
-    if (
-      state.commentingMemoId === memo.id &&
-      state.replyToCommentId === commentId &&
-      commentEditor
-    ) {
-      commentEditor.focus();
-      return;
-    }
-
-    closeMemoDialog({ silent: true });
-    if (state.commentingMemoId !== memo.id) state.commentDraft = "";
     state.replyToCommentId = commentId;
-    state.commentingMemoId = memo.id;
-    state.commentPreviewVisible = false;
-    state.commentEditingId = "";
-    state.commentEditDraft = "";
-    state.commentEditPreviewVisible = false;
-    state.editingId = "";
-    state.editDraft = "";
-    state.editPreviewVisible = false;
-    state.expandedCommentListMemoIds.add(memo.id);
-    renderFeed();
+    openMemoDialog("comment", parentComment.memoId);
   }
 
   function openCommentReplies(commentId) {
@@ -4589,12 +4574,36 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function expandMemo(memoId, trigger) {
-    if (!memoCardExpansionModel.expand(memoId)) return;
+    const memo_id = String(memoId || "").trim();
+    logMemoExpansion("info", "controller-entered", {
+      memoId: memo_id,
+      triggerConnected: Boolean(trigger?.isConnected),
+      triggerName:
+        trigger?.getAttribute?.("data-n") || trigger?.getAttribute?.("n") || "",
+      triggerTag: String(trigger?.tagName || "").toLowerCase(),
+    });
+    if (!memo_id) {
+      logMemoExpansion("warn", "missing-memo-id");
+      return;
+    }
 
-    const memoSelector = escapeCSSIdent(memoId);
+    const was_expanded = memoCardExpansionModel.isExpanded(memo_id);
+    const model_changed = memoCardExpansionModel.expand(memo_id);
+    const view_model = memo_card_view_models.get(memo_id);
+    const view_was_expanded = Boolean(view_model?.expanded);
+    if (view_model) view_model.expanded = true;
+    logMemoExpansion("info", "state-updated", {
+      memoId: memo_id,
+      modelChanged: model_changed,
+      modelWasExpanded: was_expanded,
+      viewModelFound: Boolean(view_model),
+      viewWasExpanded: view_was_expanded,
+    });
+
+    const memoSelector = escapeCSSIdent(memo_id);
     const sourceCard = closestElement(
       trigger,
-      "article.memo-card, article.memo-pinned-item",
+      ".memo-card, .memo-pinned-item",
     );
     const scrollHost = sourceCard?.closest(".memo-main, .memo-inspector");
     const sourceScrollTop = scrollHost?.scrollTop;
@@ -4608,24 +4617,70 @@ export function mountMemosHome(root, options = {}) {
     if (scrollHost) scrollHost.style.overflowAnchor = "none";
 
     const cards = root.querySelectorAll(
-      `article.memo-card[data-memo-id="${memoSelector}"], article.memo-pinned-item[data-memo-id="${memoSelector}"]`,
+      `.memo-card[data-memo-id="${memoSelector}"], .memo-pinned-item[data-memo-id="${memoSelector}"]`,
     );
-    cards.forEach(function (card) {
+    logMemoExpansion(cards.length ? "info" : "warn", "dom-resolved", {
+      memoId: memo_id,
+      cardCount: cards.length,
+      rootContainsTrigger: Boolean(trigger && root.contains(trigger)),
+      scrollHostFound: Boolean(scrollHost),
+      sourceCardFound: Boolean(sourceCard),
+      sourceScrollTop,
+    });
+    cards.forEach(function (card, card_index) {
       const collapse = card.querySelector(".memo-list-collapse");
-      if (!collapse) return;
+      if (!collapse) {
+        logMemoExpansion("warn", "collapse-missing", {
+          memoId: memo_id,
+          cardIndex: card_index,
+        });
+        return;
+      }
       const content =
         collapse.querySelector(".memo-content") ||
         collapse.querySelector(".memo-pinned-content");
-      if (!content) return;
+      if (!content) {
+        logMemoExpansion("warn", "content-missing", {
+          memoId: memo_id,
+          cardIndex: card_index,
+          collapseClass: collapse.className,
+        });
+        return;
+      }
 
       const expandButton = collapse.querySelector(".memo-expand-button");
-      content.style.transition = "none";
+      const before_class = collapse.className;
+      const collapsed_height = content.clientHeight;
+      const expanded_height = content.scrollHeight;
       content.style.maxHeight = "";
       collapse.classList.remove("is-short", "is-collapsed");
       collapse.classList.add("is-expanded");
       expandButton?.remove();
-      content.offsetHeight;
-      content.style.transition = "";
+      const motion_style = getComputedStyle(content);
+      const motion_duration = parseFloat(
+        motion_style.getPropertyValue("--tn-duration-slow"),
+      );
+      content.animate(
+        [
+          { maxHeight: collapsed_height + "px", overflow: "hidden" },
+          { maxHeight: expanded_height + "px", overflow: "hidden" },
+        ],
+        {
+          duration: Number.isFinite(motion_duration) ? motion_duration : 260,
+          easing:
+            motion_style.getPropertyValue("--tn-ease-emphasized").trim() ||
+            "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        },
+      );
+      logMemoExpansion("info", "card-updated", {
+        memoId: memo_id,
+        cardIndex: card_index,
+        beforeClass: before_class,
+        afterClass: collapse.className,
+        buttonFound: Boolean(expandButton),
+        clientHeight: content.clientHeight,
+        scrollHeight: content.scrollHeight,
+      });
     });
 
     const restoreScrollPosition = function () {
@@ -4636,7 +4691,24 @@ export function mountMemosHome(root, options = {}) {
     restoreScrollPosition();
     if (scrollHost?.isConnected)
       scrollHost.style.overflowAnchor = previousOverflowAnchor;
-    window.requestAnimationFrame(restoreScrollPosition);
+    logMemoExpansion("info", "dom-update-completed", {
+      memoId: memo_id,
+      cardCount: cards.length,
+      scrollTop: scrollHost?.scrollTop,
+    });
+    window.requestAnimationFrame(function () {
+      restoreScrollPosition();
+      logMemoExpansion("info", "animation-frame-completed", {
+        memoId: memo_id,
+        cardCount: root.querySelectorAll(
+          `.memo-card[data-memo-id="${memoSelector}"] .memo-list-collapse.is-expanded, .memo-pinned-item[data-memo-id="${memoSelector}"] .memo-list-collapse.is-expanded`,
+        ).length,
+        expandButtonCount: root.querySelectorAll(
+          `[data-memo-id="${memoSelector}"] .memo-expand-button`,
+        ).length,
+        scrollTop: scrollHost?.scrollTop,
+      });
+    });
   }
 
   function toggleMemoToc(memoId) {
@@ -5361,8 +5433,8 @@ export function mountMemosHome(root, options = {}) {
       acpChatController = null;
     }
     if (state.activeView !== "memos") {
-      memo_feed_view_mounted = false;
-      memo_feed_render_key = "";
+      memo_virtual_list_controller?.destroy();
+      memo_virtual_list_controller = null;
     }
     if (state.activeView !== "memos" && commentEditor) {
       commentEditor.destroy();
@@ -5415,7 +5487,8 @@ export function mountMemosHome(root, options = {}) {
 
   function renderACPChat() {
     if (acpChatController) return;
-    destroyManuallyPrependedFeedItems();
+    memo_virtual_list_controller?.destroy();
+    memo_virtual_list_controller = null;
     unmountTimelessView(els.memoList);
     acpChatController = mountACPChat(els.memoList);
   }
@@ -5928,12 +6001,6 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function renderFeedCollection() {
-    if (manually_prepended_feed_items.length) {
-      destroyManuallyPrependedFeedItems();
-      unmountTimelessView(els.memoList);
-      memo_feed_view_mounted = false;
-      memo_feed_render_key = "";
-    }
     const memos = visibleMemos();
     const memo_presentations = memos.map(safeMemoView);
     const visible_memo_ids = new Set(
@@ -5946,48 +6013,48 @@ export function mountMemosHome(root, options = {}) {
     });
     const project_presentations = projectOptionsPresentation();
     if (options.section === "memos") {
-      const next_render_key = JSON.stringify({
-        activeFilter: state.activeFilter,
-        activeProjectFilter: state.activeProjectFilter,
-        activeTags: normalizeActiveTags(state.activeTags),
-        memoCollection: memoFeedCollectionSignature(memo_presentations),
-        query: state.query,
-        selectedDate: smallCalendarModel.state.selectedDate,
-        sortDesc: state.sortDesc,
-      });
-      if (
-        memo_feed_view_mounted &&
-        memo_feed_render_key !== next_render_key
-      ) {
-        logMemoPagination("info", "controller-feed-collection-remount", {
-          activeFilter: state.activeFilter,
-          memoCount: memo_presentations.length,
-        });
-        unmountTimelessView(els.memoList);
-        memo_feed_view_mounted = false;
-      }
       ui.memoFeedProjects.as(project_presentations);
       ui.memoFeedHasMore.as(state.feedHasMore);
       ui.memoFeedLoading.as(state.feedLoading);
       ui.memoFeedMemos.as(memo_presentations);
-      if (!memo_feed_view_mounted) {
-        renderTimelessView(
-          els.memoList,
-          MemoFeedView({
-            hasMore: ui.memoFeedHasMore,
-            loading: ui.memoFeedLoading,
-            memos: ui.memoFeedMemos,
-            onLoadMore: options.loadMoreMemos || loadNextMemoFeedPage,
-            onLoadMoreSentinelMounted:
-              options.observeMemoLoadMoreSentinel,
-            onLoadMoreSentinelUnmounted:
-              options.unobserveMemoLoadMoreSentinel,
-            projects: ui.memoFeedProjects,
-          }),
-        );
-        memo_feed_view_mounted = true;
+      if (!memo_virtual_list_controller) {
+        unmountTimelessView(els.memoList);
+        memo_virtual_list_controller = mountMemoVirtualList(els.memoList, {
+          hasMore: ui.memoFeedHasMore,
+          keepKeys() {
+            const comment = findComment(state.commentEditingId);
+            const active_memo_ids = Array.from(
+              memo_card_view_models.entries(),
+            )
+              .filter(function ([, view_model]) {
+                return Boolean(view_model.active?.value);
+              })
+              .map(function ([memo_id]) {
+                return memo_id;
+              });
+            return active_memo_ids.concat([
+              state.editingId,
+              state.commentingMemoId,
+              comment?.memoId,
+            ]);
+          },
+          loading: ui.memoFeedLoading,
+          memos: ui.memoFeedMemos,
+          onLoadMore: options.loadMoreMemos || loadNextMemoFeedPage,
+          onLoadMoreSentinelMounted:
+            options.observeMemoLoadMoreSentinel,
+          onLoadMoreSentinelUnmounted:
+            options.unobserveMemoLoadMoreSentinel,
+          onRowsRendered() {
+            syncMemoExpandControls();
+            syncMemoTaskCheckboxes();
+          },
+          projects: ui.memoFeedProjects,
+          scrollElement: options.memoScrollElement,
+        });
+      } else {
+        memo_virtual_list_controller.refresh();
       }
-      memo_feed_render_key = next_render_key;
       stale_view_models.forEach(function ([, view_model]) {
         view_model.destroy();
       });
@@ -6016,21 +6083,9 @@ export function mountMemosHome(root, options = {}) {
       return item && item.id === memo.id;
     });
     if (!visible) return;
-    const mounted = prependMemoFeedItem(els.memoList, {
-      memo: safeMemoView(memo),
-      projects: projectOptionsPresentation(),
-    });
-    if (!mounted) return;
-    manually_prepended_feed_items.unshift(mounted);
+    renderFeedCollection();
     syncMemoExpandControls();
     syncMemoTaskCheckboxes();
-  }
-
-  function destroyManuallyPrependedFeedItems() {
-    manually_prepended_feed_items.forEach(function (mounted) {
-      mounted.destroy();
-    });
-    manually_prepended_feed_items = [];
   }
 
   function memoStatsPresentation(memo) {
@@ -6428,6 +6483,18 @@ export function mountMemosHome(root, options = {}) {
       lineCount: line_count,
       moreMenu: more_menu.store,
       moreMenuDestroy: more_menu.destroy,
+      onExpand(event) {
+        logMemoExpansion("info", "presentation-handler-entered", {
+          memoId: memo.id,
+          currentTargetConnected: Boolean(event?.currentTarget?.isConnected),
+          currentTargetName:
+            event?.currentTarget?.getAttribute?.("data-n") ||
+            event?.currentTarget?.getAttribute?.("n") ||
+            "",
+          defaultPrevented: Boolean(event?.defaultPrevented),
+        });
+        expandMemo(memo.id, event.currentTarget);
+      },
       pinned: Boolean(memo.pinned),
       private: private_visible,
       project: memoProjectPresentation(memo.projectId),
