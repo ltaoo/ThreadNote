@@ -34,8 +34,8 @@ type sync_result struct {
 	Status    sync_status `json:"status"`
 }
 
-// sync_driver deliberately sits beside vault_fs. GitHub, S3 and R2 synchronize
-// a local workspace; they do not replace the filesystem used by domain code.
+// sync_driver deliberately sits beside vault_fs. It reports how the active
+// workspace is synchronized without changing the filesystem used by domain code.
 type sync_driver interface {
 	provider() string
 	status(ctx context.Context) (sync_status, error)
@@ -58,12 +58,22 @@ type GitHubGitSyncConfig struct {
 
 type local_sync_driver struct{}
 
+type cloudflare_direct_sync_driver struct{}
+
 func new_local_sync_driver() sync_driver {
 	return local_sync_driver{}
 }
 
+func new_cloudflare_direct_sync_driver() sync_driver {
+	return cloudflare_direct_sync_driver{}
+}
+
 func (local_sync_driver) provider() string {
 	return vault_sync_provider_local
+}
+
+func (cloudflare_direct_sync_driver) provider() string {
+	return vault_provider_cloudflare
 }
 
 func vault_sync_config_path() string {
@@ -71,6 +81,9 @@ func vault_sync_config_path() string {
 }
 
 func load_vault_sync_config(ctx *VaultContext) (VaultSyncConfig, error) {
+	if ctx != nil && normalize_vault_provider(ctx.Entry.Provider) == vault_provider_cloudflare {
+		return VaultSyncConfig{Provider: vault_provider_cloudflare, SchemaVersion: vaultSchemaVersion}, nil
+	}
 	workspace_fs, err := require_vault_fs(ctx)
 	if err != nil {
 		return VaultSyncConfig{}, err
@@ -108,6 +121,9 @@ func normalize_vault_sync_config(config VaultSyncConfig) VaultSyncConfig {
 }
 
 func load_vault_sync_driver(ctx *VaultContext) (sync_driver, error) {
+	if ctx != nil && normalize_vault_provider(ctx.Entry.Provider) == vault_provider_cloudflare {
+		return new_cloudflare_direct_sync_driver(), nil
+	}
 	config, err := load_vault_sync_config(ctx)
 	if err != nil {
 		return nil, err
@@ -197,6 +213,23 @@ func (driver local_sync_driver) pull(ctx context.Context) (sync_result, error) {
 }
 
 func (driver local_sync_driver) push(ctx context.Context) (sync_result, error) {
+	status, err := driver.status(ctx)
+	return sync_result{Status: status}, err
+}
+
+func (driver cloudflare_direct_sync_driver) status(ctx context.Context) (sync_status, error) {
+	if err := ctx.Err(); err != nil {
+		return sync_status{}, err
+	}
+	return sync_status{Initialized: true, Provider: driver.provider()}, nil
+}
+
+func (driver cloudflare_direct_sync_driver) pull(ctx context.Context) (sync_result, error) {
+	status, err := driver.status(ctx)
+	return sync_result{Status: status}, err
+}
+
+func (driver cloudflare_direct_sync_driver) push(ctx context.Context) (sync_result, error) {
 	status, err := driver.status(ctx)
 	return sync_result{Status: status}, err
 }

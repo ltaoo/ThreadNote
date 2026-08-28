@@ -141,3 +141,64 @@ test("vault picker model cancels its redirect when destroyed", async function ()
 
   assert.equal(redirects, 0);
 });
+
+test("vault picker model validates and opens a Cloudflare vault", async function () {
+  const opened_configs = [];
+  const model = VaultPickerPageModel({
+    redirect() {},
+    redirectDelay: 0,
+    runtime: create_runtime(),
+    services: {
+      async openCloudflareVault(config) {
+        opened_configs.push(config);
+        return { created: true };
+      },
+    },
+  });
+
+  model.methods.setMode("cloudflare");
+  assert.equal(await model.methods.openCloudflareVault(), false);
+  assert.equal(model.state.message.value, "请填写 Account ID");
+
+  const config = {
+    accountId: "account",
+    apiToken: "token",
+    databaseId: "database",
+    name: "Remote",
+    r2AccessKeyId: "access",
+    r2Bucket: "assets",
+    r2SecretAccessKey: "secret",
+  };
+  Object.entries(config).forEach(function ([field, value]) {
+    model.methods.setCloudflareField(field, value);
+  });
+
+  assert.equal(await model.methods.openCloudflareVault(), true);
+  assert.deepEqual(opened_configs, [config]);
+  assert.equal(model.state.message.value, "已创建 Cloudflare vault");
+  model.destroy();
+});
+
+test("vault picker model reopens a registered Cloudflare vault by id", async function () {
+  const opened_ids = [];
+  const model = VaultPickerPageModel({
+    redirect() {},
+    redirectDelay: 0,
+    runtime: create_runtime(),
+    services: {
+      async openRegisteredVault(id) {
+        opened_ids.push(id);
+        return { existing: true };
+      },
+    },
+  });
+
+  assert.equal(await model.methods.openRegisteredVault({
+    id: "cloud",
+    name: "Remote",
+    path: "cloudflare://account/database",
+    provider: "cloudflare",
+  }), true);
+  assert.deepEqual(opened_ids, ["cloud"]);
+  model.destroy();
+});

@@ -293,7 +293,37 @@ body.is-fixed-window .memo-window-shell {
   box-sizing: border-box;
   flex: 0 0 var(--tn-layout-dialog-width);
   max-width: calc(100vw - 36px);
+  min-height: 0;
   width: var(--tn-layout-dialog-width);
+}
+
+.memo-comment-dialog-panel .memo-dialog-body,
+.memo-comment-dialog-panel .memo-dialog-editor-switch,
+.memo-comment-dialog-panel .memo-dialog-editor-host {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.memo-comment-dialog-panel .memo-dialog-body {
+  overflow: hidden;
+}
+
+.memo-comment-dialog-panel .memo-dialog-editor-switch {
+  height: auto;
+}
+
+.memo-comment-dialog-panel .memo-editor-host.mini-editor .ProseMirror,
+.memo-comment-dialog-panel .memo-dialog-editor-host .memo-fallback-editor {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: min(120px, 30vh);
+  overflow-y: auto;
+}
+
+.memo-comment-dialog-panel .memo-dialog-editor-host .memo-fallback-editor {
+  field-sizing: content;
 }
 
 .inline-task-detail-dialog {
@@ -729,6 +759,71 @@ body.is-fixed-window .memo-window-shell {
   background: var(--tn-color-primary-fill);
   border-color: var(--tn-color-primary-fill);
   color: var(--tn-color-on-primary);
+}
+
+.vault-picker-provider-tabs {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 18px;
+}
+
+.vault-picker-provider-button {
+  background: var(--tn-color-bg-surface);
+  border: 1px solid var(--tn-color-border);
+  border-radius: var(--tn-radius-md);
+  color: var(--tn-color-text-secondary);
+  cursor: pointer;
+  padding: 10px 14px;
+}
+
+.vault-picker-provider-button.is-active {
+  background: var(--tn-color-primary-soft);
+  border-color: var(--tn-color-primary-border-strong);
+  color: var(--tn-color-primary-text);
+}
+
+.vault-picker-local-pane,
+.vault-picker-cloudflare-pane {
+  margin-top: 14px;
+}
+
+.vault-picker-cloudflare-pane {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.vault-picker-field {
+  display: grid;
+  gap: 6px;
+}
+
+.vault-picker-field-label {
+  color: var(--tn-color-text-secondary);
+  font-size: var(--tn-font-size-xs);
+  font-weight: var(--tn-font-weight-semibold);
+}
+
+.vault-picker-field input {
+  background: var(--tn-color-bg-surface);
+  border: 1px solid var(--tn-color-border);
+  border-radius: var(--tn-radius-md);
+  color: var(--tn-color-text-primary);
+  min-width: 0;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.vault-picker-field input:focus {
+  border-color: var(--tn-color-primary-border-strong);
+  box-shadow: var(--tn-focus-ring);
+  outline: 0;
+}
+
+.vault-picker-cloudflare-open {
+  grid-column: 1 / -1;
+  justify-self: end;
 }
 
 .auth-panel {
@@ -1391,6 +1486,10 @@ body.is-fixed-window .memo-window-shell {
   .notfound-panel {
     box-shadow: none;
     padding: 24px 18px;
+  }
+
+  .vault-picker-cloudflare-pane {
+    grid-template-columns: 1fr;
   }
 
   .comment-detail-body {

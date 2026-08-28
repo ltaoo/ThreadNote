@@ -49,6 +49,14 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 		return c.Ok(velo.H{"path": path})
 	})
 
+	b.Post("/api/vault/switch", func(c *velo.BoxContext) interface{} {
+		setMainWindowPathname("/vault-picker")
+		options := mainWindowOptions("/vault-picker", b, logger)
+		options.PreserveStateOnFocus = false
+		b.OpenWindow(options)
+		return c.Ok(velo.H{"success": true})
+	})
+
 	b.Post("/api/vault/open", func(c *velo.BoxContext) interface{} {
 		var req VaultOpenRequest
 		if err := c.BindJSON(&req); err != nil {
@@ -58,16 +66,64 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		ctx.logger = logger
-		registry, err := registerActiveVault(ctx)
+		registry, err := activate_vault_context(b, logger, ctx)
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		setActiveVault(ctx)
-		setMainWindowPathname("/home/index")
-		b.Store = vault_settings_store(ctx)
 		return c.Ok(velo.H{
 			"active":   ctx,
+			"created":  !existing,
+			"existing": existing,
+			"registry": registry,
+		})
+	})
+
+	b.Post("/api/vault/open-registered", func(c *velo.BoxContext) interface{} {
+		var req struct {
+			ID string `json:"id"`
+		}
+		if err := c.BindJSON(&req); err != nil {
+			return c.Error(err.Error())
+		}
+		registry, err := loadVaultRegistry()
+		if err != nil {
+			return c.Error(err.Error())
+		}
+		entry, found := vault_registry_entry(registry, req.ID)
+		if !found {
+			return c.Error("registered vault not found")
+		}
+		vault_ctx, existing, err := open_registered_vault_entry(entry)
+		if err != nil {
+			return c.Error(err.Error())
+		}
+		registry, err = activate_vault_context(b, logger, vault_ctx)
+		if err != nil {
+			return c.Error(err.Error())
+		}
+		return c.Ok(velo.H{
+			"active":   vault_ctx,
+			"created":  !existing,
+			"existing": existing,
+			"registry": registry,
+		})
+	})
+
+	b.Post("/api/vault/open-cloudflare", func(c *velo.BoxContext) interface{} {
+		var req CloudflareVaultOpenRequest
+		if err := c.BindJSON(&req); err != nil {
+			return c.Error(err.Error())
+		}
+		vault_ctx, existing, err := open_cloudflare_vault(req)
+		if err != nil {
+			return c.Error(err.Error())
+		}
+		registry, err := activate_vault_context(b, logger, vault_ctx)
+		if err != nil {
+			return c.Error(err.Error())
+		}
+		return c.Ok(velo.H{
+			"active":   vault_ctx,
 			"created":  !existing,
 			"existing": existing,
 			"registry": registry,
@@ -767,6 +823,28 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 		}
 		return c.Ok(velo.H{"success": true, "file": local_path})
 	})
+}
+
+func activate_vault_context(b *velo.Box, logger *zerolog.Logger, vault_ctx *VaultContext) (VaultRegistry, error) {
+	vault_ctx.logger = logger
+	registry, err := registerActiveVault(vault_ctx)
+	if err != nil {
+		return VaultRegistry{}, err
+	}
+	setActiveVault(vault_ctx)
+	setMainWindowPathname("/home/index")
+	b.Store = vault_settings_store(vault_ctx)
+	return registry, nil
+}
+
+func vault_registry_entry(registry VaultRegistry, id string) (VaultEntry, bool) {
+	id = strings.TrimSpace(id)
+	for _, entry := range registry.Vaults {
+		if entry.ID == id {
+			return entry, true
+		}
+	}
+	return VaultEntry{}, false
 }
 
 func log_memo_query_failure(logger *zerolog.Logger, vault_ctx *VaultContext, operation string, err error) {

@@ -3,6 +3,7 @@ import { rebuildMemoIndex } from "./domain/memo-index.js";
 import { loadVaultSync, openVaultSyncDirectory } from "./domain/vault-sync.js";
 
 const PROVIDER_LABELS = {
+  cloudflare: "Cloudflare",
   git: "Git",
   github: "GitHub",
   local: "Local",
@@ -11,6 +12,7 @@ const PROVIDER_LABELS = {
 };
 
 const PROVIDER_DESCRIPTIONS = {
+  cloudflare: "Vault 数据直接保存在 Cloudflare D1，附件保存在 R2。",
   git: "Vault 数据保存在本地 Git 仓库，并与远端仓库同步。",
   github: "Vault 数据保存在本地 Git 仓库，并与 GitHub 同步。",
   local: "Vault 数据直接保存在当前本地目录。",

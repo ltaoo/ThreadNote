@@ -225,7 +225,7 @@ func recover_project_file_from_registry(vault_ctx *VaultContext, project_created
 	best_file := ProjectFile{}
 	best_match_count := 0
 	for _, vault_entry := range registry.Vaults {
-		if samePath(vault_entry.Path, vault_ctx.RootDir) {
+		if normalize_vault_provider(vault_entry.Provider) != vault_provider_local || samePath(vault_entry.Path, vault_ctx.RootDir) {
 			continue
 		}
 		source_fs, err := new_local_vault_fs(vault_entry.Path)

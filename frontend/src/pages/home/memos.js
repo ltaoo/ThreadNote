@@ -137,6 +137,7 @@ import { memoTaskCheckboxChange } from "./memo-task-checkbox.model.js";
 import {
   activeViewMeta,
   applyContentOpsToString,
+  canCloseMemoDialog,
   MemoCardViewModel,
   stripMemoFrontmatter,
 } from "./memo-view-model.js";
@@ -3905,7 +3906,9 @@ export function mountMemosHome(root, options = {}) {
         onAction: runMemoDialogAction,
         store: openDialogStore({
           onCancel() {
-            if (!state.memoDialog?.saving) closeMemoDialog();
+            if (canCloseMemoDialog(state.memoDialog, dialogState)) {
+              closeMemoDialog();
+            }
           },
           title: comment_editing ? "编辑评论" : "评论",
         }),

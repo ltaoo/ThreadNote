@@ -1,7 +1,10 @@
 import { errorText } from "@/domain/native.js";
 import {
   loadVaultStatus,
+  normalizeVaultEntry,
   normalizeVaultPath,
+  openCloudflareVault,
+  openRegisteredVault,
   openVault,
   selectVaultDirectory,
 } from "@/domain/vaults.js";
@@ -22,6 +25,8 @@ function defaultRedirect() {
  *   runtime?: typeof Timeless,
  *   services?: {
  *     loadVaultStatus?: typeof loadVaultStatus,
+ *     openCloudflareVault?: typeof openCloudflareVault,
+ *     openRegisteredVault?: typeof openRegisteredVault,
  *     openVault?: typeof openVault,
  *     selectVaultDirectory?: typeof selectVaultDirectory,
  *   },
@@ -35,6 +40,8 @@ export function VaultPickerPageModel(props = {}) {
 
   const services = {
     loadVaultStatus,
+    openCloudflareVault,
+    openRegisteredVault,
     openVault,
     selectVaultDirectory,
     ...(props.services || {}),
@@ -45,24 +52,40 @@ export function VaultPickerPageModel(props = {}) {
     : REDIRECT_DELAY;
 
   const active_ = runtime.ref(null);
+  const account_id_ = runtime.ref("");
+  const api_token_ = runtime.ref("");
   const data_file_exists_ = runtime.ref(false);
   const data_path_ = runtime.ref("");
+  const database_id_ = runtime.ref("");
   const loading_ = runtime.ref(false);
   const message_ = runtime.ref("");
   const message_type_ = runtime.ref("");
+  const mode_ = runtime.ref("local");
+  const name_ = runtime.ref("");
   const path_ = runtime.ref("");
+  const r2_access_key_id_ = runtime.ref("");
+  const r2_bucket_ = runtime.ref("");
+  const r2_secret_access_key_ = runtime.ref("");
   const vaults_ = runtime.refarr([]);
   let destroyed_ = false;
   let redirect_timer_ = null;
 
   const state = {
     active: active_,
+    accountId: account_id_,
+    apiToken: api_token_,
     dataFileExists: data_file_exists_,
     dataPath: data_path_,
+    databaseId: database_id_,
     loading: loading_,
     message: message_,
     messageType: message_type_,
+    mode: mode_,
+    name: name_,
     path: path_,
+    r2AccessKeyId: r2_access_key_id_,
+    r2Bucket: r2_bucket_,
+    r2SecretAccessKey: r2_secret_access_key_,
     vaults: vaults_,
   };
 
@@ -107,10 +130,76 @@ export function VaultPickerPageModel(props = {}) {
     }
   }
 
+  function cloudflare_config() {
+    return {
+      accountId: String(account_id_.value || "").trim(),
+      apiToken: String(api_token_.value || "").trim(),
+      databaseId: String(database_id_.value || "").trim(),
+      name: String(name_.value || "").trim(),
+      r2AccessKeyId: String(r2_access_key_id_.value || "").trim(),
+      r2Bucket: String(r2_bucket_.value || "").trim(),
+      r2SecretAccessKey: String(r2_secret_access_key_.value || "").trim(),
+    };
+  }
+
+  function missing_cloudflare_field(config) {
+    const fields = [
+      ["accountId", "Account ID"],
+      ["databaseId", "D1 Database ID"],
+      ["apiToken", "API Token"],
+      ["r2Bucket", "R2 Bucket"],
+      ["r2AccessKeyId", "R2 Access Key ID"],
+      ["r2SecretAccessKey", "R2 Secret Access Key"],
+    ];
+    const missing = fields.find(function ([key]) {
+      return !config[key];
+    });
+    return missing ? missing[1] : "";
+  }
+
+  async function perform_cloudflare_open() {
+    const config = cloudflare_config();
+    const missing = missing_cloudflare_field(config);
+    if (missing) {
+      set_message("请填写 " + missing, "warning");
+      return false;
+    }
+    try {
+      const data = await services.openCloudflareVault(config);
+      if (destroyed_) return false;
+      set_message(data && data.created ? "已创建 Cloudflare vault" : "已加载 Cloudflare vault", "success");
+      schedule_redirect();
+      return true;
+    } catch (err) {
+      set_message("打开 Cloudflare vault 失败: " + errorText(err), "error");
+      return false;
+    }
+  }
+
   const methods = {
+    setMode(mode) {
+      if (destroyed_) return;
+      mode_.as(String(mode || "").trim().toLowerCase() === "cloudflare" ? "cloudflare" : "local");
+      set_message("");
+    },
+
     setPath(path) {
       if (destroyed_) return;
       path_.as(String(path || ""));
+    },
+
+    setCloudflareField(field, value) {
+      if (destroyed_) return;
+      const fields = {
+        accountId: account_id_,
+        apiToken: api_token_,
+        databaseId: database_id_,
+        name: name_,
+        r2AccessKeyId: r2_access_key_id_,
+        r2Bucket: r2_bucket_,
+        r2SecretAccessKey: r2_secret_access_key_,
+      };
+      if (fields[field]) fields[field].as(String(value || ""));
     },
 
     async init() {
@@ -161,6 +250,38 @@ export function VaultPickerPageModel(props = {}) {
       set_loading(true);
       try {
         return await perform_open(path);
+      } finally {
+        set_loading(false);
+      }
+    },
+
+    async openCloudflareVault() {
+      if (destroyed_ || loading_.value) return false;
+      set_loading(true);
+      try {
+        return await perform_cloudflare_open();
+      } finally {
+        set_loading(false);
+      }
+    },
+
+    async openRegisteredVault(vault) {
+      if (destroyed_ || loading_.value) return false;
+      const entry = normalizeVaultEntry(vault);
+      if (!entry || !entry.id) {
+        set_message("请选择已登记的 vault", "warning");
+        return false;
+      }
+      set_loading(true);
+      try {
+        const data = await services.openRegisteredVault(entry.id);
+        if (destroyed_) return false;
+        set_message(data && data.created ? "已创建 vault" : "已加载 vault", "success");
+        schedule_redirect();
+        return true;
+      } catch (err) {
+        set_message("打开 vault 失败: " + errorText(err), "error");
+        return false;
       } finally {
         set_loading(false);
       }

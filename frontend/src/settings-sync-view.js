@@ -105,8 +105,8 @@ export function mountSettingsVaultView(options = {}) {
     const button = document_ref.createElement("button");
     button.className = "settings-storage-item" + (selected ? " is-selected" : "");
     button.type = "button";
-    button.disabled = state.loading || state.choosing || Boolean(state.switchingPath) || selected;
-    button.dataset.vaultPath = vault.path;
+    button.disabled = state.loading || state.choosing || Boolean(state.switchingId) || selected;
+    button.dataset.vaultId = vault.id;
     button.setAttribute("data-n", "settings-vault-item");
     if (selected) button.setAttribute("aria-current", "true");
 
@@ -124,7 +124,7 @@ export function mountSettingsVaultView(options = {}) {
     badge.className = "settings-storage-badge";
     badge.textContent = selected
       ? "当前"
-      : state.switchingPath === vault.path
+      : state.switchingId === vault.id
         ? "切换中"
         : "切换";
     button.append(main, badge);
@@ -136,8 +136,8 @@ export function mountSettingsVaultView(options = {}) {
     current_name.textContent = current_vault ? current_vault.name : "未选择 Vault";
     current_path.textContent = current_vault ? current_vault.path : "请选择一个 Vault 目录";
     current_badge.textContent = current_vault ? "当前" : "未选择";
-    choose_button.disabled = state.loading || state.choosing || Boolean(state.switchingPath);
-    choose_button.textContent = state.choosing ? "正在选择…" : "切换 Vault";
+    choose_button.disabled = state.loading || state.choosing || Boolean(state.switchingId);
+    choose_button.textContent = state.choosing ? "正在打开…" : "切换 Vault";
 
     vault_list.replaceChildren();
     if (state.vaults.length === 0) {
@@ -164,9 +164,12 @@ export function mountSettingsVaultView(options = {}) {
     model.chooseVault();
   });
   vault_list.addEventListener("click", function (event) {
-    const button = event.target.closest("[data-vault-path]");
+    const button = event.target.closest("[data-vault-id]");
     if (!button || !vault_list.contains(button)) return;
-    model.switchVault(button.dataset.vaultPath || "");
+    const vault = model.getState().vaults.find(function (entry) {
+      return entry.id === button.dataset.vaultId;
+    });
+    model.switchVault(vault);
   });
   model.init();
 

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   activeViewMeta,
   applyContentOpsToString,
+  canCloseMemoDialog,
   detachedMemoRenderContext,
   MemoCardViewModel,
   parseHost,
@@ -37,6 +38,15 @@ test("parseHost normalizes common host names and rejects invalid URLs", function
     hostname: "www.example.com",
   });
   assert.deepEqual(parseHost("not a URL"), { host: "", hostname: "" });
+});
+
+test("stale memo dialog cancellation cannot close the current dialog", function () {
+  const stale_dialog = { saving: false };
+  const current_dialog = { saving: false };
+  assert.equal(canCloseMemoDialog(current_dialog, stale_dialog), false);
+  assert.equal(canCloseMemoDialog(current_dialog, current_dialog), true);
+  current_dialog.saving = true;
+  assert.equal(canCloseMemoDialog(current_dialog, current_dialog), false);
 });
 
 test("content operations replay unicode-safe history edits", function () {

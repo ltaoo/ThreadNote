@@ -17,7 +17,7 @@
 @import url("./workspace-memos.css?v=20260825-memo-virtual-list");
 @import url("./memo-code.css?v=20260820-code-snippet-workbench");
 @import url("./workspace-collections.css");
-@import url("./workspace-windows.css?v=20260820-fixed-comment-dialog-width");
+@import url("./workspace-windows.css?v=20260827-autogrow-comment-dialog");
 @import url("./workspace-timeline.css");
 @import url("./standalone-tools.css");
 @import url("./pages/home/home_logs.css?v=20260826-application-diagnostics");

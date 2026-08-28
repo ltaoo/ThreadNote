@@ -2,9 +2,8 @@ import { errorText } from "./domain/native.js";
 import {
   loadVaultStatus,
   normalizeVaultEntry,
-  normalizeVaultPath,
-  openVault,
-  selectVaultDirectory,
+  openRegisteredVault,
+  openVaultPicker,
 } from "./domain/vaults.js";
 
 function currentVaultEntry(status) {
@@ -32,8 +31,8 @@ function sameVault(left, right) {
 export function SettingsVaultModel(options = {}) {
   const services = {
     loadVaultStatus,
-    openVault,
-    selectVaultDirectory,
+    openRegisteredVault,
+    openVaultPicker,
     ...(options.services || {}),
   };
   const on_vault_changed = typeof options.onVaultChanged === "function"
@@ -47,7 +46,7 @@ export function SettingsVaultModel(options = {}) {
     loading: false,
     message: "",
     messageType: "",
-    switchingPath: "",
+    switchingId: "",
     vaults: [],
   });
 
@@ -101,7 +100,7 @@ export function SettingsVaultModel(options = {}) {
     },
 
     async init() {
-      if (destroyed_ || state_.loading || state_.switchingPath || state_.choosing) {
+      if (destroyed_ || state_.loading || state_.switchingId || state_.choosing) {
         return false;
       }
       publish({ loading: true, message: "", messageType: "" });
@@ -120,16 +119,16 @@ export function SettingsVaultModel(options = {}) {
       }
     },
 
-    async switchVault(path) {
-      const value = normalizeVaultPath(path);
-      if (destroyed_ || state_.loading || state_.switchingPath || state_.choosing) {
+    async switchVault(vault) {
+      const entry = normalizeVaultEntry(vault);
+      if (destroyed_ || state_.loading || state_.switchingId || state_.choosing) {
         return false;
       }
-      if (!value) {
-        publish({ message: "请选择 Vault 目录", messageType: "warning" });
+      if (!entry || !entry.id) {
+        publish({ message: "请选择已登记的 Vault", messageType: "warning" });
         return false;
       }
-      if (state_.currentVault && state_.currentVault.path === value) {
+      if (sameVault(state_.currentVault, entry)) {
         publish({
           message: "当前已在使用 " + state_.currentVault.name,
           messageType: "ready",
@@ -140,17 +139,17 @@ export function SettingsVaultModel(options = {}) {
       publish({
         message: "正在切换 Vault…",
         messageType: "",
-        switchingPath: value,
+        switchingId: entry.id,
       });
       try {
-        const result = await services.openVault(value);
+        const result = await services.openRegisteredVault(entry.id);
         if (destroyed_) return false;
         const current_vault = await refresh_after_switch(result);
         if (destroyed_) return false;
         publish({
           message: "已切换到 " + ((current_vault && current_vault.name) || "Vault"),
           messageType: "ready",
-          switchingPath: "",
+          switchingId: "",
         });
         on_vault_changed(current_vault, result);
         return true;
@@ -158,32 +157,31 @@ export function SettingsVaultModel(options = {}) {
         publish({
           message: "切换 Vault 失败：" + errorText(err),
           messageType: "warning",
-          switchingPath: "",
+          switchingId: "",
         });
         return false;
       }
     },
 
     async chooseVault() {
-      if (destroyed_ || state_.loading || state_.switchingPath || state_.choosing) {
+      if (destroyed_ || state_.loading || state_.switchingId || state_.choosing) {
         return false;
       }
-      publish({ choosing: true, message: "正在选择 Vault 目录…", messageType: "" });
+      publish({ choosing: true, message: "正在打开 Vault 初始化窗口…", messageType: "" });
       try {
-        const path = await services.selectVaultDirectory();
+        await services.openVaultPicker();
         if (destroyed_) return false;
-        publish({ choosing: false });
-        if (!normalizeVaultPath(path)) {
-          publish({ message: "已取消选择", messageType: "" });
-          return false;
-        }
-        return await model.switchVault(path);
-      } catch (err) {
-        const message = errorText(err);
         publish({
           choosing: false,
-          message: message === "cancelled" ? "已取消选择" : "选择目录失败：" + message,
-          messageType: message === "cancelled" ? "" : "warning",
+          message: "已打开 Vault 初始化窗口",
+          messageType: "ready",
+        });
+        return true;
+      } catch (err) {
+        publish({
+          choosing: false,
+          message: "打开 Vault 初始化窗口失败：" + errorText(err),
+          messageType: "warning",
         });
         return false;
       }

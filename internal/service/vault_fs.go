@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// vault_fs is the storage boundary for a local Vault workspace. All paths
+// vault_fs is the storage boundary for a Vault workspace. All paths
 // crossing this interface are Vault-relative and use slash separators.
 type vault_fs interface {
 	append_file(path string, data []byte, mode fs.FileMode) error

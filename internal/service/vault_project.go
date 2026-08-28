@@ -40,10 +40,27 @@ type VaultRegistry struct {
 }
 
 type VaultEntry struct {
-	ID           string `json:"id"`
-	LastOpenedAt string `json:"lastOpenedAt"`
-	Name         string `json:"name"`
-	Path         string `json:"path"`
+	Cloudflare   *CloudflareVaultConfig `json:"-"`
+	ID           string                 `json:"id"`
+	LastOpenedAt string                 `json:"lastOpenedAt"`
+	Name         string                 `json:"name"`
+	Path         string                 `json:"path"`
+	Provider     string                 `json:"provider"`
+}
+
+type vault_registry_file struct {
+	SchemaVersion int                `json:"schemaVersion"`
+	ActiveVaultID string             `json:"activeVaultId"`
+	Vaults        []vault_entry_file `json:"vaults"`
+}
+
+type vault_entry_file struct {
+	Cloudflare   *CloudflareVaultConfig `json:"cloudflare,omitempty"`
+	ID           string                 `json:"id"`
+	LastOpenedAt string                 `json:"lastOpenedAt"`
+	Name         string                 `json:"name"`
+	Path         string                 `json:"path"`
+	Provider     string                 `json:"provider,omitempty"`
 }
 
 type VaultFile struct {
@@ -110,12 +127,51 @@ func loadVaultRegistry() (VaultRegistry, error) {
 		return VaultRegistry{SchemaVersion: vaultSchemaVersion, Vaults: []VaultEntry{}}, nil
 	}
 
-	var registry VaultRegistry
-	if err := json.Unmarshal(raw, &registry); err != nil {
+	var file vault_registry_file
+	if err := json.Unmarshal(raw, &file); err != nil {
 		return VaultRegistry{}, fmt.Errorf("read vault registry: %w", err)
 	}
+	registry := vault_registry_from_file(file)
 	registry = normalizeVaultRegistry(registry)
 	return registry, nil
+}
+
+func vault_registry_from_file(file vault_registry_file) VaultRegistry {
+	registry := VaultRegistry{
+		ActiveVaultID: file.ActiveVaultID,
+		SchemaVersion: file.SchemaVersion,
+		Vaults:        make([]VaultEntry, 0, len(file.Vaults)),
+	}
+	for _, entry := range file.Vaults {
+		registry.Vaults = append(registry.Vaults, VaultEntry{
+			Cloudflare:   clone_cloudflare_vault_config(entry.Cloudflare),
+			ID:           entry.ID,
+			LastOpenedAt: entry.LastOpenedAt,
+			Name:         entry.Name,
+			Path:         entry.Path,
+			Provider:     entry.Provider,
+		})
+	}
+	return registry
+}
+
+func vault_registry_file_from_registry(registry VaultRegistry) vault_registry_file {
+	file := vault_registry_file{
+		ActiveVaultID: registry.ActiveVaultID,
+		SchemaVersion: registry.SchemaVersion,
+		Vaults:        make([]vault_entry_file, 0, len(registry.Vaults)),
+	}
+	for _, entry := range registry.Vaults {
+		file.Vaults = append(file.Vaults, vault_entry_file{
+			Cloudflare:   clone_cloudflare_vault_config(entry.Cloudflare),
+			ID:           entry.ID,
+			LastOpenedAt: entry.LastOpenedAt,
+			Name:         entry.Name,
+			Path:         entry.Path,
+			Provider:     entry.Provider,
+		})
+	}
+	return file
 }
 
 func normalizeVaultRegistry(registry VaultRegistry) VaultRegistry {
@@ -127,15 +183,23 @@ func normalizeVaultRegistry(registry VaultRegistry) VaultRegistry {
 	for _, entry := range registry.Vaults {
 		entry.ID = strings.TrimSpace(entry.ID)
 		entry.Path = strings.TrimSpace(entry.Path)
+		entry.Provider = normalize_vault_provider(entry.Provider)
 		if entry.ID == "" || entry.Path == "" {
 			continue
 		}
-		cleanPath, err := cleanVaultPath(entry.Path)
-		if err == nil {
-			entry.Path = cleanPath
+		if entry.Provider == vault_provider_cloudflare {
+			config := normalize_cloudflare_vault_config(value_or_empty_cloudflare_config(entry.Cloudflare))
+			entry.Cloudflare = &config
+			entry.Path = cloudflare_vault_locator(config)
+		} else {
+			clean_path, err := cleanVaultPath(entry.Path)
+			if err == nil {
+				entry.Path = clean_path
+			}
+			entry.Cloudflare = nil
 		}
 		if entry.Name == "" {
-			entry.Name = vaultDisplayName(entry.Path)
+			entry.Name = vault_display_name_for_entry(entry)
 		}
 		key := entry.ID
 		if seen[key] {
@@ -160,7 +224,7 @@ func saveVaultRegistry(registry VaultRegistry) error {
 	if registry.SchemaVersion == 0 {
 		registry.SchemaVersion = vaultSchemaVersion
 	}
-	return writeJSONFileAtomic(path, registry)
+	return writeJSONFileAtomic(path, vault_registry_file_from_registry(registry))
 }
 
 func writeJSONFileAtomic(path string, value interface{}) error {
@@ -172,7 +236,10 @@ func writeJSONFileAtomic(path string, value interface{}) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0644); err != nil {
+	if err := os.WriteFile(tmp, append(raw, '\n'), 0600); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp, 0600); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)
@@ -200,7 +267,7 @@ func loadStartupVault() (*VaultContext, error) {
 	if !ok {
 		return nil, nil
 	}
-	ctx, _, err := openVaultDirectory(entry.Path, false)
+	ctx, _, err := open_registered_vault_entry(entry)
 	if err != nil {
 		return nil, err
 	}
@@ -208,75 +275,95 @@ func loadStartupVault() (*VaultContext, error) {
 }
 
 func openVaultDirectory(value string, createIfMissing bool) (*VaultContext, bool, error) {
-	rootDir, err := cleanVaultPath(value)
+	root_dir, err := cleanVaultPath(value)
 	if err != nil {
 		return nil, false, err
 	}
-	info, err := os.Stat(rootDir)
+	info, err := os.Stat(root_dir)
 	if err != nil {
 		return nil, false, fmt.Errorf("vault directory is not accessible: %w", err)
 	}
 	if !info.IsDir() {
 		return nil, false, fmt.Errorf("vault path is not a directory")
 	}
-	workspace_fs, err := new_local_vault_fs(rootDir)
+	workspace_fs, err := new_local_vault_fs(root_dir)
 	if err != nil {
 		return nil, false, err
 	}
+	return open_vault_workspace(root_dir, workspace_fs, createIfMissing, VaultEntry{
+		Path:     root_dir,
+		Provider: vault_provider_local,
+	})
+}
+
+func open_vault_workspace(root_dir string, workspace_fs vault_fs, create_if_missing bool, entry_template VaultEntry) (*VaultContext, bool, error) {
 	if err := ensure_vault_fs_writable(workspace_fs); err != nil {
 		return nil, false, err
 	}
 
-	veloDir := filepath.Join(rootDir, vaultConfigDirName)
-	veloInfo, err := workspace_fs.stat_file(vaultConfigDirName)
-	existingVault := false
+	velo_dir := filepath.Join(root_dir, vaultConfigDirName)
+	velo_info, err := workspace_fs.stat_file(vaultConfigDirName)
+	existing_vault := false
 	if err == nil {
-		if !veloInfo.IsDir() {
+		if !velo_info.IsDir() {
 			return nil, false, fmt.Errorf(".velo exists but is not a directory")
 		}
-		existingVault = true
+		existing_vault = true
 	} else if is_vault_file_not_exist(err) {
 		has_source_data, source_err := vault_has_source_data(workspace_fs)
 		if source_err != nil {
 			return nil, false, source_err
 		}
-		if !createIfMissing && !has_source_data {
+		if !create_if_missing && !has_source_data {
 			return nil, false, fmt.Errorf("vault config directory does not exist")
 		}
 		if err := workspace_fs.make_dir_all(vaultConfigDirName, 0755); err != nil {
 			return nil, false, fmt.Errorf("create .velo directory: %w", err)
 		}
-		existingVault = has_source_data
+		existing_vault = has_source_data
 	} else {
 		return nil, false, fmt.Errorf("stat .velo directory: %w", err)
 	}
+	if err := os.MkdirAll(velo_dir, 0700); err != nil {
+		return nil, false, fmt.Errorf("create local vault cache: %w", err)
+	}
 
-	memoDir := filepath.Join(rootDir, vaultMemoDirName)
+	memo_dir := filepath.Join(root_dir, vaultMemoDirName)
 	if err := workspace_fs.make_dir_all(vaultMemoDirName, 0755); err != nil {
 		return nil, false, fmt.Errorf("create memo directory: %w", err)
 	}
-	memoCommentDir := filepath.Join(rootDir, vaultMemoCommentDirName)
+	memo_comment_dir := filepath.Join(root_dir, vaultMemoCommentDirName)
 	if err := workspace_fs.make_dir_all(vaultMemoCommentDirName, 0755); err != nil {
 		return nil, false, fmt.Errorf("create memo comment directory: %w", err)
 	}
 
-	vaultFile, err := load_or_create_vault_file(rootDir, workspace_fs)
+	vault_file, err := load_or_create_vault_file(entry_template.Path, workspace_fs)
 	if err != nil {
 		return nil, false, err
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	entry := VaultEntry{
-		ID:           vaultFile.ID,
+	entry := entry_template
+	entry.ID = vault_file.ID
+	entry.LastOpenedAt = now
+	entry.Name = firstNonEmpty(entry_template.Name, vault_file.Name, vault_display_name_for_entry(entry_template))
+	entry.Provider = normalize_vault_provider(entry_template.Provider)
+	if entry.Path == "" {
+		entry.Path = root_dir
+	}
+	entry = VaultEntry{
+		Cloudflare:   clone_cloudflare_vault_config(entry.Cloudflare),
+		ID:           entry.ID,
 		LastOpenedAt: now,
-		Name:         firstNonEmpty(vaultFile.Name, vaultDisplayName(rootDir)),
-		Path:         rootDir,
+		Name:         entry.Name,
+		Path:         entry.Path,
+		Provider:     entry.Provider,
 	}
 	vault_ctx := &VaultContext{
 		Entry:          entry,
-		RootDir:        rootDir,
-		VeloDir:        veloDir,
-		MemoDir:        memoDir,
-		MemoCommentDir: memoCommentDir,
+		RootDir:        root_dir,
+		VeloDir:        velo_dir,
+		MemoDir:        memo_dir,
+		MemoCommentDir: memo_comment_dir,
 		fs:             workspace_fs,
 	}
 	if err := ensure_vault_projects_from_memos(vault_ctx); err != nil {
@@ -289,7 +376,7 @@ func openVaultDirectory(value string, createIfMissing bool) (*VaultContext, bool
 	if err := migrate_legacy_items_to_tasks(vault_ctx); err != nil {
 		return nil, false, fmt.Errorf("migrate legacy items to tasks: %w", err)
 	}
-	return vault_ctx, existingVault, nil
+	return vault_ctx, existing_vault, nil
 }
 
 func vault_has_source_data(workspace_fs vault_fs) (bool, error) {
@@ -401,7 +488,7 @@ func registerActiveVault(ctx *VaultContext) (VaultRegistry, error) {
 	registry.ActiveVaultID = ctx.Entry.ID
 	updated := false
 	for i, entry := range registry.Vaults {
-		if entry.ID == ctx.Entry.ID || samePath(entry.Path, ctx.Entry.Path) {
+		if entry.ID == ctx.Entry.ID || same_vault_location(entry, ctx.Entry) {
 			registry.Vaults[i] = ctx.Entry
 			updated = true
 			break
@@ -477,6 +564,30 @@ func samePath(a string, b string) bool {
 		return strings.EqualFold(a, b)
 	}
 	return a == b
+}
+
+func normalize_vault_provider(provider string) string {
+	if strings.EqualFold(strings.TrimSpace(provider), vault_provider_cloudflare) {
+		return vault_provider_cloudflare
+	}
+	return vault_provider_local
+}
+
+func same_vault_location(left VaultEntry, right VaultEntry) bool {
+	if normalize_vault_provider(left.Provider) != normalize_vault_provider(right.Provider) {
+		return false
+	}
+	if normalize_vault_provider(left.Provider) == vault_provider_cloudflare {
+		return strings.EqualFold(strings.TrimSpace(left.Path), strings.TrimSpace(right.Path))
+	}
+	return samePath(left.Path, right.Path)
+}
+
+func vault_display_name_for_entry(entry VaultEntry) string {
+	if normalize_vault_provider(entry.Provider) == vault_provider_cloudflare {
+		return "Cloudflare Vault"
+	}
+	return vaultDisplayName(entry.Path)
 }
 
 func vaultDisplayName(path string) string {

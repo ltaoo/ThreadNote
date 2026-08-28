@@ -9,6 +9,7 @@ export function normalizeVaultEntry(vault) {
     lastOpenedAt: vault.lastOpenedAt || "",
     name: String(vault.name || "Vault").trim() || "Vault",
     path,
+    provider: String(vault.provider || "local").trim().toLowerCase() || "local",
   };
 }
 
@@ -45,4 +46,33 @@ export function openVault(path) {
     method: "POST",
     args: { path: value },
   });
+}
+
+export function openRegisteredVault(id) {
+  const value = String(id || "").trim();
+  if (!value) return Promise.reject(new Error("请选择已登记的 vault"));
+  return callNativeAPI("/api/vault/open-registered", {
+    method: "POST",
+    args: { id: value },
+  });
+}
+
+export function openCloudflareVault(config) {
+  const value = config && typeof config === "object" ? config : {};
+  return callNativeAPI("/api/vault/open-cloudflare", {
+    method: "POST",
+    args: {
+      accountId: String(value.accountId || "").trim(),
+      apiToken: String(value.apiToken || "").trim(),
+      databaseId: String(value.databaseId || "").trim(),
+      name: String(value.name || "").trim(),
+      r2AccessKeyId: String(value.r2AccessKeyId || "").trim(),
+      r2Bucket: String(value.r2Bucket || "").trim(),
+      r2SecretAccessKey: String(value.r2SecretAccessKey || "").trim(),
+    },
+  });
+}
+
+export function openVaultPicker() {
+  return callNativeAPI("/api/vault/switch", { method: "POST", args: {} });
 }

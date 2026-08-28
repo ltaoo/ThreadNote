@@ -27,6 +27,7 @@ test("settings vault model loads the active and registered vaults", async functi
     lastOpenedAt: "",
     name: "Work",
     path: "/vaults/work",
+    provider: "local",
   });
   assert.equal(model.getState().vaults.length, 2);
   model.destroy();
@@ -51,17 +52,17 @@ test("settings vault model switches vault through the global open API", async fu
           ],
         };
       },
-      async openVault(path) {
-        opened_paths.push(path);
-        active_path = path;
+      async openRegisteredVault(id) {
+        opened_paths.push(id);
+        active_path = id === "notes" ? "/vaults/notes" : "/vaults/work";
         return { existing: true };
       },
     },
   });
 
   await model.init();
-  assert.equal(await model.switchVault(" /vaults/notes "), true);
-  assert.deepEqual(opened_paths, ["/vaults/notes"]);
+  assert.equal(await model.switchVault({ id: "notes", name: "Notes", path: "/vaults/notes" }), true);
+  assert.deepEqual(opened_paths, ["notes"]);
   assert.equal(model.getState().currentVault.id, "notes");
   assert.equal(model.getState().message, "已切换到 Notes");
   assert.equal(model.getState().messageType, "ready");
@@ -69,27 +70,29 @@ test("settings vault model switches vault through the global open API", async fu
   model.destroy();
 });
 
-test("settings vault model chooses a directory and reports switch errors", async function () {
-  const opened_paths = [];
+test("settings vault model opens the picker and reports switch errors", async function () {
+  let picker_open_count = 0;
   const model = SettingsVaultModel({
     services: {
       async loadVaultStatus() {
         return { active: null, vaults: [] };
       },
-      async openVault(path) {
-        opened_paths.push(path);
+      async openRegisteredVault() {
         throw new Error("not writable");
       },
-      async selectVaultDirectory() {
-        return " /vaults/new ";
+      async openVaultPicker() {
+        picker_open_count += 1;
       },
     },
   });
 
-  assert.equal(await model.chooseVault(), false);
-  assert.deepEqual(opened_paths, ["/vaults/new"]);
+  assert.equal(await model.chooseVault(), true);
+  assert.equal(picker_open_count, 1);
   assert.equal(model.getState().choosing, false);
-  assert.equal(model.getState().switchingPath, "");
+  assert.equal(model.getState().message, "已打开 Vault 初始化窗口");
+
+  assert.equal(await model.switchVault({ id: "new", name: "New", path: "/vaults/new" }), false);
+  assert.equal(model.getState().switchingId, "");
   assert.match(model.getState().message, /not writable/);
   assert.equal(model.getState().messageType, "warning");
   model.destroy();

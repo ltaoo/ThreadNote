@@ -10,6 +10,10 @@ export function parseHost(url) {
   }
 }
 
+export function canCloseMemoDialog(current_dialog, owned_dialog) {
+  return current_dialog === owned_dialog && !owned_dialog.saving;
+}
+
 export function detachedMemoRenderContext(state, source_id, options = {}) {
   const index = state.memoRefIndex || buildMemoReferenceIndex(state.memos);
   state.memoRefIndex = index;
