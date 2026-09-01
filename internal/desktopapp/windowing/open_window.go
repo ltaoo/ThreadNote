@@ -103,6 +103,12 @@ func BuildOpenWindowSpec(req OpenWindowRequest) WindowSpec {
 		spec.Title = AppTitle
 		spec.Width = 1024
 		spec.Height = 768
+	case "/vault-picker":
+		spec.EntryPage = "index.html"
+		spec.Name = "vault-picker"
+		spec.Title = AppTitle
+		spec.Width = 760
+		spec.Height = 640
 	case "/settings":
 		spec.EntryPage = "settings.html"
 		spec.Name = "settings"

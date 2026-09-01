@@ -521,7 +521,8 @@ export function VaultPickerPageView(props) {
       class: "vault-picker-route-host w-full h-full",
       attributes: { n: "vault-picker-route-host" },
       onMounted(event) {
-        const root = event && event.target ? event.target : event;
+        const target = event?.target || event;
+        const root = target?.get$elm?.() || target;
         DOM.render(content$, root);
       },
       onUnmounted() {

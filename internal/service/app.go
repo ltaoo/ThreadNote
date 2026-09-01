@@ -37,6 +37,8 @@ type Assets struct {
 var appAssets Assets
 var mainWindowPathname = "/home/index"
 
+const vaultPickerWindowOpenDelay = 250 * time.Millisecond
+
 func appVersion() string {
 	if appAssets.Version == "" {
 		return "1.0.0"
@@ -169,7 +171,61 @@ func mainWindowOptions(pathname string, b *velo.Box, logger *zerolog.Logger) *ve
 	}
 }
 
+func supportsSecondaryWebviewWindows() bool {
+	engine := os.Getenv("VELO_WEBVIEW_ENGINE")
+	if engine == "" {
+		config := velo.LoadAppConfig(appAssets.AppConfigData)
+		engine = config.Desktop.Engine
+		if engine == "" && config.Desktop.Electron.Enabled {
+			engine = "electron"
+		}
+	}
+	return engine == "electron" || runtime.GOOS == "darwin" || runtime.GOOS == "windows"
+}
+
+func startupWindowOptions(hasActiveVault, canOpenSecondaryWindow bool, b *velo.Box, logger *zerolog.Logger) *velo.VeloWebviewOpt {
+	if hasActiveVault {
+		return mainWindowOptions("/home/index", b, logger)
+	}
+	if !canOpenSecondaryWindow {
+		return vaultPickerWindowOptions(true)
+	}
+
+	options := mainWindowOptions("/home/index", b, logger)
+	options.Hidden = true
+	return options
+}
+
+func vaultPickerWindowOptions(primary bool) *velo.VeloWebviewOpt {
+	spec := windowing.BuildOpenWindowSpec(windowing.OpenWindowRequest{Pathname: "/vault-picker"})
+	if primary {
+		spec.Pathname += "?primary=1"
+	}
+	return &velo.VeloWebviewOpt{
+		Name:                 spec.Name,
+		Title:                spec.Title,
+		FrontendFS:           appAssets.FrontendFS,
+		EntryPage:            spec.EntryPage,
+		Pathname:             spec.Pathname,
+		Width:                spec.Width,
+		Height:               spec.Height,
+		PreserveStateOnFocus: true,
+	}
+}
+
+func showVaultPickerWindow(b *velo.Box) {
+	b.OpenWindow(vaultPickerWindowOptions(false))
+}
+
 func showMainWindow(b *velo.Box, logger *zerolog.Logger) {
+	if activeVaultSnapshot() == nil {
+		if supportsSecondaryWebviewWindows() {
+			showVaultPickerWindow(b)
+		} else {
+			b.Webview.Show()
+		}
+		return
+	}
 	b.OpenWindow(mainWindowOptions(currentMainWindowPathname(), b, logger))
 	b.SendMessage(velo.H{"type": "main_window_focus"})
 }
@@ -192,11 +248,12 @@ func Run(assets Assets) {
 	opt := velo.VeloAppOpt{
 		Mode:                   velo.ModeBridge,
 		IconData:               appAssets.AppIcon,
+		AppConfig:              velo.LoadAppConfig(appAssets.AppConfigData),
 		EnableLocalStorage:     false,
 		QuitOnLastWindowClosed: &quit_on_last_window_closed,
 	}
 	b := velo.NewApp(&opt)
-	initialPathname := "/vault-picker"
+	hasActiveVault := false
 	if startupVault, err := loadStartupVault(); err != nil {
 		logger.Warn().Msgf("Active vault unavailable: %v", err)
 	} else if startupVault != nil {
@@ -205,8 +262,8 @@ func Run(assets Assets) {
 		if _, err := registerActiveVault(startupVault); err != nil {
 			logger.Warn().Msgf("Failed to update active vault registry: %v", err)
 		}
-		b.Store = vault_settings_store(startupVault)
-		initialPathname = "/home/index"
+		b.Store = store.NewWithDir(startupVault.VeloDir)
+		hasActiveVault = true
 		logger.Info().Msgf("Active vault: %s", startupVault.RootDir)
 	} else if dir, err := globalVeloDir(); err == nil {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -215,7 +272,7 @@ func Run(assets Assets) {
 			b.Store = store.NewWithDir(dir)
 		}
 	}
-	setMainWindowPathname(initialPathname)
+	setMainWindowPathname("/home/index")
 	logger.Info().Msgf("Store path: %s", b.Store.Path())
 
 	inputSourceLock := NewInputSourceLockService(logger)
@@ -234,12 +291,26 @@ func Run(assets Assets) {
 	sm := shortcut.NewManager()
 	_ = sm
 
-	b.NewWebview(mainWindowOptions(initialPathname, b, logger))
+	canOpenSecondaryWindow := supportsSecondaryWebviewWindows()
+	startupOptions := startupWindowOptions(hasActiveVault, canOpenSecondaryWindow, b, logger)
+	if repaired, err := repairStoredWindowState(b.Store, startupOptions.Name, startupOptions.Width, startupOptions.Height); err != nil {
+		logger.Warn().Err(err).Str("window", startupOptions.Name).Msg("failed to repair stored startup window state")
+	} else if repaired {
+		logger.Info().Str("window", startupOptions.Name).Msg("repaired invalid stored startup window state")
+	}
+	b.NewWebview(startupOptions)
+	release_desktop_window_icon := setup_desktop_window_icon(appAssets.AppIcon, logger)
+	defer release_desktop_window_icon()
 	setup_tray(b, logger)
-	if initialPathname == "/home/index" {
+	if hasActiveVault {
 		go func() {
 			time.Sleep(1100 * time.Millisecond)
 			restorePersistedOpenWindows(b, logger)
+		}()
+	} else if canOpenSecondaryWindow {
+		go func() {
+			time.Sleep(vaultPickerWindowOpenDelay)
+			showVaultPickerWindow(b)
 		}()
 	}
 

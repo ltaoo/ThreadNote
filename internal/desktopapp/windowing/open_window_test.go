@@ -19,9 +19,20 @@ func TestBuildOpenWindowSpecDesktop(t *testing.T) {
 	}
 }
 
+func TestBuildOpenWindowSpecVaultPicker(t *testing.T) {
+	spec := BuildOpenWindowSpec(OpenWindowRequest{Pathname: "/vault-picker"})
+	if spec.Pathname != "/vault-picker" || spec.EntryPage != "index.html" || spec.Name != "vault-picker" {
+		t.Fatalf("spec = %#v, want vault picker window", spec)
+	}
+	if spec.Title != AppTitle || spec.Width != 760 || spec.Height != 640 {
+		t.Fatalf("spec = %#v, want vault picker dimensions", spec)
+	}
+}
+
 func TestBuildOpenWindowSpecUsesThreadNoteTitle(t *testing.T) {
 	pathnames := []string{
 		"/desktop",
+		"/vault-picker",
 		"/settings",
 		"/oss-manager",
 		"/oss-storage-editor",

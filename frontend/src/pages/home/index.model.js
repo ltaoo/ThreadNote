@@ -62,6 +62,31 @@ function normalize_home_section(value) {
   return "memos";
 }
 
+/**
+ * Opens the standalone settings window without depending on whichever
+ * KeepAlive child controller happens to be active.
+ *
+ * @returns {Promise<boolean>}
+ */
+export async function openSettingsWindow() {
+  if (typeof globalThis.invoke === "function") {
+    const response = await globalThis.invoke(
+      "/api/open_window?pathname=%2Fsettings",
+      { method: "GET" },
+    );
+    if (!response || response.code !== 0) {
+      throw new Error(response?.msg || "打开设置失败");
+    }
+    return true;
+  }
+
+  if (typeof globalThis.window?.open === "function") {
+    globalThis.window.open("settings.html", "_blank", "noopener");
+    return true;
+  }
+  return false;
+}
+
 /** @param {import("./home.models").HomePageProps} props */
 export function HomePageModel(props) {
   const workspace$ = HomeWorkspaceModel(props.app);
@@ -123,10 +148,9 @@ export function HomePageModel(props) {
       if (action.dataset.action === "createProject") {
         workspace$.methods.run(active_section, "createProject");
       } else if (action.dataset.action === "openSettings") {
-        const handled = workspace$.methods.run(active_section, "showSettings");
-        if (!handled && typeof window !== "undefined") {
-          window.open("settings.html");
-        }
+        openSettingsWindow().catch(function (error) {
+          console.error("[home] failed to open settings window", error);
+        });
       }
     },
     init() {

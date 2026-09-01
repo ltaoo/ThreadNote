@@ -58,8 +58,12 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 		if req.Width <= 0 || req.Height <= 0 {
 			return c.Error("width and height are required")
 		}
-		if err := b.Store.SaveWindow(req.Name, &store.WindowState{X: req.X, Y: req.Y, Width: req.Width, Height: req.Height}); err != nil {
+		saved, err := saveUsableWindowState(b.Store, req.Name, &store.WindowState{X: req.X, Y: req.Y, Width: req.Width, Height: req.Height})
+		if err != nil {
 			return c.Error(err.Error())
+		}
+		if !saved {
+			return c.Ok(velo.H{"success": true, "ignored": true})
 		}
 		if err := updatePersistedOpenWindowFrame(b.Store, req.Name, req.X, req.Y, req.Width, req.Height, req.Fixed); err != nil {
 			return c.Error(err.Error())
@@ -77,7 +81,7 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 			return c.Error("name is required")
 		}
 		if req.Width > 0 && req.Height > 0 {
-			if err := b.Store.SaveWindow(req.Name, &store.WindowState{X: req.X, Y: req.Y, Width: req.Width, Height: req.Height}); err != nil {
+			if _, err := saveUsableWindowState(b.Store, req.Name, &store.WindowState{X: req.X, Y: req.Y, Width: req.Width, Height: req.Height}); err != nil {
 				return c.Error(err.Error())
 			}
 		}
@@ -132,10 +136,11 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 		}
 		x, y := b.Webview.GetPosition()
 		width, height := b.Webview.GetSize()
-		if err := b.Store.SaveWindow(name, &store.WindowState{X: x, Y: y, Width: width, Height: height}); err != nil {
+		saved, err := saveUsableWindowState(b.Store, name, &store.WindowState{X: x, Y: y, Width: width, Height: height})
+		if err != nil {
 			return c.Error(err.Error())
 		}
-		return c.Ok(velo.H{"success": true, "x": x, "y": y, "width": width, "height": height})
+		return c.Ok(velo.H{"success": true, "saved": saved, "x": x, "y": y, "width": width, "height": height})
 	})
 
 	b.Get("/api/window/state/restore", func(c *velo.BoxContext) interface{} {
@@ -144,7 +149,7 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 			name = "default"
 		}
 		ws := b.Store.GetWindow(name)
-		if ws == nil {
+		if ws == nil || !usablePersistedWindowState(ws) {
 			return c.Ok(velo.H{"found": false})
 		}
 		if ws.Width > 0 && ws.Height > 0 {

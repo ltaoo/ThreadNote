@@ -12,7 +12,18 @@ import {
 const REDIRECT_DELAY = 180;
 
 function defaultRedirect() {
-  window.location.replace("/home/index");
+  const current_window = globalThis.window;
+  const is_primary_picker =
+    current_window &&
+    new URLSearchParams(current_window.location.search).get("primary") === "1";
+
+  if (is_primary_picker || typeof invoke !== "function") {
+    current_window.location.replace("/home/index");
+    return;
+  }
+  invoke("__velo/window/close", { args: {} }).catch(function () {
+    current_window.close();
+  });
 }
 
 /**

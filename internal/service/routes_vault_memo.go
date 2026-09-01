@@ -62,6 +62,7 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 		if err := c.BindJSON(&req); err != nil {
 			return c.Error(err.Error())
 		}
+		revealMainWindow := activeVaultSnapshot() == nil
 		ctx, existing, err := openVaultDirectory(req.Path, true)
 		if err != nil {
 			return c.Error(err.Error())
@@ -69,6 +70,18 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 		registry, err := activate_vault_context(b, logger, ctx)
 		if err != nil {
 			return c.Error(err.Error())
+		}
+		setActiveVault(ctx)
+		setMainWindowPathname("/home/index")
+		b.Store = store.NewWithDir(ctx.VeloDir)
+		b.SendMessage(velo.H{
+			"type":          "vault_changed",
+			"activeVaultId": ctx.Entry.ID,
+			"path":          ctx.RootDir,
+		})
+		if revealMainWindow {
+			b.Webview.Show()
+			b.SendMessage(velo.H{"type": "main_window_focus"})
 		}
 		return c.Ok(velo.H{
 			"active":   ctx,
