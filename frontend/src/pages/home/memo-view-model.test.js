@@ -151,6 +151,42 @@ test("MemoCardViewModel keeps comments reactive across presentation updates", fu
   model.destroy();
 });
 
+test("MemoCardViewModel releases comment presentation resources", function () {
+  const destroyed = [];
+  function comment(id) {
+    return {
+      active: {
+        destroy() {
+          destroyed.push(id + ":active");
+        },
+      },
+      id,
+      reactionMenuDestroy() {
+        destroyed.push(id + ":reaction");
+      },
+    };
+  }
+  const first_comment = comment("comment-1");
+  const second_comment = comment("comment-2");
+  const model = createMemoCardViewModel({
+    presentation: { id: "memo-1", visibleComments: [first_comment] },
+  });
+
+  model.updatePresentation({
+    id: "memo-1",
+    visibleComments: [second_comment],
+  });
+  assert.deepEqual(destroyed, ["comment-1:active", "comment-1:reaction"]);
+
+  model.destroy();
+  assert.deepEqual(destroyed, [
+    "comment-1:active",
+    "comment-1:reaction",
+    "comment-2:active",
+    "comment-2:reaction",
+  ]);
+});
+
 test("MemoCardViewModel stays active while its reaction menu is open", function () {
   let menu_listener = null;
   let menu_destroy_count = 0;

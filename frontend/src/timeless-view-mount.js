@@ -15,8 +15,8 @@ export function TimelessViewMountModel(props = {}) {
   if (!runtime?.DOM) {
     throw new Error("TimelessViewMountModel requires the Timeless runtime");
   }
-  const view_ = ref(null);
-  return defineModel({
+  const view_ = runtime.ref(null);
+  return runtime.defineModel({
     state: { view: view_ },
     methods: {
       setView(view) {

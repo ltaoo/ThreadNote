@@ -4,7 +4,7 @@ import {
 } from "@/timeless-icons.js";
 import { VaultPickerPageModel } from "./index.model.js";
 
-const { Button, DOM, For, Input, Show, View, computed } =
+const { Button, For, Input, Show, View, computed } =
   TimelessPrimitive;
 
 function VaultItemView(props) {
@@ -508,27 +508,6 @@ function VaultPickerContentView(props) {
   );
 }
 
-/**
- * The desktop router owns the route host while Timeless.DOM mounts the page
- * content into that host.
- *
- * @param {ViewComponentProps} props
- */
 export function VaultPickerPageView(props) {
-  const content$ = VaultPickerContentView(props);
-  return globalThis.View(
-    {
-      class: "vault-picker-route-host w-full h-full",
-      attributes: { n: "vault-picker-route-host" },
-      onMounted(event) {
-        const target = event?.target || event;
-        const root = target?.get$elm?.() || target;
-        DOM.render(content$, root);
-      },
-      onUnmounted() {
-        content$.destroy?.();
-      },
-    },
-    [],
-  );
+  return VaultPickerContentView(props);
 }

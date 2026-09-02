@@ -324,6 +324,29 @@ test("ProjectSelectModel selects the active result and emits once", () => {
   model.destroy();
 });
 
+test("ProjectSelectModel lets selection listeners move focus after closing", async () => {
+  const model = create_model();
+  const focus_order = [];
+  model.setTriggerElement({
+    focus() {
+      focus_order.push("trigger");
+    },
+    getBoundingClientRect() {
+      return { height: 36, width: 200 };
+    },
+  });
+  model.onValueChange(() => {
+    queueMicrotask(() => focus_order.push("composer"));
+  });
+
+  model.open();
+  model.select("product");
+  await Promise.resolve();
+
+  assert.deepEqual(focus_order, ["trigger", "composer"]);
+  model.destroy();
+});
+
 test("ProjectSelectModel keeps memo counts fresh when options change", () => {
   const model = create_model({ defaultValue: "engineering" });
 

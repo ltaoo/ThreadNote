@@ -579,12 +579,12 @@ export class ProjectSelectModel extends ComponentModel {
       });
       return false;
     }
-    this.setValue(option.value, { event });
     this.close({
       event,
       reason: "option-selected",
       restoreFocus: true,
     });
+    this.setValue(option.value, { event });
     this._log("info", "option-select-complete", {
       label: option.label,
       value: option.value,

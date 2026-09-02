@@ -803,7 +803,7 @@ export function mountMemosHome(root, options = {}) {
     function () {
       state.query = "";
       clearTimeout(state._searchTimer);
-      renderAll();
+      renderMainContent();
     },
   );
   const unsubscribe_feed_tag_select = ui.feedTagSelect.onValueChange(
@@ -1019,18 +1019,25 @@ export function mountMemosHome(root, options = {}) {
       selectProjectFilter(project_id || "all");
     },
   );
+  function focusComposerAfterSelection() {
+    queueMicrotask(function () {
+      composerEditor?.focus();
+    });
+  }
   const unsubscribe_composer_project_select =
     ui.composerProjectSelect.onValueChange(function (value) {
       const project_id = normalizeProjectID(value);
       if (project_id === state.composerProjectId) return;
       state.composerProjectId = project_id;
       rememberComposerProject(project_id);
+      focusComposerAfterSelection();
     });
   const unsubscribe_composer_visibility_select =
     ui.composerVisibilitySelect.onValueChange(function (value) {
       const visibility = value || DEFAULT_VISIBILITY;
       if (visibility === state.visibility) return;
       state.visibility = visibility;
+      focusComposerAfterSelection();
     });
   const {
     addTaskNote,
@@ -2921,7 +2928,7 @@ export function mountMemosHome(root, options = {}) {
     ) {
       state.query = event.target.value.trim();
       clearTimeout(state._searchTimer);
-      state._searchTimer = setTimeout(() => renderAll(), 200);
+      state._searchTimer = setTimeout(() => renderMainContent(), 200);
       return;
     }
 
@@ -5652,6 +5659,7 @@ export function mountMemosHome(root, options = {}) {
       PinnedMemoListView({
         memos: pinned.map(function (memo) {
           return memoCardPresentation(memo, {
+            interactive: false,
             readonly: true,
             showLineNumbers: false,
           });
@@ -6391,7 +6399,16 @@ export function mountMemosHome(root, options = {}) {
     const private_visible = Boolean(memo.private && !state.privateUnlocked);
     const expanded = memoCardExpansionModel.isExpanded(memo.id);
     const headings = memoTocPresentation(memo.content);
-    const comments = commentsPresentation(memo.id, render_context);
+    const interactive = context_options.interactive !== false;
+    const comments = interactive
+      ? commentsPresentation(memo.id, render_context)
+      : {
+        all: [],
+        expanded: false,
+        hasOverflow: false,
+        toggleLabel: "",
+        visible: [],
+      };
     let html = "";
     try {
       html = renderMemoMarkdown(memo.content, render_context);
@@ -6417,8 +6434,8 @@ export function mountMemosHome(root, options = {}) {
     const comment_reply_to = reply_to_comment
       ? compactText(reply_to_content, 80) || "comment:" + reply_to_comment.id
       : "";
-    const more_menu = memoMoreMenuModel(memo);
-    const reaction_menu = memoReactionMenuModel(memo);
+    const more_menu = interactive ? memoMoreMenuModel(memo) : null;
+    const reaction_menu = interactive ? memoReactionMenuModel(memo) : null;
     return {
       alias: memo.alias || "",
       archived: Boolean(memo.archived),
@@ -6484,8 +6501,8 @@ export function mountMemosHome(root, options = {}) {
       html,
       id: memo.id,
       lineCount: line_count,
-      moreMenu: more_menu.store,
-      moreMenuDestroy: more_menu.destroy,
+      moreMenu: more_menu?.store || null,
+      moreMenuDestroy: more_menu?.destroy || null,
       onExpand(event) {
         logMemoExpansion("info", "presentation-handler-entered", {
           memoId: memo.id,
@@ -6502,8 +6519,8 @@ export function mountMemosHome(root, options = {}) {
       private: private_visible,
       project: memoProjectPresentation(memo.projectId),
       projectId: memo.projectId || "",
-      reactionMenu: reaction_menu.store,
-      reactionMenuDestroy: reaction_menu.destroy,
+      reactionMenu: reaction_menu?.store || null,
+      reactionMenuDestroy: reaction_menu?.destroy || null,
       reactions: Array.isArray(memo.reactions) ? memo.reactions.slice() : [],
       relativeTime: formatRelativeDate(memo.createdAt),
       short: !expanded && line_count <= 36,

@@ -67,6 +67,13 @@ function memoCardCommentState(presentation = {}) {
   });
 }
 
+function destroyCommentPresentations(comments = []) {
+  comments.forEach(function (comment) {
+    comment?.active?.destroy?.();
+    comment?.reactionMenuDestroy?.();
+  });
+}
+
 export class MemoCardViewModel {
   constructor(options = {}) {
     const create_ref = options.createRef || globalThis.Timeless?.ref;
@@ -105,7 +112,9 @@ export class MemoCardViewModel {
 
   updatePresentation(presentation = {}) {
     if (this._destroyed) return this;
+    const previous_comments = this.commentState.value.visibleComments;
     this.commentState.as(memoCardCommentState(presentation));
+    destroyCommentPresentations(previous_comments);
     const current_more_menu = this.moreMenu;
     const next_more_menu = presentation?.moreMenu;
     const next_more_menu_destroy = presentation?.moreMenuDestroy;
@@ -274,6 +283,7 @@ export class MemoCardViewModel {
     if (this._destroyed) return;
     this.moreMenuDestroy();
     this.reactionMenuDestroy();
+    destroyCommentPresentations(this.commentState.value.visibleComments);
     this._destroyed = true;
     this._active_sources.clear();
     this.active.destroy?.();

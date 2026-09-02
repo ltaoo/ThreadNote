@@ -38,6 +38,7 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 			"dataFileExists": statErr == nil,
 			"dataPath":       dataPath,
 			"vaults":         registry.Vaults,
+			"warning":        active_vault_warning(registry),
 		})
 	})
 
@@ -836,6 +837,19 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 		}
 		return c.Ok(velo.H{"success": true, "file": local_path})
 	})
+}
+
+func active_vault_warning(registry VaultRegistry) string {
+	entry, ok := activeVaultFromRegistry(registry)
+	if !ok || normalize_vault_provider(entry.Provider) != vault_provider_local {
+		return ""
+	}
+	if _, err := os.Stat(entry.Path); err == nil {
+		return ""
+	} else if os.IsNotExist(err) {
+		return fmt.Sprintf("上次使用的 Vault 已被删除：%s", entry.Path)
+	}
+	return fmt.Sprintf("上次使用的 Vault 无法访问：%s", entry.Path)
 }
 
 func activate_vault_context(b *velo.Box, logger *zerolog.Logger, vault_ctx *VaultContext) (VaultRegistry, error) {

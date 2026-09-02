@@ -403,9 +403,13 @@ function mountImagePreview(root) {
   };
 
   renderTimelessView(root, ImagePreviewView(payload));
+  const canvas = document.createElement("canvas");
+  canvas.setAttribute("data-preview-canvas", "");
+  canvas.setAttribute("data-n", "image-preview-canvas");
+  root.querySelector("[data-preview-canvas]").replaceWith(canvas);
 
   const els = {
-    canvas: root.querySelector("[data-preview-canvas]"),
+    canvas,
     state: root.querySelector("[data-preview-state]"),
     stage: root.querySelector("[data-preview-stage]"),
     title: root.querySelector("[data-preview-title]"),

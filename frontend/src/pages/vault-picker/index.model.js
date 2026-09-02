@@ -223,6 +223,7 @@ export function VaultPickerPageModel(props = {}) {
         data_file_exists_.as(Boolean(status.dataFileExists));
         data_path_.as(status.dataPath || "");
         vaults_.as(Array.isArray(status.vaults) ? status.vaults : []);
+        set_message(status.warning, status.warning ? "warning" : "");
         return true;
       } catch (err) {
         set_message("读取 vault 状态失败: " + errorText(err), "error");

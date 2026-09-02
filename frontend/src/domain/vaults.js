@@ -19,6 +19,7 @@ export function normalizeVaultStatus(payload) {
     active: data.active || null,
     dataFileExists: Boolean(data.dataFileExists),
     dataPath: String(data.dataPath || ""),
+    warning: String(data.warning || ""),
     vaults: Array.isArray(data.vaults)
       ? data.vaults.map(normalizeVaultEntry).filter(Boolean)
       : [],

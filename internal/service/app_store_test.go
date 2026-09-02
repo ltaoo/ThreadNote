@@ -1,9 +1,13 @@
 package service
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ltaoo/velo"
+	"github.com/rs/zerolog"
 )
 
 func TestVeloAppDoesNotCreateExecutableLocalStore(t *testing.T) {
@@ -16,31 +20,49 @@ func TestVeloAppDoesNotCreateExecutableLocalStore(t *testing.T) {
 	}
 }
 
-func TestStartupWindowPolicyHidesDesktopUntilVaultIsSelected(t *testing.T) {
-	withoutVault := startupWindowOptions(false, true, nil, nil)
-	if withoutVault.Name != "desktop" || withoutVault.Pathname != "/home/index" || !withoutVault.Hidden {
-		t.Fatalf("startup desktop without vault = %#v, want hidden /home/index window", withoutVault)
+func TestInitialStoreFallsBackWhenActiveVaultWasDeleted(t *testing.T) {
+	home_dir := t.TempDir()
+	t.Setenv("HOME", home_dir)
+	missing_path := filepath.Join(home_dir, "deleted-vault")
+	if err := saveVaultRegistry(VaultRegistry{
+		ActiveVaultID: "deleted",
+		SchemaVersion: vaultSchemaVersion,
+		Vaults: []VaultEntry{{
+			ID:       "deleted",
+			Name:     "Deleted",
+			Path:     missing_path,
+			Provider: vault_provider_local,
+		}},
+	}); err != nil {
+		t.Fatalf("save vault registry: %v", err)
 	}
 
-	withVault := startupWindowOptions(true, true, nil, nil)
-	if withVault.Hidden {
-		t.Fatalf("startup desktop with vault = %#v, want visible window", withVault)
+	logger := zerolog.Nop()
+	app_store, pathname, err := load_initial_store(&logger)
+	if err != nil {
+		t.Fatalf("load initial store: %v", err)
 	}
-}
-
-func TestStartupWindowPolicyUsesPickerAsPrimaryWhenSecondaryWindowsAreUnsupported(t *testing.T) {
-	options := startupWindowOptions(false, false, nil, nil)
-	if options.Name != "vault-picker" || options.Pathname != "/vault-picker?primary=1" || options.Hidden {
-		t.Fatalf("startup window without secondary-window support = %#v, want visible primary vault picker", options)
+	if app_store == nil {
+		t.Fatal("expected fallback application store")
 	}
-}
-
-func TestVaultPickerUsesDedicatedWindow(t *testing.T) {
-	options := vaultPickerWindowOptions(false)
-	if options.Name != "vault-picker" || options.Pathname != "/vault-picker" || options.EntryPage != "index.html" {
-		t.Fatalf("vault picker options = %#v, want dedicated vault-picker window", options)
+	if pathname != "/vault-picker" {
+		t.Fatalf("expected vault picker, got %q", pathname)
 	}
-	if options.Width != 760 || options.Height != 640 {
-		t.Fatalf("vault picker size = %dx%d, want 760x640", options.Width, options.Height)
+	expected_path := filepath.Join(home_dir, globalVeloDirName, "storage.json")
+	if app_store.Path() != expected_path {
+		t.Fatalf("expected store path %q, got %q", expected_path, app_store.Path())
+	}
+	if _, err := os.Stat(expected_path); err != nil {
+		t.Fatalf("stat fallback store: %v", err)
+	}
+	if warning := active_vault_warning(VaultRegistry{
+		ActiveVaultID: "deleted",
+		Vaults: []VaultEntry{{
+			ID:       "deleted",
+			Path:     missing_path,
+			Provider: vault_provider_local,
+		}},
+	}); !strings.Contains(warning, "已被删除") {
+		t.Fatalf("expected deleted vault warning, got %q", warning)
 	}
 }

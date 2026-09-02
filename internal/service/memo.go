@@ -157,7 +157,6 @@ func createVaultMemo(ctx *VaultContext, req MemoCreateRequest) (MemoRecord, erro
 	if err := writeMemoRecord(ctx, memo); err != nil {
 		return MemoRecord{}, err
 	}
-	saveHistoryBase(ctx, memoHistoryPath(memo.Path), renderMemoMarkdownFile(memo))
 	fireMemoHooks(ctx, "memo.created", memo)
 	return memo, nil
 }

@@ -230,6 +230,30 @@ func showMainWindow(b *velo.Box, logger *zerolog.Logger) {
 	b.SendMessage(velo.H{"type": "main_window_focus"})
 }
 
+func load_initial_store(logger *zerolog.Logger) (*store.Store, string, error) {
+	startup_vault, startup_err := loadStartupVault()
+	if startup_err != nil {
+		logger.Warn().Msgf("Active vault unavailable: %v", startup_err)
+	} else if startup_vault != nil {
+		startup_vault.logger = logger
+		setActiveVault(startup_vault)
+		if _, registry_err := registerActiveVault(startup_vault); registry_err != nil {
+			logger.Warn().Msgf("Failed to update active vault registry: %v", registry_err)
+		}
+		logger.Info().Msgf("Active vault: %s", startup_vault.RootDir)
+		return vault_settings_store(startup_vault), "/home/index", nil
+	}
+
+	global_dir, err := globalVeloDir()
+	if err != nil {
+		return nil, "/vault-picker", err
+	}
+	if err := os.MkdirAll(global_dir, 0755); err != nil {
+		return nil, "/vault-picker", fmt.Errorf("create global velo dir: %w", err)
+	}
+	return store.NewWithDir(global_dir), "/vault-picker", nil
+}
+
 func Run(assets Assets) {
 	appAssets = assets
 
@@ -253,26 +277,13 @@ func Run(assets Assets) {
 		QuitOnLastWindowClosed: &quit_on_last_window_closed,
 	}
 	b := velo.NewApp(&opt)
-	hasActiveVault := false
-	if startupVault, err := loadStartupVault(); err != nil {
-		logger.Warn().Msgf("Active vault unavailable: %v", err)
-	} else if startupVault != nil {
-		startupVault.logger = logger
-		setActiveVault(startupVault)
-		if _, err := registerActiveVault(startupVault); err != nil {
-			logger.Warn().Msgf("Failed to update active vault registry: %v", err)
-		}
-		b.Store = store.NewWithDir(startupVault.VeloDir)
-		hasActiveVault = true
-		logger.Info().Msgf("Active vault: %s", startupVault.RootDir)
-	} else if dir, err := globalVeloDir(); err == nil {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			logger.Warn().Msgf("Failed to create global velo dir: %v", err)
-		} else {
-			b.Store = store.NewWithDir(dir)
-		}
+	app_store, initial_pathname, store_err := load_initial_store(logger)
+	if store_err != nil {
+		fatal(logger, fmt.Sprintf("Failed to initialize application store: %v", store_err))
+		return
 	}
-	setMainWindowPathname("/home/index")
+	b.Store = app_store
+	setMainWindowPathname(initial_pathname)
 	logger.Info().Msgf("Store path: %s", b.Store.Path())
 
 	inputSourceLock := NewInputSourceLockService(logger)
@@ -291,18 +302,9 @@ func Run(assets Assets) {
 	sm := shortcut.NewManager()
 	_ = sm
 
-	canOpenSecondaryWindow := supportsSecondaryWebviewWindows()
-	startupOptions := startupWindowOptions(hasActiveVault, canOpenSecondaryWindow, b, logger)
-	if repaired, err := repairStoredWindowState(b.Store, startupOptions.Name, startupOptions.Width, startupOptions.Height); err != nil {
-		logger.Warn().Err(err).Str("window", startupOptions.Name).Msg("failed to repair stored startup window state")
-	} else if repaired {
-		logger.Info().Str("window", startupOptions.Name).Msg("repaired invalid stored startup window state")
-	}
-	b.NewWebview(startupOptions)
-	release_desktop_window_icon := setup_desktop_window_icon(appAssets.AppIcon, logger)
-	defer release_desktop_window_icon()
+	b.NewWebview(mainWindowOptions(initial_pathname, b, logger))
 	setup_tray(b, logger)
-	if hasActiveVault {
+	if initial_pathname == "/home/index" {
 		go func() {
 			time.Sleep(1100 * time.Millisecond)
 			restorePersistedOpenWindows(b, logger)

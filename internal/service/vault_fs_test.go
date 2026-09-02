@@ -99,14 +99,22 @@ func TestMemoPersistenceUsesVaultFS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create memo: %v", err)
 	}
-	if len(recording_fs.atomic_writes) != 2 {
-		t.Fatalf("atomic writes = %#v, want memo and history", recording_fs.atomic_writes)
+	if len(recording_fs.atomic_writes) != 1 {
+		t.Fatalf("atomic writes = %#v, want memo only", recording_fs.atomic_writes)
 	}
 	if recording_fs.atomic_writes[0] != memo.Path {
 		t.Fatalf("first write = %q, want %q", recording_fs.atomic_writes[0], memo.Path)
 	}
-	if !strings.HasSuffix(recording_fs.atomic_writes[1], ".history.json") {
-		t.Fatalf("second write = %q, want history file", recording_fs.atomic_writes[1])
+
+	updated_content := "edited through vault fs"
+	if _, err := updateVaultMemo(ctx, MemoUpdateRequest{ID: memo.ID, Content: &updated_content}); err != nil {
+		t.Fatalf("update memo: %v", err)
+	}
+	if len(recording_fs.atomic_writes) != 3 {
+		t.Fatalf("atomic writes = %#v, want memo create, memo update, and history", recording_fs.atomic_writes)
+	}
+	if recording_fs.atomic_writes[2] != memoHistoryPath(memo.Path) {
+		t.Fatalf("third write = %q, want history file", recording_fs.atomic_writes[2])
 	}
 }
 

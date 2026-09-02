@@ -48,6 +48,7 @@ test("vault picker model loads status into reactive state", async function () {
           active: { path: "/vaults/work" },
           dataFileExists: true,
           dataPath: "/data/threadnote.json",
+          warning: "上次使用的 Vault 已被删除：/vaults/deleted",
           vaults: [{ name: "Work", path: "/vaults/work" }],
         };
       },
@@ -58,6 +59,8 @@ test("vault picker model loads status into reactive state", async function () {
   assert.equal(model.state.loading.value, false);
   assert.equal(model.state.dataFileExists.value, true);
   assert.equal(model.state.dataPath.value, "/data/threadnote.json");
+  assert.equal(model.state.message.value, "上次使用的 Vault 已被删除：/vaults/deleted");
+  assert.equal(model.state.messageType.value, "warning");
   assert.deepEqual(model.state.vaults.value, [
     { name: "Work", path: "/vaults/work" },
   ]);
