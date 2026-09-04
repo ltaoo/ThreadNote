@@ -1,0 +1,5 @@
+.tn-badge { display: inline-flex; align-items: center; min-height: 20px; padding: 0 var(--tn-space-2); border: var(--tn-border-width) solid var(--tn-color-border); border-radius: var(--tn-radius-full); background: var(--tn-color-bg-subtle); color: var(--tn-color-text-secondary); font-size: var(--tn-font-size-xs); font-weight: var(--tn-font-weight-medium); }
+.tn-badge--primary { border-color: transparent; background: var(--tn-color-primary-soft); color: var(--tn-color-primary-text); }
+.tn-badge--success { border-color: transparent; background: var(--tn-color-success-soft); color: var(--tn-color-success); }
+.tn-badge--warning { border-color: transparent; background: var(--tn-color-warning-soft); color: var(--tn-color-warning); }
+.tn-badge--danger, .tn-badge--destructive { border-color: transparent; background: var(--tn-color-danger-soft); color: var(--tn-color-danger); }

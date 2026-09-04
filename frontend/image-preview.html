@@ -2,16 +2,22 @@
 <html lang="zh-CN">
 
 <head>
+  <script src="/public/logger.js" data-n="frontend-logger-script"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ThreadNote</title>
+  <script type="importmap" data-n="module-import-map">
+    {
+      "imports": {
+        "@/": "./src/"
+      }
+    }
+  </script>
   <script src="/public/input-policy.js" defer></script>
-  <script>window.__tn_legacy_timeless = window.Timeless || {};</script>
   <script src="/public/timeless/0.31.4/timeless.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.dom.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.web.umd.min.js"></script>
-  <script src="/public/timeless-icon-runtime.js"></script>
-  <link rel="stylesheet" href="/src/style.css?v=20260820-component-foundations-v2" />
+  <link rel="stylesheet" href="/src/style.css" />
 </head>
 
 <body class="image-preview-page">

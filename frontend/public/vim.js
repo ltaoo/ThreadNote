@@ -15,7 +15,7 @@
   const vimPluginKey = new PM.PluginKey("vanillaVim");
   const LINE_JUMP_COUNT = 10;
   let desiredCol = null;
-  const VIM_PLUGIN_VERSION = "20260730-vim-marks";
+  const VIM_PLUGIN_VERSION = "20260826-vim-search-input";
   const REGISTER_TYPES = {
     CHAR: "char",
     LINE: "line",
@@ -1459,8 +1459,46 @@
     return true;
   }
 
+  function restoreSearchFocus(view) {
+    if (!view || view.isDestroyed) return;
+    view.focus();
+    window.setTimeout(function () {
+      if (!view || view.isDestroyed) return;
+      view.dispatch(setVimMeta(view.state.tr, { mode: MODES.NORMAL }));
+    }, 0);
+  }
+
+  function requestSearch(view, initialQuery) {
+    if (typeof window.CustomEvent !== "function") return false;
+    let settled = false;
+    const event = new window.CustomEvent("vim-search-request", {
+      bubbles: true,
+      cancelable: true,
+      detail: {
+        cancel() {
+          if (settled) return false;
+          settled = true;
+          restoreSearchFocus(view);
+          return true;
+        },
+        query: initialQuery,
+        submit(value) {
+          if (settled) return false;
+          settled = true;
+          const query = String(value || "");
+          const result = query ? runSearch(view, query, 1) : true;
+          restoreSearchFocus(view);
+          return result;
+        },
+      },
+    });
+    view.dom.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
   function promptSearch(view) {
     const pluginState = getPluginState(view.state);
+    if (requestSearch(view, pluginState.searchQuery || "")) return true;
     const query = window.prompt("/", pluginState.searchQuery || "");
     if (!query) return true;
     return runSearch(view, query, 1);

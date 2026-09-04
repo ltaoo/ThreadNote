@@ -4,6 +4,46 @@ import { loadEditorSettingsFromVault } from "./pages/home/memo-editor.js";
 import { collectTags } from "./domain/memos.js";
 import { createProjectInVault, errorMessage } from "./domain/memo-repository.js";
 import { normalizeProjectPayload } from "./domain/projects.js";
+import {
+  TimelessPrimitive,
+} from "./timeless-icons.js";
+import {
+  renderTimelessView,
+  unmountTimelessView,
+} from "./timeless-view-mount.js";
+
+function EditMemoStatusView(message, kind) {
+  const { View } = TimelessPrimitive;
+  if (kind === "loading") {
+    return View(
+      {
+        class: "memo-editor-loading",
+        attributes: { n: "edit-memo-loading", role: "status" },
+      },
+      [message],
+    );
+  }
+  return View(
+    {
+      class: "tn-overlay tn-dialog-layer is-open memo-dialog",
+      attributes: { n: "edit-memo-status-overlay" },
+    },
+    [
+      View(
+        {
+          class: "tn-dialog tn-dialog--md memo-dialog-panel",
+          attributes: { n: "edit-memo-status-panel", role: "alert" },
+        },
+        [
+          View(
+            { attributes: { n: "edit-memo-status-message" } },
+            [message],
+          ),
+        ],
+      ),
+    ],
+  );
+}
 
 document.addEventListener("DOMContentLoaded", function () {
   var root = document.querySelector("#root");
@@ -15,7 +55,7 @@ document.addEventListener("DOMContentLoaded", function () {
   var params = new URLSearchParams(window.location.search);
   var memoId = (params.get("id") || "").trim();
   if (!memoId) {
-    root.innerHTML = '<div class="tn-overlay tn-dialog-layer is-open memo-dialog"><section class="tn-dialog tn-dialog--md memo-dialog-panel"><p>缺少 memo id</p></section></div>';
+    renderTimelessView(root, EditMemoStatusView("缺少 memo id", "error"));
     return;
   }
 
@@ -27,7 +67,7 @@ document.addEventListener("DOMContentLoaded", function () {
     toastTimer: null,
   };
 
-  root.innerHTML = '<div class="memo-editor-loading">加载中...</div>';
+  renderTimelessView(root, EditMemoStatusView("加载中...", "loading"));
 
   var windowSession = registerWindowSession({
     entryPage: "edit-memo-window.html",
@@ -39,7 +79,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function loadEditData() {
     if (typeof invoke !== "function") {
-      root.innerHTML = '<div class="tn-overlay tn-dialog-layer is-open memo-dialog"><section class="tn-dialog tn-dialog--md memo-dialog-panel"><p>请在 velo 桌面应用中打开</p></section></div>';
+      renderTimelessView(root, EditMemoStatusView("请在 velo 桌面应用中打开", "error"));
       return;
     }
 
@@ -83,17 +123,17 @@ document.addEventListener("DOMContentLoaded", function () {
     Promise.all([editDataPromise, settingsPromise, projectsPromise]).then(
       function () {
         if (!state.memo) {
-          root.innerHTML = '<div class="tn-overlay tn-dialog-layer is-open memo-dialog"><section class="tn-dialog tn-dialog--md memo-dialog-panel"><p>找不到 memo</p></section></div>';
+          renderTimelessView(root, EditMemoStatusView("找不到 memo", "error"));
           return;
         }
         mountEditor();
       },
       function (err) {
         if (err && err.message === "找不到 memo") {
-          root.innerHTML = '<div class="tn-overlay tn-dialog-layer is-open memo-dialog"><section class="tn-dialog tn-dialog--md memo-dialog-panel"><p>找不到 memo</p></section></div>';
+          renderTimelessView(root, EditMemoStatusView("找不到 memo", "error"));
           return;
         }
-        root.innerHTML = '<div class="tn-overlay tn-dialog-layer is-open memo-dialog"><section class="tn-dialog tn-dialog--md memo-dialog-panel"><p>加载失败</p></section></div>';
+        renderTimelessView(root, EditMemoStatusView("加载失败", "error"));
       },
     );
   }
@@ -111,7 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function mountEditor() {
-    root.innerHTML = "";
+    unmountTimelessView(root);
     mountMemoEditDialog(root, {
       memo: state.memo,
       initialDraft: null,

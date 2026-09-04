@@ -1,8 +1,8 @@
 /**
- * UI component models.
+ * Legacy application component models.
  *
- * These models own component state and behavior. Views in components.js only
- * render model state and call model methods in response to DOM events.
+ * Feature modules still use these models while they migrate. The tnui base
+ * components use Timeless.vm stores directly and do not depend on this file.
  */
 
 export class ComponentModel {

@@ -146,6 +146,7 @@ Amber mark 是 ThreadNote 的唯一签名元素，使用 `--tn-color-primary-*` 
 View(
   {
     class: "tn-flex tn-items-center tn-gap-2 tn-p-3 tn-bg-surface tn-border tn-rounded-md",
+    attributes: { n: "example-surface" },
   },
   children,
 );
@@ -155,14 +156,16 @@ View(
 
 ## 10. 迁移顺序
 
-1. 新建全局 `src/components.js`，只承载通用 UI 组件并消费 `tn-*` 原子类和 `--tn-*` 组件 token。
+1. 使用全局入口 `src/tnui.js` 承载通用 UI 组件，并消费 `tn-*` 原子类和 `--tn-*` 组件 token。
 2. 页面通过 `src/index.js` 暴露的全局组件调用，不在页面内重复实现 UI 基元。
 3. 逐模块把 `public/index.css` 中的硬编码颜色和旧变量替换为 `--tn-*`。
 4. 旧样式清零后移除 legacy `@import` 与兼容别名，保留 `src/style.css` 作为 tokens、原子类和组件样式的统一入口。
 
 ## 11. UI 组件
 
-组件入口是 [`src/components.js`](./src/components.js)，组件样式位于 [`src/components.css`](./src/components.css)。`src/index.js` 会把入口的全部导出注册为全局名称，因此页面保持与现有代码一致的函数调用形式。
+组件入口是 [`src/tnui.js`](./src/tnui.js)，样式入口是 [`src/tnui.css`](./src/tnui.css)。两个入口都只负责聚合；每个组件的实现和样式分别放在 `src/tnui/<component>.js` 与 `src/tnui/<component>.css`。
+
+JavaScript 入口只公开 `tn` 命名空间，并在浏览器中注册为 `window.tn`。模块代码也可以使用 `import { tn } from "@/tnui.js"`。组件统一通过 `tn.Button`、`tn.DropdownMenu` 等名称调用，不提供顶层组件别名。
 
 组件类名统一采用“基础类 + 变体/尺寸类 + 状态类”的组合，不允许为同类控件另起一套完整视觉规则：
 
@@ -175,65 +178,77 @@ View(
 <div class="tn-popup tn-popup--menu tn-menu tn-dropdown-menu"></div>
 ```
 
-`tn-button`、`tn-input`、`tn-select`、`tn-date-picker`、`tn-popup`、`tn-menu`、`tn-dialog`、`tn-drawer`、`tn-tooltip` 分别持有各组件不随场景变化的基础视觉与交互规则；`--primary`、`--filled`、`--sm`、`--left` 等附加类只覆盖对应差异。`is-open`、`is-disabled`、`is-invalid` 等状态类只表达运行状态。`memo-*` 等业务类只能负责布局或保留迁移兼容，不再定义一套独立组件皮肤。
+`tn-button`、`tn-input`、`tn-select`、`tn-date-picker`、`tn-popup`、`tn-menu`、`tn-dialog` 分别持有各组件不随场景变化的基础视觉与交互规则；`--primary`、`--filled`、`--sm`、`--left` 等附加类只覆盖对应差异。`is-open`、`is-disabled`、`is-invalid` 等状态类只表达运行状态。`memo-*` 等业务类只能负责布局或保留迁移兼容，不再定义一套独立组件皮肤。
 
-当前组件分为三组：
+当前基础组件分为三组：
 
-- 交互：`Button`、`IconButton`、`Dialog`、`Popover`。
-- 表单：`Input`、`Textarea`、`Checkbox`、`Switch`、`Select`、`Label`、`FormField`。
+- 交互：`Button`、`IconButton`、`Dialog`、`Popover`、`DropdownMenu`。
+- 表单：`Input`、`Textarea`、`Checkbox`、`Switch`、`Select`、`DatePicker`、`Label`、`FormField`。
 - 展示：`Badge`、`Avatar`、`Card`、`Table`、`Alert`、`Progress`、`Spinner`、`Skeleton`、`Separator`、`EmptyState`。
-- 业务复合组件：`MemoCard`、`SmallCalendar`。两者组合基础组件与 `tn-*` 原子类；Memo 展示状态由 `MemoCardModel` 维护，月份、选日、周起始日、日期数量和日历标记由 `SmallCalendarModel` 维护。
 
-所有有状态组件都遵循 Model / View 分离：Model 持有状态和业务回调，组件 View 只订阅状态、渲染 DOM，并把用户事件转发给 Model 方法。新页面推荐显式创建 Model，便于跨组件协调和单元测试。
+`tn` 只包含通用基础组件，不导出 `MemoCard`、`SmallCalendar` 等业务组件，也不导出页面加载态、错误态、业务 Model 或 DOM 适配器。业务组件应留在所属功能模块中，通过组合 `tn` 基础组件实现。
+
+交互与表单组件直接接收对应的 `Timeless.vm.*Core` `store`；`Progress` 也可以接收 `ProgressCore` 或响应式 `value`。组件 View 只组合 `ui.*Primitive`、订阅样式所需的状态并声明语义节点；点击、键盘、焦点、浮层定位、可访问性和 DOM 生命周期由 Primitive 与 store 处理。组件内部不得重复实现这些交互，也不提供另一套自制 Model 或 `model` 兼容参数。
 
 ```js
-const titleModel = createInputModel({
+const title_store = new Timeless.vm.InputCore({
   defaultValue: "",
   onChange(value) {
-    draftModel.rename(value);
+    draft_model.rename(value);
   },
 });
 
-const dialogModel = createDialogModel({
+const dialog_store = new Timeless.vm.DialogCore({
   title: "新建 Memo",
-  async onConfirm() {
-    await draftModel.save();
+});
+
+const create_button_store = new Timeless.vm.ButtonCore({
+  variant: "primary",
+  onClick() {
+    dialog_store.show();
   },
 });
 
-View({ class: "tn-grid tn-gap-4" }, [
-  FormField(
+View({ class: "tn-grid tn-gap-4", attributes: { n: "memo-create-form" } }, [
+  tn.FormField(
     {
       label: "标题",
       description: "使用一个便于检索的短标题。",
     },
-    [Input({ model: titleModel, placeholder: "例如：发布检查清单" })],
+    [tn.Input({ store: title_store, placeholder: "例如：发布检查清单" })],
   ),
-  Button({ model: createButtonModel({ onPress: () => dialogModel.show() }), variant: "primary" }, [
-    "新建 Memo",
-  ]),
-  Dialog({ model: dialogModel }, ["确认保存当前内容？"]),
+  tn.Button({ store: create_button_store }, ["新建 Memo"]),
+  tn.Dialog({ store: dialog_store }, ["确认保存当前内容？"]),
 ]);
 ```
 
-组件仍接受 `store` 作为 `model` 的兼容别名，并支持当前 `Timeless.ui.*Core` 的 `state`、`onStateChange` 与常用行为方法，方便现有页面渐进迁移。组件专属状态使用 `is-*` 类，页面布局和局部覆盖优先组合 `tn-*` 原子类。
-
-`MemoCard` 支持默认纯文本内容，也可以通过 `renderContent(memo, model)` 接入现有 Markdown View。卡片的置顶、归档、展开、选择、反应和异步错误均由 Model 管理：
+下拉菜单使用 Timeless 的 `DropdownMenuCore` 与菜单项 Core，不在 View 内处理点击或键盘导航：
 
 ```js
-MemoCard({
-  clickable: true,
-  memo: {
-    id: "memo-42",
-    content: "# 发布计划\n完成回归后发布。 #release",
-    createdAt: "2026-08-19T10:30:00+08:00",
-    pinned: true,
-  },
-  async onPinChange(pinned, memo) {
-    await memoRepository.setPinned(memo.id, pinned);
-  },
-  renderContent(memo) {
-    return MemoMarkdownView({ content: memo.content });
-  },
+const menu_store = new Timeless.vm.DropdownMenuCore({
+  align: "end",
+  trigger: "click",
+  items: [
+    new Timeless.vm.MenuItemCore({
+      icon: Icon({ name: "pencil", attributes: { n: "edit-menu-icon" } }),
+      label: "编辑",
+      onClick: edit_memo,
+    }),
+    new Timeless.vm.MenuSeparatorCore(),
+    new Timeless.vm.MenuItemCore({
+      icon: Icon({ name: "trash2", attributes: { n: "delete-menu-icon" } }),
+      label: "删除",
+      onClick: delete_memo,
+    }),
+  ],
 });
+
+const menu_trigger_store = new Timeless.vm.ButtonCore({ variant: "ghost" });
+
+tn.DropdownMenu(
+  { store: menu_store },
+  [tn.Button({ store: menu_trigger_store }, ["更多操作"])],
+);
 ```
+
+页面启动时已通过 `Object.assign(window, Timeless)` 暴露 `View`、`Icon` 等基础 View 工具，因此组件实现直接写 `View(...)`、`Icon(...)` 与 `ui.ButtonPrimitive.Root(...)`，不使用冗余的 `TimelessPrimitive.View(...)` 写法。

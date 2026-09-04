@@ -70,12 +70,28 @@ export function createDatePickerComponent(deps) {
     previous.type = "button";
     previous.className = "tn-button tn-button--ghost tn-button--icon tn-button--xs tn-date-picker__nav";
     previous.setAttribute("aria-label", "上个月");
-    previous.appendChild(Timeless.Icon({ name: "chevron-left", size: 15 }).render());
+    previous.appendChild(
+      Timeless.DOM.buildAndRender(
+        Timeless.Icon({
+          name: "chevron-left",
+          size: 15,
+          attributes: { n: "date-picker-previous-icon" },
+        }),
+      ).dom,
+    );
     monthLabel.className = "tn-date-picker__month";
     next.type = "button";
     next.className = "tn-button tn-button--ghost tn-button--icon tn-button--xs tn-date-picker__nav";
     next.setAttribute("aria-label", "下个月");
-    next.appendChild(Timeless.Icon({ name: "chevron-right", size: 15 }).render());
+    next.appendChild(
+      Timeless.DOM.buildAndRender(
+        Timeless.Icon({
+          name: "chevron-right",
+          size: 15,
+          attributes: { n: "date-picker-next-icon" },
+        }),
+      ).dom,
+    );
     weekdays.className = "tn-date-picker__weekdays";
     days.className = "tn-date-picker__days";
     days.setAttribute("role", "grid");
@@ -101,7 +117,13 @@ export function createDatePickerComponent(deps) {
     timeSuffix.className = "tn-date-picker__time-suffix";
     timeSuffix.textContent = "24H";
     time.append(
-      Timeless.Icon({ name: "clock", size: 15 }).render(),
+      Timeless.DOM.buildAndRender(
+        Timeless.Icon({
+          name: "clock",
+          size: 15,
+          attributes: { n: "date-picker-time-icon" },
+        }),
+      ).dom,
       hour,
       separator,
       minute,
@@ -129,9 +151,22 @@ export function createDatePickerComponent(deps) {
     applyElementProps(hidden, { attributes: props.inputAttributes });
     if (props.name) hidden.name = props.name;
     trigger.append(
-      Timeless.Icon({ name: props.mode === "time" ? "clock" : "calendar", size: 15 }).render(),
+      Timeless.DOM.buildAndRender(
+        Timeless.Icon({
+          name: props.mode === "time" ? "clock" : "calendar",
+          size: 15,
+          attributes: { n: "date-picker-trigger-icon" },
+        }),
+      ).dom,
       triggerValue,
-      Timeless.Icon({ name: "chevron-down", class: "tn-date-picker__chevron", size: 14 }).render(),
+      Timeless.DOM.buildAndRender(
+        Timeless.Icon({
+          name: "chevron-down",
+          class: "tn-date-picker__chevron",
+          size: 14,
+          attributes: { n: "date-picker-trigger-chevron" },
+        }),
+      ).dom,
     );
     panel.append(calendar, time, footer);
     root.append(hidden, trigger, panel);

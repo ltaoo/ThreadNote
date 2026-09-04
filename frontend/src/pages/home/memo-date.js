@@ -98,32 +98,6 @@ function dateFromKey(value) {
   return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
-function relativeTimeTemplate(value) {
-  if (!value) return "";
-  var date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  var relative = formatRelativeDate(value);
-  var full = formatShortDate(value);
-  return '<time class="memo-relative-time" datetime="' + escapeAttr(value) + '" title="' + escapeAttr(full) + '">' + escapeHTML(relative) + '</time>';
-}
-
-function escapeHTML(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeAttr(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 export {
   addMonths,
   calendarWeekdays,
@@ -135,6 +109,5 @@ export {
   memoDateCounts,
   memoDateKey,
   normalizeCalendarWeekStart,
-  relativeTimeTemplate,
   startOfMonth,
 };

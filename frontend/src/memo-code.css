@@ -216,6 +216,18 @@
   overflow: visible;
 }
 
+.memo-fenced-code-multiline.memo-fenced-code-collapsed::after {
+  background: linear-gradient(to bottom, transparent, var(--tn-code-bg));
+  bottom: 0;
+  content: "";
+  height: calc(3 * var(--tn-code-line-height));
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  z-index: 3;
+}
+
 /* Syntax palette stays warm and legible in both app themes. */
 .memo-fenced-code-body .hljs-comment,
 .memo-fenced-code-body .hljs-code,

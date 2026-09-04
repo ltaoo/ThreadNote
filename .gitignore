@@ -7,3 +7,9 @@ build/
 # Release artifacts
 dist/
 *.syso
+
+node_modules
+
+# Local multi-module development workspace
+go.work
+go.work.sum

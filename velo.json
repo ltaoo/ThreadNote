@@ -20,6 +20,10 @@
         "network_client": true
       },
       "dmg": {
+        "window_size": {
+          "width": 660,
+          "height": 428
+        },
         "background": {
           "custom_path": "assets/dmg-background.png"
         }

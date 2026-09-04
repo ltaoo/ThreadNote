@@ -2,9 +2,17 @@
 <html lang="zh-CN">
 
 <head>
+  <script src="/public/logger.js" data-n="frontend-logger-script"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ThreadNote</title>
+  <script type="importmap" data-n="module-import-map">
+    {
+      "imports": {
+        "@/": "./src/"
+      }
+    }
+  </script>
   <script>
     !function () {
       try {
@@ -24,12 +32,10 @@
   </script>
   <script src="/public/input-policy.js" defer></script>
   <script type="module" src="/src/window-state.js"></script>
-  <script>window.__tn_legacy_timeless = window.Timeless || {};</script>
   <script src="/public/timeless/0.31.4/timeless.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.dom.umd.min.js"></script>
   <script src="/public/timeless/0.31.4/timeless.web.umd.min.js"></script>
-  <script src="/public/timeless-icon-runtime.js"></script>
-  <script type="module" src="/src/components.js?v=20260820-component-foundations-v2"></script>
+  <script type="module" src="/src/tnui.js"></script>
   <style>
     :root {
       color-scheme: light;
@@ -313,7 +319,7 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="/src/style.css?v=20260820-component-foundations-v2" />
+  <link rel="stylesheet" href="/src/style.css" />
 </head>
 
 <body>
@@ -352,6 +358,7 @@
               </span>
               <tn-select class="editor-select" name="provider">
                 <option value="local">Local</option>
+                <option value="r2" data-n="storage-provider-r2-option">Cloudflare R2</option>
                 <option value="s3">S3 Compatible</option>
                 <option value="aws-s3">AWS S3</option>
                 <option value="aliyun-oss">Aliyun OSS</option>
@@ -732,9 +739,13 @@
 
       function renderProviderMode(config) {
         var isLocal = isLocalProvider(config && config.provider);
+        var isR2 = String((config && config.provider) || "").trim().toLowerCase() === "r2";
         endpointLabel.textContent = isLocal ? "本地根目录" : "Endpoint";
         bucketLabel.textContent = isLocal ? "Bucket / 目录名" : "Bucket";
-        form.elements.endpoint.placeholder = isLocal ? (defaults.localRoot || "vault/storage") : "https://s3.example.com";
+        form.elements.endpoint.placeholder = isLocal
+          ? (defaults.localRoot || "vault/storage")
+          : (isR2 ? "https://<ACCOUNT_ID>.r2.cloudflarestorage.com" : "https://s3.example.com");
+        form.elements.region.placeholder = isR2 ? "auto" : "us-east-1";
         form.elements.bucket.placeholder = isLocal ? (defaults.memoBucket || "memos") : "memo-assets";
         remoteSection.hidden = isLocal;
         if (isLocal) {
@@ -944,6 +955,7 @@
           "local": "Local",
           "local-oss": "Local",
           "qiniu-kodo": "Qiniu Kodo",
+          "r2": "Cloudflare R2",
           "s3": "S3",
           "tencent-cos": "Tencent COS",
         };

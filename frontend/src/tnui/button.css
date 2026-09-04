@@ -1,0 +1,196 @@
+.tn-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tn-control-height-md);
+  gap: var(--tn-space-2);
+  padding: 0 var(--tn-space-3);
+  border: var(--tn-border-width) solid transparent;
+  border-radius: var(--tn-radius-sm);
+  background: var(--tn-button-default-bg);
+  color: var(--tn-color-text-primary);
+  font: inherit;
+  font-size: var(--tn-font-size-sm);
+  font-weight: var(--tn-font-weight-medium);
+  line-height: var(--tn-line-height-tight);
+  cursor: pointer;
+  transition:
+    background-color var(--tn-duration-fast) var(--tn-ease-standard),
+    border-color var(--tn-duration-fast) var(--tn-ease-standard),
+    color var(--tn-duration-fast) var(--tn-ease-standard),
+    box-shadow var(--tn-duration-fast) var(--tn-ease-standard),
+    transform var(--tn-duration-instant) var(--tn-ease-standard);
+}
+
+.tn-button:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):hover {
+  background: var(--tn-button-default-bg-hover);
+}
+
+.tn-button:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):active {
+  background: var(--tn-button-default-bg-active);
+  transform: translateY(1px);
+}
+
+.tn-button:focus-visible {
+  outline: var(--tn-border-width-strong) solid var(--tn-color-primary-text);
+  outline-offset: 2px;
+  box-shadow: var(--tn-focus-ring);
+}
+
+.tn-button--primary {
+  border-color: var(--tn-button-primary-border);
+  background: var(--tn-button-primary-bg);
+  color: var(--tn-button-primary-text);
+}
+
+.tn-button--primary:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):hover {
+  border-color: var(--tn-button-primary-border-hover);
+  background: var(--tn-button-primary-bg-hover);
+  color: var(--tn-button-primary-text);
+}
+
+.tn-button--primary:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):active {
+  border-color: var(--tn-button-primary-border-hover);
+  background: var(--tn-button-primary-bg-active);
+  color: var(--tn-button-primary-text);
+}
+
+.tn-button--secondary {
+  border-color: var(--tn-button-secondary-border);
+  background: var(--tn-button-secondary-bg);
+}
+
+.tn-button--secondary:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):hover,
+.tn-button--outline:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):hover {
+  border-color: var(--tn-button-secondary-border-hover);
+  background: var(--tn-button-secondary-bg-hover);
+}
+
+.tn-button--secondary:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):active,
+.tn-button--outline:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):active {
+  border-color: var(--tn-button-secondary-border-hover);
+  background: var(--tn-button-secondary-bg-active);
+}
+
+.tn-button--outline {
+  border-color: var(--tn-button-secondary-border);
+  background: transparent;
+}
+
+.tn-button--ghost {
+  background: transparent;
+}
+
+.tn-button--ghost:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):hover {
+  background: var(--tn-button-secondary-bg-hover);
+}
+
+.tn-button--ghost:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):active {
+  background: var(--tn-button-secondary-bg-active);
+}
+
+.tn-button--danger {
+  background: var(--tn-button-danger-bg);
+  color: var(--tn-button-danger-text);
+}
+
+.tn-button--danger:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):hover {
+  background: var(--tn-button-danger-bg-hover);
+  color: var(--tn-button-danger-text);
+}
+
+.tn-button--danger:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):active {
+  background: var(--tn-button-danger-bg-active);
+  color: var(--tn-button-danger-text);
+}
+
+.tn-button--link {
+  min-height: auto;
+  padding: 0;
+  background: transparent;
+  color: var(--tn-color-primary-text);
+}
+
+.tn-button--link:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):hover {
+  background: transparent;
+  color: var(--tn-color-primary-text-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tn-button--link:not(:where(:disabled, .is-disabled, .is-loading, [aria-disabled="true"])):active {
+  background: transparent;
+  color: var(--tn-color-primary-text-hover);
+  transform: none;
+}
+
+/* Keep legacy memo button hover rules from recoloring inactive variants. */
+.tn-button.tn-button--primary:is(:disabled, .is-disabled, .is-loading, [aria-disabled="true"]),
+.tn-button.tn-button--primary:is(:disabled, .is-disabled, .is-loading, [aria-disabled="true"]):hover,
+.tn-button.tn-button--primary:is(:disabled, .is-disabled, .is-loading, [aria-disabled="true"]):active {
+  border-color: var(--tn-button-primary-border);
+  background: var(--tn-button-primary-bg);
+  color: var(--tn-button-primary-text);
+  transform: none;
+}
+
+.tn-button.tn-button--danger:is(:disabled, .is-disabled, .is-loading, [aria-disabled="true"]),
+.tn-button.tn-button--danger:is(:disabled, .is-disabled, .is-loading, [aria-disabled="true"]):hover,
+.tn-button.tn-button--danger:is(:disabled, .is-disabled, .is-loading, [aria-disabled="true"]):active {
+  background: var(--tn-button-danger-bg);
+  color: var(--tn-button-danger-text);
+  transform: none;
+}
+
+.tn-button:where(:disabled, .is-disabled, [aria-disabled="true"]) {
+  cursor: not-allowed;
+  opacity: var(--tn-opacity-disabled);
+  transform: none;
+}
+
+.tn-button.is-loading {
+  cursor: progress;
+  opacity: var(--tn-button-loading-opacity);
+  transform: none;
+}
+
+.tn-button--xs {
+  min-height: var(--tn-control-height-xs);
+  padding-inline: var(--tn-space-2);
+  font-size: var(--tn-font-size-xs);
+}
+
+.tn-button--sm,
+.tn-button--icon-sm {
+  min-height: var(--tn-control-height-sm);
+}
+
+.tn-button--lg {
+  min-height: var(--tn-control-height-lg);
+  padding-inline: var(--tn-space-4);
+}
+
+.tn-button--icon,
+.tn-button--icon-sm,
+.tn-icon-button {
+  aspect-ratio: 1;
+  padding: 0;
+}
+
+.tn-button__spinner {
+  display: inline-flex;
+  color: currentColor;
+  animation: tn-spin 0.8s linear infinite;
+}
+
+.tn-button__prefix,
+.tn-button__content {
+  display: inline-flex;
+  align-items: center;
+}
+
+@keyframes tn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

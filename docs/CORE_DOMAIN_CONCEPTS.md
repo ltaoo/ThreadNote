@@ -18,7 +18,8 @@
 
 ### Go 桌面后端
 
-Go 后端位于 `internal/desktopapp`，承担以下职责：
+Go 后端以 `internal/desktopapp` 作为稳定入口，业务实现位于
+`internal/service`，承担以下职责：
 
 - 启动 Velo 应用、创建主窗口、注册快捷键和拖放回调。
 - 管理 vault、project、memo、对象存储配置等本地数据。
@@ -44,10 +45,10 @@ App 是整个桌面进程和 WebView 容器。入口在 `main.go`，它把前端
 
 App 负责：
 
-- 初始化日志目录 `~/.myapp/app.log`。
+- 初始化固定日志文件 `~/.myapp/app.log`；`/report` 接收前端批量日志并以 `component=frontend` 写入同一文件，便于 agent 集中排查。
 - 初始化自动更新器。
-- 根据最近使用的 active vault 决定进入 `/vault-picker` 还是 `/desktop`。
-- 创建主 WebView，默认大小为 `1024x768`。
+- 根据最近使用的 active vault 决定显示主窗口还是独立的 Vault 选择窗口。
+- 主窗口固定加载 `/home/index`，默认大小为 `1024x768`；只有 active vault 可用时才显示。
 - 注册全局快捷键：显示主窗口和隐藏主窗口。
 - 将系统拖放文件转换为前端可用的文件 payload。
 
@@ -56,7 +57,7 @@ App 负责：
 Vault 是用户选择的本地工作区目录，是 memo、project 和附件存储的领域根。一个 vault 目录至少包含：
 
 - `.velo/vault.json`：vault 自身元数据。
-- `.velo/projects.json`：project 列表和 active project。
+- `projects.json`：project 列表和 active project。
 - `memo/`：memo Markdown 文件目录。
 - `storage/` 或配置指定目录：默认本地对象存储根。
 
@@ -92,7 +93,7 @@ Vault Registry 是本机级别的 vault 索引，不属于某个具体 vault。�
 
 ### Project
 
-Project 是 memo 的轻量分组。它不是独立目录，而是保存在 `.velo/projects.json` 中的结构化记录。
+Project 是 memo 的轻量分组。它不是独立目录，而是保存在 Vault 根目录 `projects.json` 中的结构化记录。
 
 `ProjectRecord` 核心字段：
 
@@ -372,9 +373,9 @@ Update 是桌面应用级能力，不属于 memo 领域，但属于项目核心�
 1. `main.go` 嵌入前端资源和配置。
 2. `desktopapp.Run` 初始化日志、更新器和 Velo App。
 3. 后端读取 `~/.velo/data.json`。
-4. 如果 active vault 可用，则打开该 vault 并进入 `/desktop`。
-5. 如果没有 active vault，则进入 `/vault-picker`。
-6. 主 WebView 创建后，前端路由把 `/desktop` 映射到 memo 工作台。
+4. 主 WebView 固定加载 `/home/index`；如果 active vault 可用则直接显示。
+5. 如果没有 active vault，则不展示主窗口，改为渲染 `/vault-picker`：支持多窗口的引擎会隐藏主 WebView 并打开独立选择窗口；不支持附加窗口的原生平台则直接以选择器作为首窗口。
+6. 选择 Vault 后，后端切换 Store、刷新并显示主窗口；独立 Vault 选择窗口自行关闭，首窗口模式则原位切换到 `/home/index`。
 
 ### 选择或创建 Vault
 
@@ -383,7 +384,7 @@ Update 是桌面应用级能力，不属于 memo 领域，但属于项目核心�
 3. 前端调用 `/api/vault/open`。
 4. 后端校验目录、创建 `.velo` 和 `memo/`，读取或创建 `vault.json`。
 5. 后端更新全局 registry，并把 Store 切换到该 vault 的 `.velo`。
-6. 前端跳转到 `/desktop`。
+6. 后端显示主窗口，前端关闭 Vault 选择窗口。
 
 ### 创建 Memo
 
@@ -426,7 +427,7 @@ Update 是桌面应用级能力，不属于 memo 领域，但属于项目核心�
 | --- | --- | --- | --- |
 | 全局 vault registry | `~/.velo/data.json` | JSON | 本机最近 vault 和 active vault |
 | Vault 元数据 | `{vault}/.velo/vault.json` | JSON | vault ID、名称、schema version |
-| Project 列表 | `{vault}/.velo/projects.json` | JSON | projects 和 activeProjectId |
+| Project 列表 | `{vault}/projects.json` | JSON | projects 和 activeProjectId |
 | Memo | `{vault}/memo/YYYY/MM/*.md` | Markdown + front matter | memo 正文和元数据 |
 | Cloud storage settings | Velo Store key `demo-desktop:settings:cloud-storage:v1` | JSON | 当前 vault 的存储配置 |
 | 默认本地附件 | `{vault}/storage/memos/...` | 文件 | provider 为 local 的默认对象存储 |
@@ -486,7 +487,7 @@ App
   ├─ Velo Store
   └─ Active Vault
        ├─ Vault metadata (.velo/vault.json)
-       ├─ Projects (.velo/projects.json)
+       ├─ Projects (projects.json)
        │    └─ ProjectRecord
        ├─ Memos (memo/YYYY/MM/*.md)
        │    ├─ tags
@@ -502,17 +503,18 @@ App
 ## 代码入口索引
 
 - 应用入口：`main.go`
-- 桌面启动：`internal/desktopapp/app.go`
-- 路由注册：`internal/desktopapp/api_routes.go`
-- Vault：`internal/desktopapp/vault_project.go`
-- Project：`internal/desktopapp/project.go`
-- Memo：`internal/desktopapp/memo.go`
-- Memo Markdown：`internal/desktopapp/memo_markdown.go`
-- Memo 附件引用：`internal/desktopapp/memo_assets.go`
-- 存储配置：`internal/desktopapp/cloud_storage_settings.go`
-- OSS / local storage：`internal/desktopapp/oss_storage.go`、`internal/desktopapp/oss_local.go`
-- 桌面能力路由：`internal/desktopapp/routes_desktop.go`
-- 更新与多窗口：`internal/desktopapp/routes_update_window.go`
+- 稳定桌面入口：`internal/desktopapp/desktopapp.go`
+- 服务运行时：`internal/service/app.go`
+- 路由注册：`internal/service/api_routes.go`
+- Vault：`internal/service/vault_project.go`
+- Project：`internal/service/project.go`
+- Memo：`internal/service/memo.go`
+- Memo Markdown：`internal/service/memo_markdown.go`
+- Memo 附件引用：`internal/service/memo_assets.go`
+- 存储配置：`internal/service/cloud_storage_settings.go`
+- OSS / local storage：`internal/service/oss_storage.go`、`internal/service/oss_local.go`
+- 桌面能力路由：`internal/service/routes_desktop.go`
+- 更新与多窗口：`internal/service/routes_update_window.go`
 - 前端领域层：`frontend/src/domain/`
 - Memo 工作台：`frontend/src/pages/home/memos.js`
 - Vault 选择页：`frontend/src/pages/vault-picker/index.js`

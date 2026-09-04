@@ -2,7 +2,13 @@ export function LoginPageView(props) {
   return View({ class: "page auth-page w-full h-full" }, [
     View({ class: "auth-panel" }, [
       View({ class: "auth-brand" }, [
-        View({ class: "auth-brand-mark" }),
+        View({ class: "auth-brand-mark" }, [
+          Timeless.Icon({
+            name: "file-text",
+            size: 28,
+            attributes: { n: "login-brand-icon" },
+          }),
+        ]),
         View({ class: "auth-brand-copy" }, [
           View({ class: "auth-eyebrow" }, [Txt("LOCAL / WORKSPACE")]),
           View({ class: "auth-title" }, [Txt("ThreadNote")]),

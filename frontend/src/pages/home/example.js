@@ -1,164 +1,203 @@
-export function UIExamplePageView() {
-  return View({ class: "ui-example-page flex" }, [
-    View({ class: "ui-example-nav w-[320px]" }, [
-      For({
-        each: ref([
-          {
-            label: "Controls",
-          },
-          {
-            label: "List",
-          },
-          {
-            label: "Table",
-          },
-        ]),
-        render(menu) {
-          return View({ class: "flex items-center px-4 py-2" }, [
-            Txt(menu.label),
-          ]);
+import { tn } from "@/tnui.js";
+import { UIExamplePageModel } from "./example.model.js";
+
+const NAV_ITEMS = [
+  { id: "controls", label: "Controls" },
+  { id: "list", label: "List" },
+  { id: "table", label: "Table" },
+];
+
+export function UIExamplePageView(model = new UIExamplePageModel()) {
+  return View(
+    {
+      class: "ui-example-page flex",
+      attributes: { n: "ui-example-page" },
+      onUnmounted() {
+        model.destroy();
+      },
+    },
+    [
+      View(
+        {
+          class: "ui-example-nav w-[320px]",
+          attributes: { n: "ui-example-navigation" },
         },
-      }),
-    ]),
-    View({ class: "ui-example-main flex-1 w-0 p-4" }, [
-      View({ class: "sections space-y-8" }, [
-        View({ class: "section" }, [
-          View({ class: "section__title text-2xl" }, [Txt("Button")]),
-          View({ class: "section__body space-x-4" }, [
-            Button({}, [Txt("Regular Button")]),
-            Button({ type: "primary" }, [Txt("Primary Button")]),
-          ]),
-        ]),
-        View({ class: "section" }, [
-          View({ class: "section__title text-2xl" }, [Txt("MemoCard")]),
-          View({ class: "section__body tn-mt-3" }, [
-            MemoCard({
-              clickable: true,
-              memo: {
-                alias: "release-plan",
-                author: "Mayfair",
-                backlinks: 3,
-                comments: 2,
-                content:
-                  "# 桌面端发布计划\n完成组件库迁移、键盘可访问性检查和发布前回归。\n\n#release #desktop",
-                createdAt: "2026-08-19T10:30:00+08:00",
-                id: "memo-component-example",
-                pinned: true,
-                projectLabel: "ThreadNote",
-                reactions: ["👍", "🎉"],
-                visibility: "PROTECTED",
-              },
-            }),
-          ]),
-        ]),
-        View({ class: "section" }, [
-          View({ class: "section__title text-2xl" }, [Txt("Dropdown Menu")]),
-          View({ class: "section__body space-x-4" }, [
-            DropdownMenu(
-              {
-                store: new Timeless.ui.DropdownMenuCore({
-                  items: [
-                    new Timeless.ui.MenuItemCore({
-                      label: "Apple",
-                      onClick() {
-                        console.log("click apple menu");
-                      },
-                    }),
-                    new Timeless.ui.MenuItemCore({
-                      label: "Banana",
-                      onClick() {
-                        console.log("click banana menu");
-                      },
-                    }),
-                  ],
-                }),
-              },
-              [Button({}, [Txt("Click it")])],
-            ),
-          ]),
-        ]),
-        View({ class: "section" }, [
-          View({ class: "section__title text-2xl" }, [Txt("Select")]),
-          View({ class: "section__body space-x-4" }, [
-            Select({
-              store: new Timeless.vm.SelectCore({
-                defaultValue: "apple",
-                options: [
-                  new Timeless.vm.SelectItemCore({
-                    value: "apple",
-                    label: "苹果",
-                  }),
-                  new Timeless.vm.SelectItemCore({
-                    value: "banana",
-                    label: "香蕉",
-                  }),
+        [
+          For({
+            each: NAV_ITEMS,
+            render(menu) {
+              return View(
+                {
+                  class: "flex items-center px-4 py-2",
+                  attributes: { n: `ui-example-navigation-${menu.id}` },
+                },
+                [Txt(menu.label)],
+              );
+            },
+          }),
+        ],
+      ),
+      View(
+        {
+          class: "ui-example-main flex-1 w-0 p-4",
+          attributes: { n: "ui-example-content" },
+        },
+        [
+          View(
+            {
+              class: "sections space-y-8",
+              attributes: { n: "ui-example-sections" },
+            },
+            [
+              View(
+                {
+                  class: "section",
+                  attributes: { n: "button-example-section" },
+                },
+                [
+                  View(
+                    {
+                      class: "section__title text-2xl",
+                      attributes: { n: "button-example-title" },
+                    },
+                    [Txt("Button")],
+                  ),
+                  View(
+                    {
+                      class: "section__body space-x-4",
+                      attributes: { n: "button-example-controls" },
+                    },
+                    [
+                      tn.Button({ store: model.regular_button_store }, [
+                        Txt("Regular Button"),
+                      ]),
+                      tn.Button({ store: model.primary_button_store }, [
+                        Txt("Primary Button"),
+                      ]),
+                    ],
+                  ),
                 ],
-                position: "popper",
-              }),
-            }),
-          ]),
-        ]),
-        View({ class: "section" }, [
-          View({ class: "section__title text-2xl" }, [Txt("Input")]),
-          View({ class: "section__body space-x-4" }, [
-            Input({
-              store: new Timeless.ui.InputCore({
-                defaultValue: "",
-              }),
-            }),
-          ]),
-        ]),
-        View({ class: "section" }, [
-          View({ class: "section__title text-2xl" }, [Txt("Checkbox")]),
-          View({ class: "section__body space-x-4" }, [
-            Checkbox({
-              store: new Timeless.ui.CheckboxCore({}),
-            }),
-          ]),
-        ]),
-        View({ class: "section" }, [
-          View({ class: "section__title text-2xl" }, [Txt("Switch")]),
-          View({ class: "section__body space-x-4" }, [
-            Switch({
-              value: "",
-              //       store: new Timeless.ui.SwitchCore({
-              //         defaultValue: "",
-              //       }),
-            }),
-          ]),
-        ]),
-        View({ class: "section" }, [
-          View({ class: "section__title text-2xl" }, [Txt("Slider")]),
-          View({ class: "section__body space-x-4" }, [
-            Slider({
-              value: "",
-              //       store: new Timeless.ui.SwitchCore({
-              //         defaultValue: "",
-              //       }),
-            }),
-          ]),
-        ]),
-        View({ class: "section" }, [
-          View({ class: "section__title text-2xl" }, [Txt("Tabs")]),
-          View({ class: "section__body space-x-4" }, [
-            Tabs({
-              value: "tab1",
-              items: [
+              ),
+              View(
                 {
-                  label: "Tab 1",
-                  value: "tab1",
-                  content: "Tab 1 Content",
+                  class: "section",
+                  attributes: { n: "dropdown-menu-example-section" },
                 },
+                [
+                  View(
+                    {
+                      class: "section__title text-2xl",
+                      attributes: { n: "dropdown-menu-example-title" },
+                    },
+                    [Txt("Dropdown Menu")],
+                  ),
+                  View(
+                    {
+                      class: "section__body space-x-4",
+                      attributes: { n: "dropdown-menu-example-controls" },
+                    },
+                    [
+                      tn.DropdownMenu({ store: model.dropdown_store }, [
+                        tn.Button({ store: model.dropdown_trigger_store }, [
+                          Txt("Click it"),
+                        ]),
+                      ]),
+                    ],
+                  ),
+                ],
+              ),
+              View(
                 {
-                  label: "Tab 2",
-                  value: "tab2",
-                  content: "Tab 2 Content",
+                  class: "section",
+                  attributes: { n: "select-example-section" },
                 },
-              ],
-            }),
-          ]),
-        ]),
-      ]),
-    ]),
-  ]);
+                [
+                  View(
+                    {
+                      class: "section__title text-2xl",
+                      attributes: { n: "select-example-title" },
+                    },
+                    [Txt("Select")],
+                  ),
+                  View(
+                    {
+                      class: "section__body space-x-4",
+                      attributes: { n: "select-example-control" },
+                    },
+                    [tn.Select({ store: model.select_store })],
+                  ),
+                ],
+              ),
+              View(
+                {
+                  class: "section",
+                  attributes: { n: "input-example-section" },
+                },
+                [
+                  View(
+                    {
+                      class: "section__title text-2xl",
+                      attributes: { n: "input-example-title" },
+                    },
+                    [Txt("Input")],
+                  ),
+                  View(
+                    {
+                      class: "section__body space-x-4",
+                      attributes: { n: "input-example-control" },
+                    },
+                    [tn.Input({ store: model.input_store })],
+                  ),
+                ],
+              ),
+              View(
+                {
+                  class: "section",
+                  attributes: { n: "checkbox-example-section" },
+                },
+                [
+                  View(
+                    {
+                      class: "section__title text-2xl",
+                      attributes: { n: "checkbox-example-title" },
+                    },
+                    [Txt("Checkbox")],
+                  ),
+                  View(
+                    {
+                      class: "section__body space-x-4",
+                      attributes: { n: "checkbox-example-control" },
+                    },
+                    [tn.Checkbox({ store: model.checkbox_store })],
+                  ),
+                ],
+              ),
+              View(
+                {
+                  class: "section",
+                  attributes: { n: "switch-example-section" },
+                },
+                [
+                  View(
+                    {
+                      class: "section__title text-2xl",
+                      attributes: { n: "switch-example-title" },
+                    },
+                    [Txt("Switch")],
+                  ),
+                  View(
+                    {
+                      class: "section__body space-x-4",
+                      attributes: { n: "switch-example-control" },
+                    },
+                    [tn.Switch({ store: model.switch_store })],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
 }

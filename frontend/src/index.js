@@ -1,23 +1,68 @@
-import { app, history, client, views } from "./store/index.js?v=20260820-link-card";
+import { app, history, client, router } from "./store/index.js";
 import { storage } from "./store/storage.js";
-import { RouterSubViews } from "./components/sub-views.js";
-import * as uiComponents from "./components.js?v=20260820-memo-expand-measured";
-
-Object.assign(window, uiComponents);
+import "./tnui.js";
+import {
+  ErrorFallbackView,
+  LoadingView,
+  renderWithErrorBoundary,
+} from "./route-status.js";
 
 const WINDOW_STATE_POLL_INTERVAL = 250;
 const WINDOW_STATE_SNAPSHOT_DEBOUNCE = 800;
 
+/** @type {number | null} */
 let snapshotPollTimer = null;
+/** @type {number | null} */
 let snapshotDebounceTimer = null;
+/** @type {{x:number;y:number;width:number;height:number}|null} */
 let lastWindowState = null;
 
 function windowStateName() {
-  return window.location.pathname === "/vault-picker" ? "vault-picker" : "desktop";
+  return window.location.pathname === "/vault-picker"
+    ? "vault-picker"
+    : "desktop";
 }
 
-const render = ($root) => {
+function ApplicationRootView() {
+  return renderWithErrorBoundary(
+    function () {
+      return View(
+        {
+          class: "tn-root-view",
+          attributes: { n: "application-root" },
+        },
+        [
+          Timeless.ui.StandardSubViews({
+            class: "root-view w-full h-full",
+            attributes: { n: "application-route-content" },
+            app,
+            view: history.$view,
+            views: router.views,
+            history,
+            storage,
+            client,
+            placeholder: [LoadingView()],
+            ErrorFallback: ErrorFallbackView,
+          }),
+        ],
+      );
+    },
+    "application-root",
+  );
+}
+
+/**
+ *
+ * @param {Element} $root
+ */
+function render($root) {
   const { innerWidth, innerHeight, location } = window;
+  globalThis.FrontendLogger?.info("application render started", {
+    component: "application",
+    height: innerHeight,
+    pathname: location.pathname,
+    width: innerWidth,
+  });
   history.$router.prepare(location);
   app
     .start({
@@ -25,25 +70,26 @@ const render = ($root) => {
       height: innerHeight,
     })
     .then(() => {
-      const v$ = RouterSubViews({
-        class: classnames("root-view w-full h-full"),
-        view: history.$view,
-        app,
-        views,
-        history,
-        storage,
-        client,
+      globalThis.FrontendLogger?.info("application model ready", {
+        component: "application",
+        pathname: window.location.pathname,
       });
-      $root.appendChild(v$.render());
-      v$.onMounted();
       restoreWindowState();
       startWindowStateSnapshots();
     });
-};
+  Timeless.DOM.render(ApplicationRootView(), $root);
+  globalThis.FrontendLogger?.info("application view rendered", {
+    component: "application",
+    pathname: window.location.pathname,
+  });
+}
 
 document.addEventListener("DOMContentLoaded", function () {
   const $root = document.querySelector("#root");
   if (!$root) {
+    globalThis.FrontendLogger?.error("application root missing", {
+      component: "application",
+    });
     console.error("[Render] Root element not found");
     return;
   }
@@ -57,7 +103,10 @@ window.addEventListener("beforeunload", function () {
 
 function restoreWindowState() {
   if (typeof invoke !== "function") return;
-  invoke("/api/window/state/restore?name=" + encodeURIComponent(windowStateName()), { method: "GET" }).catch(function () {});
+  invoke(
+    "/api/window/state/restore?name=" + encodeURIComponent(windowStateName()),
+    { method: "GET" },
+  ).catch(function () {});
 }
 
 function startWindowStateSnapshots() {
@@ -88,7 +137,12 @@ function stopWindowStateSnapshots() {
 function snapshotWindowStateSync() {
   try {
     const xhr = new XMLHttpRequest();
-    xhr.open("GET", "/api/window/state/snapshot?name=" + encodeURIComponent(windowStateName()), false);
+    xhr.open(
+      "GET",
+      "/api/window/state/snapshot?name=" +
+        encodeURIComponent(windowStateName()),
+      false,
+    );
     xhr.send();
   } catch (_) {}
 }
@@ -100,7 +154,11 @@ function scheduleWindowStateSnapshot() {
   }
   snapshotDebounceTimer = window.setTimeout(function () {
     snapshotDebounceTimer = null;
-    invoke("/api/window/state/snapshot?name=" + encodeURIComponent(windowStateName()), { method: "GET" }).catch(function () {});
+    invoke(
+      "/api/window/state/snapshot?name=" +
+        encodeURIComponent(windowStateName()),
+      { method: "GET" },
+    ).catch(function () {});
   }, WINDOW_STATE_SNAPSHOT_DEBOUNCE);
 }
 
@@ -113,6 +171,19 @@ function readWindowStateHint() {
   };
 }
 
+/**
+ *
+ * @param {{x:number;y:number;width:number;height:number}|null} a
+ * @param {{x:number;y:number;width:number;height:number}} b
+ * @returns
+ */
 function isSameWindowStateHint(a, b) {
-  return Boolean(a && b && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height);
+  return Boolean(
+    a &&
+    b &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.width === b.width &&
+    a.height === b.height,
+  );
 }

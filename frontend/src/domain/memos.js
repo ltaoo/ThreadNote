@@ -3,10 +3,10 @@ import { normalizeProjectID } from "./projects.js";
 export const DEFAULT_VISIBILITY = "PRIVATE";
 
 export const VISIBILITY = {
-  SECRET: { label: "私密", icon: "lock" },
-  PRIVATE: { label: "仅自己", icon: "lock" },
-  PROTECTED: { label: "工作区", icon: "shield" },
-  PUBLIC: { label: "公开", icon: "globe" },
+  SECRET: { label: "私密", icon: "file-lock" },
+  PRIVATE: { label: "仅自己", icon: "file-lock" },
+  PROTECTED: { label: "工作区", icon: "file-lock" },
+  PUBLIC: { label: "公开", icon: "rss" },
 };
 
 const TASK_LINE_REGEX = /^(\s*[-*]\s+\[)([ xX])(\]\s+)(.*)$/;

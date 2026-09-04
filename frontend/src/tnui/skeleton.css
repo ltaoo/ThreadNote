@@ -1,0 +1,2 @@
+.tn-skeleton { min-height: var(--tn-space-4); border-radius: var(--tn-radius-sm); background: linear-gradient(90deg, var(--tn-color-bg-subtle), var(--tn-color-hover-surface), var(--tn-color-bg-subtle)); background-size: 200% 100%; animation: tn-skeleton 1.4s ease infinite; }
+@keyframes tn-skeleton { to { background-position: -200% 0; } }

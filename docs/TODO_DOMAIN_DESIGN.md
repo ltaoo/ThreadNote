@@ -433,7 +433,9 @@ Inbox 是默认入口。任何没有明确清单和日期的任务进入 Inbox�
 
 ### 澄清
 
-任务需要支持从 Inbox 分流：
+待澄清、待判断或待分解的内容仍然是 Task，不再建立独立的 GTD Item 实体。需求池是 Task 的一个标签阶段：默认使用 `stage:backlog`，澄清后可改为 `stage:ready`，等待外部条件时可改为 `stage:waiting`。类型同样使用 `type:idea`、`type:bug`、`type:feature` 等标签表达。
+
+任务需要支持从 Inbox 或需求池分流：
 
 - 立即完成。
 - 安排日期。
@@ -505,11 +507,11 @@ GET  /api/task-index/rebuild
 新增 Go 文件：
 
 ```text
-internal/desktopapp/task.go
-internal/desktopapp/task_markdown.go
-internal/desktopapp/task_index.go
-internal/desktopapp/task_events.go
-internal/desktopapp/routes_tasks.go
+internal/service/task.go
+internal/service/task_markdown.go
+internal/service/task_index.go
+internal/service/task_events.go
+internal/service/routes_tasks.go
 ```
 
 职责划分：
@@ -592,6 +594,7 @@ frontend/src/types/tasks.d.ts
 - Task 文件是权威数据源，索引是缓存。
 - Memo 引用 Task 时只保存 task ID。
 - Task 可以没有来源 memo。
+- GTD 是任务工作流和查询视图，不是与 Task 并列的数据实体。
 - 删除 Memo 不应隐式删除 Task。
 - 删除 Task 时，关联 Memo 中的引用可以保留为失效引用，或由用户选择清理。
 - 完成重复任务时，不直接把模板任务关闭，而是生成下一次实例或记录本次完成。

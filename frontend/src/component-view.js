@@ -63,6 +63,12 @@ function appendChild(element, child, childViews) {
     element.appendChild(child);
     return;
   }
+  if (child?.t === "icon" && Timeless?.DOM?.buildAndRender) {
+    const rendered = Timeless.DOM.buildAndRender(child);
+    if (rendered.dom) element.appendChild(rendered.dom);
+    childViews.push(child);
+    return;
+  }
   if (child && typeof child.render === "function") {
     const childElement = child.render();
     if (childElement) element.appendChild(childElement);
@@ -79,9 +85,6 @@ export function elementView(element, children = [], lifecycle = {}) {
     append(child) {
       children.push(child);
       if (rendered) appendChild(element, child, childViews);
-    },
-    setContent(html) {
-      element.innerHTML = html;
     },
     render() {
       if (!rendered) {
@@ -208,12 +211,4 @@ export function placePopover(trigger, content, placement, offset) {
   y = Math.min(window.innerHeight - contentRect.height - margin, Math.max(margin, y));
   content.style.left = `${Math.round(x)}px`;
   content.style.top = `${Math.round(y)}px`;
-}
-
-export function Icon(props = {}) {
-  return Timeless.Icon({
-    ...props,
-    class: classNames("tn-icon", props.class),
-    name: props.name || "info",
-  });
 }

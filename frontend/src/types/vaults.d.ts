@@ -3,6 +3,17 @@ export interface VaultEntry {
   lastOpenedAt: string;
   name: string;
   path: string;
+  provider: "local" | "cloudflare" | string;
+}
+
+export interface CloudflareVaultConfig {
+  accountId: string;
+  apiToken: string;
+  databaseId: string;
+  name?: string;
+  r2AccessKeyId: string;
+  r2Bucket: string;
+  r2SecretAccessKey: string;
 }
 
 export interface VaultContext {

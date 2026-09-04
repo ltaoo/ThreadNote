@@ -22,9 +22,45 @@ declare function invoke(
   },
 ): Promise<any>;
 
+declare interface FrontendLogBuilder {
+  Str(key: string, value: unknown): FrontendLogBuilder;
+  Err(error: unknown): FrontendLogBuilder;
+  Object(key: string, value: unknown): FrontendLogBuilder;
+  Obj(key: string, value: unknown): FrontendLogBuilder;
+  Dict(key: string, value: unknown): FrontendLogBuilder;
+  Interface(key: string, value: unknown): FrontendLogBuilder;
+  JSON(key: string, value: unknown): FrontendLogBuilder;
+  RawJSON(key: string, value: unknown): FrontendLogBuilder;
+  Int(key: string, value: number): FrontendLogBuilder;
+  Float(key: string, value: number): FrontendLogBuilder;
+  Bool(key: string, value: boolean): FrontendLogBuilder;
+  Msg(message: unknown): void;
+}
+
+declare interface FrontendLogger {
+  Debug(): FrontendLogBuilder;
+  Info(): FrontendLogBuilder;
+  Warn(): FrontendLogBuilder;
+  Error(error?: unknown): FrontendLogBuilder;
+  debug(message: unknown, fields?: Record<string, unknown>): void;
+  info(message: unknown, fields?: Record<string, unknown>): void;
+  warn(message: unknown, fields?: Record<string, unknown>): void;
+  error(message: unknown, fields?: Record<string, unknown>): void;
+  log(entry: Record<string, unknown>): void;
+  flushNow(options?: { unloading?: boolean }): Promise<void>;
+}
+
+declare const Logger: FrontendLogger;
+declare const FrontendLogger: FrontendLogger;
+
 declare interface Window {
   dayjs: typeof dayjs;
+  FrontendLogger: FrontendLogger;
+  Logger: FrontendLogger;
+  tn: typeof import("../src/tnui.js").tn;
 }
+
+declare const tn: typeof import("../src/tnui.js").tn;
 // Global Core Functions
 declare const ref: typeof import("../src/components/ui/core").ref;
 declare const computed: typeof import("../src/components/ui/core").computed;
@@ -36,77 +72,22 @@ declare const For: typeof import("../src/components/ui/for").For;
 declare const Match: typeof import("../src/components/ui/match").Match;
 declare const Slider: typeof import("../src/components/ui/slider").Slider;
 declare const Slide: typeof import("../src/components/ui/slider").Slider;
-declare const Progress: typeof import("../src/components.js").Progress;
 // Global Components
 declare const View: typeof import("../src/components/ui/view").View;
+declare const Icon: typeof import("../src/tnui.js").tn.Icon;
 declare const DangerouslyInnerHTML: typeof import("../src/components/ui/html").DangerouslyInnerHTML;
 declare const Txt: typeof import("../src/components/ui/text").Txt;
 declare const ScrollView: typeof import("../src/components/ui/scrollview").ScrollView;
 declare const Flex: typeof import("../src/components/ui/flex").Flex;
-declare const Button: typeof import("../src/components.js").Button;
-declare const IconButton: typeof import("../src/components.js").IconButton;
-declare const Input: typeof import("../src/components.js").Input;
-declare const Textarea: typeof import("../src/components.js").Textarea;
-declare const Checkbox: typeof import("../src/components.js").Checkbox;
-declare const Select: typeof import("../src/components.js").Select;
-declare const ProjectSelect: typeof import("../src/components.js").ProjectSelect;
-declare const DatePicker: typeof import("../src/components.js").DatePicker;
-declare const Dialog: typeof import("../src/components.js").Dialog;
-declare const DialogHeader: typeof import("../src/components.js").DialogHeader;
-declare const DialogTitle: typeof import("../src/components.js").DialogTitle;
-declare const DialogDescription: typeof import("../src/components.js").DialogDescription;
-declare const DialogBody: typeof import("../src/components.js").DialogBody;
-declare const DialogFooter: typeof import("../src/components.js").DialogFooter;
-declare const Popover: typeof import("../src/components.js").Popover;
-declare const FormField: typeof import("../src/components.js").FormField;
-declare const Label: typeof import("../src/components.js").Label;
-declare const Badge: typeof import("../src/components.js").Badge;
-declare const Avatar: typeof import("../src/components.js").Avatar;
-declare const Card: typeof import("../src/components.js").Card;
-declare const CardHeader: typeof import("../src/components.js").CardHeader;
-declare const CardTitle: typeof import("../src/components.js").CardTitle;
-declare const CardDescription: typeof import("../src/components.js").CardDescription;
-declare const CardContent: typeof import("../src/components.js").CardContent;
-declare const CardFooter: typeof import("../src/components.js").CardFooter;
-declare const Table: typeof import("../src/components.js").Table;
-declare const TableHeader: typeof import("../src/components.js").TableHeader;
-declare const TableBody: typeof import("../src/components.js").TableBody;
-declare const TableRow: typeof import("../src/components.js").TableRow;
-declare const TableHead: typeof import("../src/components.js").TableHead;
-declare const TableCell: typeof import("../src/components.js").TableCell;
-declare const Alert: typeof import("../src/components.js").Alert;
-declare const AlertTitle: typeof import("../src/components.js").AlertTitle;
-declare const AlertDescription: typeof import("../src/components.js").AlertDescription;
-declare const EmptyState: typeof import("../src/components.js").EmptyState;
-declare const Skeleton: typeof import("../src/components.js").Skeleton;
-declare const Separator: typeof import("../src/components.js").Separator;
-declare const Spinner: typeof import("../src/components.js").Spinner;
-declare const Icon: typeof import("../src/components.js").Icon;
-declare const MemoCard: typeof import("../src/components.js").MemoCard;
-declare const SmallCalendar: typeof import("../src/components.js").SmallCalendar;
-declare const createButtonModel: typeof import("../src/components.js").createButtonModel;
-declare const createInputModel: typeof import("../src/components.js").createInputModel;
-declare const createCheckboxModel: typeof import("../src/components.js").createCheckboxModel;
-declare const createSwitchModel: typeof import("../src/components.js").createSwitchModel;
-declare const createSelectModel: typeof import("../src/components.js").createSelectModel;
-declare const createProjectSelectModel: typeof import("../src/components.js").createProjectSelectModel;
-declare const createDatePickerModel: typeof import("../src/components.js").createDatePickerModel;
-declare const createDialogModel: typeof import("../src/components.js").createDialogModel;
-declare const createPopoverModel: typeof import("../src/components.js").createPopoverModel;
-declare const createProgressModel: typeof import("../src/components.js").createProgressModel;
-declare const createMemoCardModel: typeof import("../src/components.js").createMemoCardModel;
-declare const createSmallCalendarModel: typeof import("../src/components.js").createSmallCalendarModel;
 declare const Presence: typeof import("../src/components/ui/presence").Presence;
 declare const Portal: typeof import("../src/components/ui/portal").Portal;
 declare const Popper: typeof import("../src/components/ui/popper").Popper;
 declare const Toggle: typeof import("../src/components/ui/toggle").Toggle;
-declare const Switch: typeof import("../src/components.js").Switch;
 
 declare const Menu: typeof import("../src/components/ui/menu").Menu;
 declare const MenuItem: typeof import("../src/components/ui/menu").MenuItem;
 declare const MenuLabel: typeof import("../src/components/ui/menu").MenuLabel;
 declare const MenuSeparator: typeof import("../src/components/ui/menu").MenuSeparator;
-declare const DropdownMenu: typeof import("../src/components/ui/menu").DropdownMenu;
 
 declare const Tabs: typeof import("../src/components/ui/tabs").Tabs;
 declare const Steps: typeof import("../src/components/ui/steps").Steps;
