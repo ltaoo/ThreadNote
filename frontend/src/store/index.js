@@ -66,6 +66,11 @@ const routes_configure = {
             pathname: "/home/index/clipboard",
             component: Timeless.lazy("@/pages/home/home_clipboard.js"),
           },
+          credentials: {
+            title: "凭证库",
+            pathname: "/home/index/credentials",
+            component: Timeless.lazy("@/pages/home/home_credentials.js"),
+          },
           board: {
             title: "看板",
             pathname: "/home/index/board",

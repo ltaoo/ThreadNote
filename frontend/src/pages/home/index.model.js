@@ -10,6 +10,7 @@ const HOME_VIEW_ROUTE_KEYS = Object.freeze({
   chat: "chat",
   clipboard: "clipboard",
   codeblocks: "codeblock",
+  credentials: "credentials",
   files: "file",
   images: "image",
   links: "link",

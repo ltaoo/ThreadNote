@@ -72,9 +72,6 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 		if err != nil {
 			return c.Error(err.Error())
 		}
-		setActiveVault(ctx)
-		setMainWindowPathname("/home/index")
-		b.Store = store.NewWithDir(ctx.VeloDir)
 		b.SendMessage(velo.H{
 			"type":          "vault_changed",
 			"activeVaultId": ctx.Entry.ID,

@@ -512,6 +512,7 @@ func setActiveVault(vault_ctx *VaultContext) {
 	vaultRuntime.active = vault_ctx
 	vaultRuntime.Unlock()
 	if previous_vault_ctx != nil && previous_vault_ctx != vault_ctx {
+		credential_session_lock()
 		close_cached_memo_query_store(previous_vault_ctx)
 	}
 }

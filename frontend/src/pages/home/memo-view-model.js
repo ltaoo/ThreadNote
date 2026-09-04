@@ -14,6 +14,16 @@ export function canCloseMemoDialog(current_dialog, owned_dialog) {
   return current_dialog === owned_dialog && !owned_dialog.saving;
 }
 
+export function replaceDropdownMenuItems(store, items) {
+  const previous_items = store.menu.items;
+  previous_items.forEach(function (item) {
+    item.unmount?.();
+  });
+  store.items = items;
+  store.menu.setItems(items);
+  return store;
+}
+
 export function detachedMemoRenderContext(state, source_id, options = {}) {
   const index = state.memoRefIndex || buildMemoReferenceIndex(state.memos);
   state.memoRefIndex = index;
@@ -117,18 +127,10 @@ export class MemoCardViewModel {
     destroyCommentPresentations(previous_comments);
     const current_more_menu = this.moreMenu;
     const next_more_menu = presentation?.moreMenu;
-    const next_more_menu_destroy = presentation?.moreMenuDestroy;
     const reuse_more_menu = Boolean(
-      current_more_menu &&
-      next_more_menu &&
-      (current_more_menu === next_more_menu ||
-        typeof current_more_menu.setItems === "function"),
+      current_more_menu && current_more_menu === next_more_menu,
     );
-    if (reuse_more_menu && current_more_menu !== next_more_menu) {
-      current_more_menu.setItems(
-        next_more_menu.state?.items || next_more_menu.items || [],
-      );
-      next_more_menu_destroy?.();
+    if (reuse_more_menu) {
       presentation = {
         ...presentation,
         moreMenu: current_more_menu,
@@ -140,18 +142,10 @@ export class MemoCardViewModel {
 
     const current_reaction_menu = this.reactionMenu;
     const next_reaction_menu = presentation?.reactionMenu;
-    const next_reaction_menu_destroy = presentation?.reactionMenuDestroy;
     const reuse_reaction_menu = Boolean(
-      current_reaction_menu &&
-      next_reaction_menu &&
-      (current_reaction_menu === next_reaction_menu ||
-        typeof current_reaction_menu.setItems === "function"),
+      current_reaction_menu && current_reaction_menu === next_reaction_menu,
     );
-    if (reuse_reaction_menu && current_reaction_menu !== next_reaction_menu) {
-      current_reaction_menu.setItems(
-        next_reaction_menu.state?.items || next_reaction_menu.items || [],
-      );
-      next_reaction_menu_destroy?.();
+    if (reuse_reaction_menu) {
       presentation = {
         ...presentation,
         reactionMenu: current_reaction_menu,

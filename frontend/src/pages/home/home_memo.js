@@ -155,6 +155,7 @@ export default function HomeMemoPageView(props) {
               attributes: { n: "home-memo-feed-layout" },
               style: {
                 padding: "0 20px 12px",
+                "padding-top": "20px",
               },
             },
             [

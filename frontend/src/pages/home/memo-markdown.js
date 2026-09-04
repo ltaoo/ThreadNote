@@ -339,7 +339,7 @@ function memoCodeWorkbenchTemplate(codeLines, options = {}) {
             <span class="memo-fenced-code-meta" data-n="code-line-count">${lineCountLabel}</span>
           </div>
           <div class="memo-fenced-code-actions" data-n="code-actions">
-            <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-code-copy-button" type="button" data-n="code-copy" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">
+            <button class="tn-button tn-button--ghost tn-button--sm memo-action-button memo-code-copy-button" type="button" data-n="code-copy" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">
               ${serialize_timeless_view(
                 Timeless?.Icon
                   ? Timeless.Icon({
@@ -373,7 +373,7 @@ function memoCodeWorkbenchTemplate(codeLines, options = {}) {
               })
               : null,
           )}</button>
-          <button class="tn-button tn-button--ghost tn-button--icon tn-button--sm memo-action-button memo-code-copy-button" type="button" data-n="code-copy" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">
+          <button class="tn-button tn-button--ghost tn-button--sm memo-action-button memo-code-copy-button" type="button" data-n="code-copy" data-action="copyCodeBlock" title="复制代码" aria-label="复制代码">
             ${serialize_timeless_view(
               Timeless?.Icon
                 ? Timeless.Icon({

@@ -2378,6 +2378,7 @@ export function MemoCardView(props) {
                         icon: "external-link",
                         label: "分离为窗口",
                         meaning: "memo-detach-button",
+                        memoId: memo.id,
                       }),
                       iconActionButton(runtime, {
                         action: "copyMemo",
@@ -2679,6 +2680,7 @@ export function PinnedMemoListView(props = {}) {
                       icon: "external-link",
                       label: "分离为窗口",
                       meaning: "memo-pinned-detach",
+                      memoId: memo.id,
                     }),
                   ],
                 ),

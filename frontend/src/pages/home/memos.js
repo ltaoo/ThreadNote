@@ -139,6 +139,7 @@ import {
   applyContentOpsToString,
   canCloseMemoDialog,
   MemoCardViewModel,
+  replaceDropdownMenuItems,
   stripMemoFrontmatter,
 } from "./memo-view-model.js";
 import {
@@ -6266,7 +6267,7 @@ export function mountMemosHome(root, options = {}) {
     return menu_item;
   }
 
-  function reactionMenuStore(reactions, on_click) {
+  function reactionMenuStore(reactions, on_click, existing_store = null) {
     const active_reactions = new Set(
       Array.isArray(reactions) ? reactions : [],
     );
@@ -6279,6 +6280,9 @@ export function mountMemosHome(root, options = {}) {
         shortcut: active_reactions.has(emoji) ? "已选择" : "",
       });
     });
+    if (existing_store) {
+      return replaceDropdownMenuItems(existing_store, items);
+    }
     return new TimelessPrimitive.vm.DropdownMenuCore({
       items,
       trigger: "hover",
@@ -6311,7 +6315,7 @@ export function mountMemosHome(root, options = {}) {
     };
   }
 
-  function memoMoreMenuModel(memo) {
+  function memoMoreMenuModel(memo, existing_store = null) {
     const items = [
       memoMoreMenuItem("在独立窗口中编辑", "external-link", function () {
         openEditMemoWindow(memo.id);
@@ -6356,33 +6360,43 @@ export function mountMemosHome(root, options = {}) {
         { variant: "destructive" },
       ),
     );
-    const store = new TimelessPrimitive.vm.DropdownMenuCore({
-      align: "end",
-      items,
-      trigger: "hover",
-    });
+    const store = existing_store
+      ? replaceDropdownMenuItems(existing_store, items)
+      : new TimelessPrimitive.vm.DropdownMenuCore({
+        align: "end",
+        items,
+        trigger: "hover",
+      });
     let destroyed = false;
     return {
-      destroy() {
-        if (destroyed) return;
-        destroyed = true;
-        store.unmount?.();
-      },
+      destroy: existing_store
+        ? null
+        : function () {
+          if (destroyed) return;
+          destroyed = true;
+          store.unmount?.();
+        },
       store,
     };
   }
 
-  function memoReactionMenuModel(memo) {
-    const store = reactionMenuStore(memo.reactions, function (emoji) {
-      toggleMemoReaction(memo.id, emoji);
-    });
+  function memoReactionMenuModel(memo, existing_store = null) {
+    const store = reactionMenuStore(
+      memo.reactions,
+      function (emoji) {
+        toggleMemoReaction(memo.id, emoji);
+      },
+      existing_store,
+    );
     let destroyed = false;
     return {
-      destroy() {
-        if (destroyed) return;
-        destroyed = true;
-        store.unmount?.();
-      },
+      destroy: existing_store
+        ? null
+        : function () {
+          if (destroyed) return;
+          destroyed = true;
+          store.unmount?.();
+        },
       store,
     };
   }
@@ -6434,8 +6448,13 @@ export function mountMemosHome(root, options = {}) {
     const comment_reply_to = reply_to_comment
       ? compactText(reply_to_content, 80) || "comment:" + reply_to_comment.id
       : "";
-    const more_menu = interactive ? memoMoreMenuModel(memo) : null;
-    const reaction_menu = interactive ? memoReactionMenuModel(memo) : null;
+    const existing_view_model = memo_card_view_models.get(String(memo.id));
+    const more_menu = interactive
+      ? memoMoreMenuModel(memo, existing_view_model?.moreMenu)
+      : null;
+    const reaction_menu = interactive
+      ? memoReactionMenuModel(memo, existing_view_model?.reactionMenu)
+      : null;
     return {
       alias: memo.alias || "",
       archived: Boolean(memo.archived),

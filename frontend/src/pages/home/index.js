@@ -81,6 +81,11 @@ const TOOL_MENU = Object.freeze([
     label: "粘贴板",
   },
   {
+    icon: "key",
+    id: "credentials",
+    label: "凭证库",
+  },
+  {
     count: "data-rules-nav-count",
     element: "rulesNavCount",
     icon: "git-fork",

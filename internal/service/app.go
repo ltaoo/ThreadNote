@@ -309,11 +309,6 @@ func Run(assets Assets) {
 			time.Sleep(1100 * time.Millisecond)
 			restorePersistedOpenWindows(b, logger)
 		}()
-	} else if canOpenSecondaryWindow {
-		go func() {
-			time.Sleep(vaultPickerWindowOpenDelay)
-			showVaultPickerWindow(b)
-		}()
 	}
 
 	// 注册全局快捷键: Cmd+Shift+M/H 显示/隐藏主窗口，Ctrl/Cmd+Shift+Space 打开 snippet 启动器。

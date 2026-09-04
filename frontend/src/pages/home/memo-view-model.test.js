@@ -8,6 +8,7 @@ import {
   detachedMemoRenderContext,
   MemoCardViewModel,
   parseHost,
+  replaceDropdownMenuItems,
   stripMemoFrontmatter,
 } from "./memo-view-model.js";
 
@@ -254,20 +255,15 @@ test("MemoCardViewModel reuses its menu store across presentation updates", func
   let current_listener = null;
   let current_destroy_count = 0;
   let current_unregister_count = 0;
-  let next_destroy_count = 0;
   const current_menu = {
-    state: { items: ["old"], visible: false },
+    state: { visible: false },
     onStateChange(listener) {
       current_listener = listener;
       return function () {
         current_unregister_count += 1;
       };
     },
-    setItems(items) {
-      this.state.items = items;
-    },
   };
-  const next_menu = { state: { items: ["new"], visible: false } };
   const model = createMemoCardViewModel({
     presentation: {
       id: "memo-1",
@@ -281,19 +277,45 @@ test("MemoCardViewModel reuses its menu store across presentation updates", func
   current_listener({ visible: true });
   model.updatePresentation({
     id: "memo-1",
-    moreMenu: next_menu,
-    moreMenuDestroy() {
-      next_destroy_count += 1;
-    },
+    moreMenu: current_menu,
   });
 
   assert.equal(model.moreMenu, current_menu);
-  assert.deepEqual(current_menu.state.items, ["new"]);
   assert.equal(model.active.value, true);
-  assert.equal(next_destroy_count, 1);
   assert.equal(current_destroy_count, 0);
   assert.equal(current_unregister_count, 0);
   model.destroy();
   assert.equal(current_destroy_count, 1);
   assert.equal(current_unregister_count, 1);
+});
+
+test("replaceDropdownMenuItems keeps new item actions alive", function () {
+  let old_unmount_count = 0;
+  let click_count = 0;
+  const old_item = {
+    unmount() {
+      old_unmount_count += 1;
+    },
+  };
+  const new_item = {
+    handleClick() {
+      click_count += 1;
+    },
+  };
+  const store = {
+    items: [old_item],
+    menu: {
+      items: [old_item],
+      setItems(items) {
+        this.items = items;
+      },
+    },
+  };
+
+  replaceDropdownMenuItems(store, [new_item]);
+  store.menu.items[0].handleClick();
+
+  assert.equal(old_unmount_count, 1);
+  assert.equal(click_count, 1);
+  assert.deepEqual(store.items, [new_item]);
 });
