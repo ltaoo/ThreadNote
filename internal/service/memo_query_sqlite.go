@@ -13,12 +13,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	_ "modernc.org/sqlite"
 )
 
 const memo_index_file_name = "memo-index.db"
-const memo_index_schema_version = 2
+const memo_index_schema_version = 3
 const memo_index_sync_interval = 350 * time.Millisecond
 
 const memo_index_select_columns = `
@@ -106,6 +107,7 @@ func (store *sqlite_memo_query_store) initialize_database(call_ctx context.Conte
 	}
 	if schema_version != 0 && schema_version != memo_index_schema_version {
 		for _, statement := range []string{
+			"DROP TABLE IF EXISTS memo_index_fts",
 			"DROP TABLE IF EXISTS memo_index_tags",
 			"DROP TABLE IF EXISTS memo_index_records",
 			"DROP TABLE IF EXISTS memo_index_files",
@@ -157,6 +159,8 @@ func (store *sqlite_memo_query_store) initialize_database(call_ctx context.Conte
 		"CREATE INDEX IF NOT EXISTS memo_index_records_visibility_sort ON memo_index_records(visibility, sort_time_ns DESC, id DESC)",
 		"CREATE INDEX IF NOT EXISTS memo_index_tags_fold ON memo_index_tags(tag_fold, memo_id)",
 		"CREATE INDEX IF NOT EXISTS memo_index_files_memo_id ON memo_index_files(memo_id, path)",
+		`CREATE VIRTUAL TABLE IF NOT EXISTS memo_index_fts
+		 USING fts5(id UNINDEXED, content, tokenize='trigram')`,
 		fmt.Sprintf("PRAGMA user_version = %d", memo_index_schema_version),
 	} {
 		if _, err := store.database.ExecContext(call_ctx, statement); err != nil {
@@ -565,6 +569,10 @@ func (store *sqlite_memo_query_store) sync_index_locked(call_ctx context.Context
 			_ = transaction.Rollback()
 			return err
 		}
+		if _, err := transaction.ExecContext(call_ctx, "DELETE FROM memo_index_fts WHERE id = ?", memo_id); err != nil {
+			_ = transaction.Rollback()
+			return err
+		}
 	}
 	if err := transaction.Commit(); err != nil {
 		return err
@@ -794,6 +802,12 @@ func upsert_memo_index_record(call_ctx context.Context, transaction *sql.Tx, sna
 			return err
 		}
 	}
+	if _, err := transaction.ExecContext(call_ctx, "DELETE FROM memo_index_fts WHERE id = ?", memo.ID); err != nil {
+		return err
+	}
+	if _, err := transaction.ExecContext(call_ctx, "INSERT INTO memo_index_fts(id, content) VALUES (?, ?)", memo.ID, memo.Content); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -880,4 +894,239 @@ func remove_memo_index_database(database_path string) {
 	for _, path := range []string{database_path, database_path + "-shm", database_path + "-wal"} {
 		_ = os.Remove(path)
 	}
+}
+
+// --- FTS5 full-text search ---
+
+type MemoSearchResult struct {
+	MemoID    string   `json:"memoId"`
+	Title     string   `json:"title"`
+	Snippet   string   `json:"snippet"`
+	Rank      float64  `json:"rank"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+	ProjectID string   `json:"projectId"`
+	Tags      []string `json:"tags"`
+	Archived  bool     `json:"archived"`
+	Pinned    bool     `json:"pinned"`
+}
+
+func (store *sqlite_memo_query_store) search_fts(call_ctx context.Context, query string, limit int) ([]MemoSearchResult, error) {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	if store.closed {
+		store.log_search("search_fts", query, 0, fmt.Errorf("store is closed"))
+		return nil, fmt.Errorf("memo index is closed")
+	}
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []MemoSearchResult{}, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	// Log FTS table row count for diagnostics
+	var fts_count int
+	if err := store.database.QueryRowContext(call_ctx, "SELECT COUNT(*) FROM memo_index_fts").Scan(&fts_count); err != nil {
+		store.log_search("search_fts", query, 0, fmt.Errorf("fts count failed: %w", err))
+	}
+	var records_count int
+	_ = store.database.QueryRowContext(call_ctx, "SELECT COUNT(*) FROM memo_index_records").Scan(&records_count)
+	store.log_search_detail("search_fts", query, fts_count, records_count)
+
+	rune_count := utf8.RuneCountInString(query)
+	if rune_count < 3 {
+		store.log_search("search_fts", query, 0, fmt.Errorf("query too short (%d runes), using LIKE fallback", rune_count))
+		return store.search_like(call_ctx, query, limit)
+	}
+	return store.search_fts5(call_ctx, query, limit)
+}
+
+func (store *sqlite_memo_query_store) search_like(call_ctx context.Context, query string, limit int) ([]MemoSearchResult, error) {
+	pattern := "%" + query + "%"
+	rows, err := store.database.QueryContext(call_ctx, `
+		SELECT m.id, m.content, m.created_at, m.updated_at, m.project_id,
+		       m.tags_json, m.archived, m.pinned
+		FROM memo_index_records AS m
+		WHERE m.content LIKE ?
+		ORDER BY m.sort_time_ns DESC
+		LIMIT ?
+	`, pattern, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search memo index (like): %w", err)
+	}
+	defer rows.Close()
+	return scan_memo_search_rows_like(rows, query)
+}
+
+func (store *sqlite_memo_query_store) search_fts5(call_ctx context.Context, query string, limit int) ([]MemoSearchResult, error) {
+	// Escape double quotes in query for FTS5 string matching
+	escaped := strings.ReplaceAll(query, `"`, `""`)
+	fts_query := `"` + escaped + `"`
+	store.log_search("search_fts5", fts_query, 0, nil)
+	rows, err := store.database.QueryContext(call_ctx, `
+		SELECT f.id, snippet(memo_index_fts, 1, '<mark>', '</mark>', '...', 40),
+		       rank, m.content, m.created_at, m.updated_at, m.project_id,
+		       m.tags_json, m.archived, m.pinned
+		FROM memo_index_fts AS f
+		JOIN memo_index_records AS m ON m.id = f.id
+		WHERE memo_index_fts MATCH ?
+		ORDER BY rank
+		LIMIT ?
+	`, fts_query, limit)
+	if err != nil {
+		store.log_search("search_fts5", fts_query, 0, err)
+		return nil, fmt.Errorf("search memo index (fts): %w", err)
+	}
+	defer rows.Close()
+	results, err := scan_memo_search_rows_fts(rows)
+	store.log_search("search_fts5.result", query, len(results), err)
+	return results, err
+}
+
+func scan_memo_search_rows_fts(rows *sql.Rows) ([]MemoSearchResult, error) {
+	results := []MemoSearchResult{}
+	for rows.Next() {
+		var r MemoSearchResult
+		var snippet string
+		var rank float64
+		var content string
+		var tags_json string
+		var archived, pinned int
+		if err := rows.Scan(&r.MemoID, &snippet, &rank, &content, &r.CreatedAt, &r.UpdatedAt, &r.ProjectID, &tags_json, &archived, &pinned); err != nil {
+			return nil, fmt.Errorf("scan memo search result: %w", err)
+		}
+		r.Title = memo_search_title(content)
+		r.Snippet = snippet
+		r.Rank = rank
+		r.Archived = archived != 0
+		r.Pinned = pinned != 0
+		if err := json.Unmarshal([]byte(tags_json), &r.Tags); err != nil {
+			r.Tags = []string{}
+		}
+		if r.Tags == nil {
+			r.Tags = []string{}
+		}
+		results = append(results, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan memo search results: %w", err)
+	}
+	return results, nil
+}
+
+func scan_memo_search_rows_like(rows *sql.Rows, query string) ([]MemoSearchResult, error) {
+	results := []MemoSearchResult{}
+	for rows.Next() {
+		var r MemoSearchResult
+		var content string
+		var tags_json string
+		var archived, pinned int
+		if err := rows.Scan(&r.MemoID, &content, &r.CreatedAt, &r.UpdatedAt, &r.ProjectID, &tags_json, &archived, &pinned); err != nil {
+			return nil, fmt.Errorf("scan memo search result: %w", err)
+		}
+		r.Title = memo_search_title(content)
+		r.Snippet = memo_search_like_snippet(content, query, 80)
+		r.Archived = archived != 0
+		r.Pinned = pinned != 0
+		if err := json.Unmarshal([]byte(tags_json), &r.Tags); err != nil {
+			r.Tags = []string{}
+		}
+		if r.Tags == nil {
+			r.Tags = []string{}
+		}
+		results = append(results, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan memo search results: %w", err)
+	}
+	return results, nil
+}
+
+func memo_search_title(content string) string {
+	for _, line := range strings.SplitN(content, "\n", 10) {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			if len(trimmed) > 120 {
+				trimmed = trimmed[:120] + "..."
+			}
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func memo_search_like_snippet(content string, query string, max_len int) string {
+	flat := strings.Join(strings.Fields(content), " ")
+	if len(flat) <= max_len {
+		return flat
+	}
+	lower := strings.ToLower(flat)
+	idx := strings.Index(lower, strings.ToLower(query))
+	if idx < 0 {
+		return flat[:max_len] + "..."
+	}
+	start := idx - max_len/3
+	if start < 0 {
+		start = 0
+	}
+	end := start + max_len
+	if end > len(flat) {
+		end = len(flat)
+	}
+	snippet := flat[start:end]
+	if start > 0 {
+		snippet = "..." + snippet
+	}
+	if end < len(flat) {
+		snippet = snippet + "..."
+	}
+	return snippet
+}
+
+func (store *sqlite_memo_query_store) log_search(stage string, query string, count int, err error) {
+	if store.vault_ctx == nil || store.vault_ctx.logger == nil {
+		return
+	}
+	event := store.vault_ctx.logger.Info()
+	if err != nil {
+		event = store.vault_ctx.logger.Error().Err(err)
+	}
+	event.Str("component", "memo_search").
+		Str("stage", stage).
+		Str("query", query).
+		Int("count", count).
+		Msg("fts search")
+}
+
+func (store *sqlite_memo_query_store) log_search_detail(stage string, query string, fts_rows int, record_rows int) {
+	if store.vault_ctx == nil || store.vault_ctx.logger == nil {
+		return
+	}
+	store.vault_ctx.logger.Info().
+		Str("component", "memo_search").
+		Str("stage", stage).
+		Str("query", query).
+		Int("ftsRows", fts_rows).
+		Int("recordRows", record_rows).
+		Bool("lastSyncZero", store.last_sync_at.IsZero()).
+		Msg("fts search diagnostics")
+}
+
+func resolve_sqlite_memo_store(vault_ctx *VaultContext) *sqlite_memo_query_store {
+	store := cached_memo_query_store(vault_ctx)
+	if store == nil {
+		return nil
+	}
+	if s, ok := store.(*sqlite_memo_query_store); ok {
+		return s
+	}
+	if m, ok := store.(*mirrored_d1_memo_query_store); ok {
+		return m.local_store
+	}
+	return nil
 }

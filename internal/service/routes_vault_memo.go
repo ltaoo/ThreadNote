@@ -265,6 +265,42 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 		})
 	})
 
+	b.Get("/api/memos/search", func(c *velo.BoxContext) interface{} {
+		vault_ctx, err := requireActiveVault()
+		if err != nil {
+			logger.Error().Err(err).Str("component", "memo_search").Msg("search: no active vault")
+			return c.Error(err.Error())
+		}
+		q := strings.TrimSpace(c.Query("q"))
+		if q == "" {
+			return c.Ok(velo.H{"results": []MemoSearchResult{}})
+		}
+		limit := 20
+		if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+			if parsed, parse_err := strconv.Atoi(raw); parse_err == nil && parsed > 0 {
+				limit = parsed
+			}
+		}
+		logger.Info().Str("component", "memo_search").Str("query", q).Int("limit", limit).Msg("search: request received")
+		// Ensure the query store is initialized so the cached store is available.
+		if _, err := new_vault_memo_query_store(vault_ctx); err != nil {
+			logger.Error().Err(err).Str("component", "memo_search").Msg("search: failed to open query store")
+			return c.Error(err.Error())
+		}
+		sqlite_store := resolve_sqlite_memo_store(vault_ctx)
+		if sqlite_store == nil {
+			logger.Error().Str("component", "memo_search").Msg("search: resolve_sqlite_memo_store returned nil")
+			return c.Error("full-text search is not available for this vault")
+		}
+		results, err := sqlite_store.search_fts(c.Context(), q, limit)
+		if err != nil {
+			logger.Error().Err(err).Str("component", "memo_search").Str("query", q).Msg("search: search_fts failed")
+			return c.Error(err.Error())
+		}
+		logger.Info().Str("component", "memo_search").Str("query", q).Int("resultCount", len(results)).Msg("search: completed")
+		return c.Ok(velo.H{"results": results})
+	})
+
 	b.Get("/api/memos/stats", func(c *velo.BoxContext) interface{} {
 		vault_ctx, err := requireActiveVault()
 		if err != nil {

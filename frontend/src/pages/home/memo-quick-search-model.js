@@ -88,6 +88,7 @@ export class MemoQuickSearchModel {
     this.limit = Number.isInteger(config.limit) && config.limit > 0
       ? config.limit
       : DEFAULT_MEMO_QUICK_SEARCH_LIMIT;
+    this.onUpdate = typeof config.onUpdate === "function" ? config.onUpdate : null;
     this.sources = { comments: [], memos: [], projects: [] };
     this.state = {
       activeIndex: 0,
@@ -95,6 +96,9 @@ export class MemoQuickSearchModel {
       query: "",
       results: [],
     };
+    this._ftsTimer = null;
+    this._ftsResults = null;
+    this._ftsQuery = "";
   }
 
   setSources(sources) {
@@ -120,6 +124,31 @@ export class MemoQuickSearchModel {
     this.state.query = String(value || "").trim();
     this.state.activeIndex = 0;
     this.rebuildResults();
+    this._scheduleFtsSearch();
+  }
+
+  _scheduleFtsSearch() {
+    clearTimeout(this._ftsTimer);
+    const query = this.state.query;
+    if (query.length < 2 || typeof globalThis.invoke !== "function") {
+      this._ftsResults = null;
+      this._ftsQuery = "";
+      return;
+    }
+    this._ftsTimer = setTimeout(() => {
+      if (this.state.query !== query) return;
+      var url = "/api/memos/search?q=" + encodeURIComponent(query) + "&limit=" + this.limit;
+      globalThis.invoke(url, { method: "GET" })
+        .then((resp) => {
+          if (this.state.query !== query) return;
+          var results = resp && resp.code === 0 && resp.data && Array.isArray(resp.data.results) ? resp.data.results : [];
+          this._ftsResults = results;
+          this._ftsQuery = query;
+          this.rebuildResults();
+          if (this.onUpdate) this.onUpdate();
+        })
+        .catch(function () {});
+    }, 200);
   }
 
   moveActive(delta) {
@@ -262,6 +291,42 @@ export class MemoQuickSearchModel {
         return left.key.localeCompare(right.key);
       })
       .slice(0, this.limit);
+
+    // Merge FTS results: boost memos that appear in backend FTS results
+    if (query && this._ftsResults && this._ftsQuery === query) {
+      const fts_ids = new Set(this._ftsResults.map(function (r) { return r.memoId; }));
+      this.state.results.forEach(function (r) {
+        if (r.kind === "memo" && fts_ids.has(r.id)) {
+          r.score = Math.min(r.score, 0);
+        }
+      });
+      // Add FTS-only results not already present
+      const existing_memo_ids = new Set(this.state.results.filter(function (r) { return r.kind === "memo"; }).map(function (r) { return r.id; }));
+      const fts_only = this._ftsResults.filter(function (r) { return !existing_memo_ids.has(r.memoId); });
+      for (let i = 0; i < fts_only.length && this.state.results.length < this.limit; i++) {
+        const fr = fts_only[i];
+        this.state.results.push({
+          id: fr.memoId,
+          key: "memo:" + fr.memoId,
+          kind: "memo",
+          kindLabel: "MEMO",
+          memoId: fr.memoId,
+          meta: [fr.archived ? "归档" : "", fr.pinned ? "置顶" : ""].filter(Boolean).join(" · "),
+          score: -1,
+          summary: fr.snippet || "",
+          summaryParts: fr.snippet ? memoQuickSearchHighlightParts(fr.snippet.replace(/<\/?mark>/g, ""), query) : [],
+          time: new Date(fr.updatedAt || fr.createdAt || 0).getTime() || 0,
+          title: fr.title || "",
+          titleParts: memoQuickSearchHighlightParts(fr.title || "", query),
+        });
+      }
+      this.state.results.sort(function (left, right) {
+        if (left.score !== right.score) return left.score - right.score;
+        if (left.time !== right.time) return right.time - left.time;
+        return left.key.localeCompare(right.key);
+      });
+    }
+
     this.state.activeIndex = Math.max(0, Math.min(this.state.activeIndex, this.state.results.length - 1));
   }
 

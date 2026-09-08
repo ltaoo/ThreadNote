@@ -241,7 +241,7 @@ export function MemoFeedView(props = {}) {
         );
       },
       else() {
-        return Fragment({}, [
+        return View({}, [
           For({
             each: memos_,
             render(memo) {

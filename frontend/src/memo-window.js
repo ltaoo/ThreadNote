@@ -1,4 +1,6 @@
-import { mountDetachedMemoWindow } from "./pages/home/home_memo_detached.js?v=20260821-home-page-split";
+import { mountDetachedMemoWindow } from "./pages/home/home_memo_detached.js";
+
+Object.assign(window, Timeless);
 
 document.addEventListener("DOMContentLoaded", function () {
   const root = document.querySelector("#root");

@@ -795,6 +795,10 @@ export function mountMemosHome(root, options = {}) {
       }
       detachMemo(context.memoId, { query: context.query });
     },
+  }, {
+    onUpdate() {
+      renderMemoSearchPalette();
+    },
   });
 
   const unsubscribe_memo_search_dialog = ui.memoSearchDialog.onCancel(
@@ -804,6 +808,9 @@ export function mountMemosHome(root, options = {}) {
     function () {
       state.query = "";
       clearTimeout(state._searchTimer);
+      clearTimeout(_feedFtsTimer);
+      _feedFtsIds = null;
+      _feedFtsQuery = "";
       renderMainContent();
     },
   );
@@ -2591,8 +2598,30 @@ export function mountMemosHome(root, options = {}) {
 
   function detachMemo(memoId, searchContext) {
     const memo = findMemo(memoId);
-    if (!memo) return;
+    if (!memo) {
+      detachMemoById(memoId, searchContext);
+      return;
+    }
+    openDetachedMemoWindow(memo, searchContext);
+  }
 
+  function detachMemoById(memoId, searchContext) {
+    var id = String(memoId || "").trim();
+    if (!id) return;
+    loadMemoFromVault(id).then(function (loaded) {
+      var memo = normalizeMemoPayload(loaded);
+      if (!memo) {
+        showToast("找不到 memo");
+        return;
+      }
+      upsertMemoInState(memo);
+      openDetachedMemoWindow(memo, searchContext);
+    }, function () {
+      showToast("加载 memo 失败");
+    });
+  }
+
+  function openDetachedMemoWindow(memo, searchContext) {
     writeMemoQuickSearchOpenContext(
       globalThis.localStorage,
       memo.id,
@@ -2923,6 +2952,32 @@ export function mountMemosHome(root, options = {}) {
     }
   }
 
+  var _feedFtsTimer = null;
+  var _feedFtsQuery = "";
+  var _feedFtsIds = null;
+
+  function scheduleFeedFtsSearch(query) {
+    clearTimeout(_feedFtsTimer);
+    if (query.length < 2 || typeof globalThis.invoke !== "function") {
+      _feedFtsIds = null;
+      _feedFtsQuery = "";
+      return;
+    }
+    _feedFtsTimer = setTimeout(function () {
+      if (state.query !== query) return;
+      var url = "/api/memos/search?q=" + encodeURIComponent(query) + "&limit=50";
+      globalThis.invoke(url, { method: "GET" })
+        .then(function (resp) {
+          if (state.query !== query) return;
+          var results = resp && resp.code === 0 && resp.data && Array.isArray(resp.data.results) ? resp.data.results : [];
+          _feedFtsIds = new Set(results.map(function (r) { return r.memoId; }));
+          _feedFtsQuery = query;
+          renderMainContent();
+        })
+        .catch(function () {});
+    }, 250);
+  }
+
   function handleInput(event) {
     if (
       event.target.matches("[data-search-input], [data-project-memo-search]")
@@ -2930,6 +2985,7 @@ export function mountMemosHome(root, options = {}) {
       state.query = event.target.value.trim();
       clearTimeout(state._searchTimer);
       state._searchTimer = setTimeout(() => renderMainContent(), 200);
+      scheduleFeedFtsSearch(state.query);
       return;
     }
 
@@ -6429,6 +6485,9 @@ export function mountMemosHome(root, options = {}) {
     } catch (_) {
       html = `<p>${escapeHTML(memo.content || "")}</p>`;
     }
+    if (state.query) {
+      html = highlightHtmlTextNodes(html, state.query);
+    }
     const line_count = String(memo.content || "").split("\n").length;
     const visibility_options = [
       { label: "仅自己", value: "PRIVATE" },
@@ -6935,7 +6994,7 @@ export function mountMemosHome(root, options = {}) {
     const source_memos = state.activeFilter === "pinned"
       ? state.pinnedMemos
       : state.memos;
-    return memoListModel.filterList(source_memos, {
+    var filtered = memoListModel.filterList(source_memos, {
       activeFilter: state.activeFilter,
       activeProjectFilter: state.activeProjectFilter,
       activeTag: state.activeTag,
@@ -6945,6 +7004,14 @@ export function mountMemosHome(root, options = {}) {
       selectedDate,
       sortDesc: state.sortDesc,
     });
+    if (state.query && _feedFtsIds && _feedFtsQuery === state.query) {
+      var filtered_ids = new Set(filtered.map(function (m) { return m.id; }));
+      var fts_extra = source_memos.filter(function (m) {
+        return m && !filtered_ids.has(m.id) && _feedFtsIds.has(m.id);
+      });
+      if (fts_extra.length) filtered = filtered.concat(fts_extra);
+    }
+    return filtered;
   }
 
   function scopedMemos() {
@@ -7006,5 +7073,18 @@ export function mountMemosHome(root, options = {}) {
     state.toastTimer = window.setTimeout(() => {
       ui.toastClass.as("memo-toast");
     }, 1800);
+  }
+
+  function highlightHtmlTextNodes(html, query) {
+    var needle = String(query || "").trim();
+    if (!needle) return html;
+    var escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    var pattern = new RegExp(escaped, "gi");
+    return html.replace(/(<[^>]*>)|([^<]+)/g, function (match, tag, text) {
+      if (tag) return tag;
+      return text.replace(pattern, function (m) {
+        return '<span class="memo-find-match">' + m + "</span>";
+      });
+    });
   }
 }

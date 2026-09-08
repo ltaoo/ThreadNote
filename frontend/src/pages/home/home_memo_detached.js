@@ -1611,7 +1611,7 @@ export function mountDetachedMemoWindow(root, options = {}) {
             return;
           }
           var highlightedMark = renderTimelessHost(
-            { as: "mark", class: "memo-find-match" },
+            { class: "memo-find-match" },
             [part.text],
           );
           marks.push(highlightedMark);
@@ -1634,7 +1634,7 @@ export function mountDetachedMemoWindow(root, options = {}) {
           fragments.push(document.createTextNode(text.slice(idx, found)));
         }
         var mark = renderTimelessHost(
-          { as: "mark", class: "memo-find-match" },
+          { class: "memo-find-match" },
           [text.slice(found, found + query.length)],
         );
         marks.push(mark);

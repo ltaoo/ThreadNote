@@ -768,7 +768,6 @@ function highlightedPartsView(runtime, parts, meaning) {
           ok() {
             return runtime.View(
               {
-                as: "mark",
                 class: "memo-command-match",
                 attributes: { n: meaning + "-match" },
               },
@@ -3673,7 +3672,7 @@ function DetachedCommentView(props) {
 
 export function DetachedMemoCardView(props = {}) {
   const runtime = props.runtime || TimelessPrimitive;
-  const { For, RichText, View } = runtime;
+  const { For, RichText, View, computed } = runtime;
   const memo = props.memo;
   const reading_class_ = computed(
     reactiveWhen(memo.headings?.length),
