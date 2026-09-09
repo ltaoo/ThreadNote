@@ -8,6 +8,12 @@ import {
 } from "./memos.js";
 import { parseAssetReference } from "./storage.js";
 
+const markdownLinkPattern = /(!?)\[([^\]]*)\]\(([^)]+)\)/g;
+const htmlImagePattern = /<img\b[^>]*\/?>/gi;
+const rawAssetTokenPattern = /@assets\/[a-z0-9_-]+\/[^\s[\])<>'"`]+/gi;
+const rawLocalResourcePattern = /(?:local:\/\/|blob:|data:|\/api\/oss\/assets\?)[^\s<>"`]+/gi;
+const rawURLPattern = /\bhttps?:\/\/[^\s<>"`]+/gi;
+
 export function collectLinks(memos) {
   return collectMemoReferences(memos).filter((reference) => reference.type === "link");
 }
@@ -91,7 +97,7 @@ export function collectLineReferences(memo, lines, line, lineIndex) {
   const searchableLine = maskMemoInlineCode(line);
   const references = [];
   const markdownRanges = [];
-  const markdownLinkRegex = /(!?)\[([^\]]*)\]\(([^)]+)\)/g;
+  const markdownLinkRegex = markdownLinkPattern;
   let match;
 
   while ((match = markdownLinkRegex.exec(searchableLine))) {
@@ -114,7 +120,41 @@ export function collectLineReferences(memo, lines, line, lineIndex) {
     );
   }
 
-  const rawURLRegex = /\bhttps?:\/\/[^\s<>"`]+/gi;
+  collectHTMLImageReferences(memo, lines, lineIndex, searchableLine, references, markdownRanges);
+
+  const rawAssetTokenRegex = rawAssetTokenPattern;
+  while ((match = rawAssetTokenRegex.exec(searchableLine))) {
+    if (rangeIncludes(markdownRanges, match.index)) continue;
+
+    const url = match[0];
+    const type = isImageAttachment("", url) ? "image" : "file";
+    references.push(
+      referenceView(memo, lines, lineIndex, references.length, {
+        label: referenceLabel(type, "", url),
+        syntax: "asset",
+        type,
+        url,
+      }),
+    );
+  }
+
+  const rawLocalResourceRegex = rawLocalResourcePattern;
+  while ((match = rawLocalResourceRegex.exec(searchableLine))) {
+    if (rangeIncludes(markdownRanges, match.index)) continue;
+
+    const url = match[0];
+    const type = isImageAttachment("", url) ? "image" : "file";
+    references.push(
+      referenceView(memo, lines, lineIndex, references.length, {
+        label: referenceLabel(type, "", url),
+        syntax: "raw",
+        type,
+        url,
+      }),
+    );
+  }
+
+  const rawURLRegex = rawURLPattern;
   while ((match = rawURLRegex.exec(searchableLine))) {
     if (rangeIncludes(markdownRanges, match.index)) continue;
 
@@ -133,6 +173,42 @@ export function collectLineReferences(memo, lines, line, lineIndex) {
   }
 
   return references;
+}
+
+function collectHTMLImageReferences(
+  memo,
+  lines,
+  lineIndex,
+  searchableLine,
+  references,
+  markdownRanges,
+) {
+  const htmlImageRegex = htmlImagePattern;
+  let match;
+  while ((match = htmlImageRegex.exec(searchableLine))) {
+    markdownRanges.push([match.index, match.index + match[0].length]);
+    const source = htmlImageAttributeValue(match[0], "src");
+    if (!source) continue;
+    const label = htmlImageAttributeValue(match[0], "alt");
+    references.push(
+      referenceView(memo, lines, lineIndex, references.length, {
+        label: referenceLabel("image", label, source),
+        syntax: "html",
+        type: "image",
+        url: source,
+      }),
+    );
+  }
+}
+
+function htmlImageAttributeValue(tag, name) {
+  const pattern = new RegExp(
+    `${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`,
+    "i",
+  );
+  const match = String(tag || "").match(pattern);
+  if (!match) return "";
+  return String(match[1] !== undefined ? match[1] : match[2] || "").trim();
 }
 
 export function codeBlockView(memo, lines, block, endLineIndex) {

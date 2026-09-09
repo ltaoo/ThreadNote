@@ -154,6 +154,43 @@ export function loadMemoPageFromVault(options = {}) {
   );
 }
 
+export async function loadAllMemosFromVault(options = {}) {
+  if (typeof globalThis.invoke !== "function") {
+    const filtered_memos = filterLocalMemoPage(loadMemos(), options);
+    return filtered_memos.map(normalizeMemoPayload).filter(Boolean);
+  }
+
+  const memos = [];
+  const memo_ids = new Set();
+  let cursor = "";
+  let has_more = true;
+  let request_count = 0;
+
+  while (has_more) {
+    request_count += 1;
+    if (request_count > 10000) {
+      throw new Error("读取 memo 索引页数过多");
+    }
+    const page = await loadMemoPageFromVault({
+      ...options,
+      cursor,
+      limit: 200,
+    });
+    for (const memo of page.memos) {
+      const normalized = normalizeMemoPayload(memo);
+      if (!normalized || memo_ids.has(normalized.id)) continue;
+      memo_ids.add(normalized.id);
+      memos.push(normalized);
+    }
+    has_more = Boolean(page.hasMore);
+    cursor = String(page.nextCursor || "");
+    if (has_more && !cursor) {
+      throw new Error("memo 索引分页缺少 nextCursor");
+    }
+  }
+  return memos;
+}
+
 export function loadMemoStatsFromVault() {
   if (typeof globalThis.invoke !== "function") {
     return Promise.resolve(memoStats(loadMemos()));

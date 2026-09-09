@@ -47,6 +47,7 @@ import {
   createMemoInVault,
   deleteMemoInVault,
   errorMessage,
+  loadAllMemosFromVault,
   loadMemoFromVault,
   loadMemoHistoryFromVault,
   loadMemoHistoryVersionFromVault,
@@ -375,6 +376,9 @@ export function createMemosPageState(initial_view = "memos") {
     ...createHomeProjectState(),
     composerPreviewVisible: false,
     ...createHomeBoardState(),
+    memoIndexLoaded: typeof globalThis.invoke !== "function",
+    memoIndexLoading: false,
+    memoIndexMemos: loadMemos(),
     memoRefIndex: null,
     memoStats: null,
     pinnedMemos: [],
@@ -758,6 +762,7 @@ export function mountMemosHome(root, options = {}) {
   const memo_feed_model = MemoFeedPaginationModel({
     pageSize: FEED_PAGE_SIZE,
   });
+  let memo_index_request_version = 0;
 
   let composerEditor = null;
   let composerAutoSaveTimer = null;
@@ -2749,7 +2754,7 @@ export function mountMemosHome(root, options = {}) {
   function syncMemoQuickSearchSources() {
     memoQuickSearchModel.setSources({
       comments: state.comments,
-      memos: state.memos,
+      memos: state.memoIndexLoaded ? state.memoIndexMemos : state.memos,
       projects: state.projects,
     });
   }
@@ -4254,8 +4259,47 @@ export function mountMemosHome(root, options = {}) {
     } else {
       state.memos.unshift(normalized);
     }
+    upsertMemoIndexInState(normalized);
     state.memoRefIndex = null;
     return normalized;
+  }
+
+  function upsertMemoIndexInState(memo) {
+    if (!state.memoIndexLoaded) return null;
+    const normalized = normalizeMemoPayload(memo);
+    if (!normalized) return null;
+    const index = state.memoIndexMemos.findIndex(
+      (item) => item && item.id === normalized.id,
+    );
+    if (index >= 0) {
+      state.memoIndexMemos[index] = normalized;
+    } else {
+      state.memoIndexMemos.unshift(normalized);
+    }
+    if (normalized.pinned && !normalized.archived) {
+      const pinned_index = state.pinnedMemos.findIndex(
+        (item) => item && item.id === normalized.id,
+      );
+      if (pinned_index >= 0) state.pinnedMemos[pinned_index] = normalized;
+      else state.pinnedMemos.unshift(normalized);
+    } else {
+      state.pinnedMemos = state.pinnedMemos.filter(
+        (item) => item && item.id !== normalized.id,
+      );
+    }
+    state.memoRefIndex = null;
+    return normalized;
+  }
+
+  function removeMemoIndexInState(memoId) {
+    if (!state.memoIndexLoaded) return;
+    state.memoIndexMemos = state.memoIndexMemos.filter(
+      (item) => item && item.id !== memoId,
+    );
+    state.pinnedMemos = state.pinnedMemos.filter(
+      (item) => item && item.id !== memoId,
+    );
+    state.memoRefIndex = null;
   }
 
   function replaceMemoCardOnly(memoId) {
@@ -4269,7 +4313,9 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function renderMemoChromeWithoutFeed() {
-    state.memoRefIndex = buildMemoReferenceIndex(state.memos);
+    state.memoRefIndex = buildMemoReferenceIndex(
+      state.memoIndexLoaded ? state.memoIndexMemos : state.memos,
+    );
     renderProjects();
     renderViewButtons();
     renderFilterControls();
@@ -4895,6 +4941,7 @@ export function mountMemosHome(root, options = {}) {
         updatedAt: patch.updatedAt || existing_memo.updatedAt,
       };
     }
+    if (nextMemo) upsertMemoIndexInState(nextMemo);
     saveMemos(state.memos);
     renderAll();
     if (nextMemo) {
@@ -4905,6 +4952,7 @@ export function mountMemosHome(root, options = {}) {
           state.memos = state.memos.map((item) =>
             item.id === memoId ? normalized : item,
           );
+          upsertMemoIndexInState(normalized);
           saveMemos(state.memos);
           renderAll();
           let tasks_refreshed = Promise.resolve();
@@ -5174,6 +5222,7 @@ export function mountMemosHome(root, options = {}) {
         }).then(
           function (result) {
             state.memos = state.memos.filter((item) => item.id !== memoId);
+            removeMemoIndexInState(memoId);
             state.comments = state.comments.filter(
               (comment) => comment.memoId !== memoId,
             );
@@ -5185,6 +5234,7 @@ export function mountMemosHome(root, options = {}) {
             }
             if (preservedMemo) {
               state.memos = [preservedMemo].concat(state.memos);
+              upsertMemoIndexInState(preservedMemo);
             }
             saveMemos(state.memos);
             renderAll();
@@ -6799,6 +6849,34 @@ export function mountMemosHome(root, options = {}) {
     ).finally(function () {
       state.feedLoading = false;
       ui.memoFeedLoading.as(false);
+      if (options.refreshIndex !== false) refreshMemoIndexFromVault();
+    });
+  }
+
+  function refreshMemoIndexFromVault(options = {}) {
+    const request_version = ++memo_index_request_version;
+    state.memoIndexLoading = true;
+    return loadAllMemosFromVault().then(
+      function (memos) {
+        if (request_version !== memo_index_request_version) return [];
+        state.memoIndexMemos = memos;
+        state.memoIndexLoaded = true;
+        state.pinnedMemos = memos.filter((memo) => memo.pinned && !memo.archived);
+        state.memoRefIndex = null;
+        if (options.render !== false) scheduleRenderAll();
+        else renderMemoChromeWithoutFeed();
+        return memos;
+      },
+      function (err) {
+        if (request_version !== memo_index_request_version) return [];
+        if (typeof globalThis.invoke === "function") {
+          showToast("读取 memo 索引失败: " + errorMessage(err));
+        }
+        return [];
+      },
+    ).finally(function () {
+      if (request_version !== memo_index_request_version) return;
+      state.memoIndexLoading = false;
     });
   }
 
@@ -6819,8 +6897,16 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function refreshPinnedMemosFromVault() {
+    if (state.memoIndexLoaded) {
+      state.pinnedMemos = state.memoIndexMemos.filter(
+        (memo) => memo.pinned && !memo.archived,
+      );
+      renderPinned();
+      return Promise.resolve(state.pinnedMemos);
+    }
     return loadPinnedMemosFromVault().then(
       function (memos) {
+        if (state.memoIndexLoaded) return state.pinnedMemos;
         state.pinnedMemos = (Array.isArray(memos) ? memos : [])
           .map(normalizeMemoPayload)
           .filter(Boolean);
@@ -7015,15 +7101,16 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function scopedMemos() {
+    const source_memos = state.memoIndexLoaded ? state.memoIndexMemos : state.memos;
     if (state.activeProjectFilter === "unassigned") {
-      return state.memos.filter((memo) => !memo.projectId);
+      return source_memos.filter((memo) => !memo.projectId);
     }
     if (state.activeProjectFilter && state.activeProjectFilter !== "all") {
-      return state.memos.filter(
+      return source_memos.filter(
         (memo) => memo.projectId === state.activeProjectFilter,
       );
     }
-    return state.memos;
+    return source_memos;
   }
 
   function scopedMemoDocuments() {

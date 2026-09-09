@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  loadAllMemosFromVault,
   loadMemoFromVault,
   loadMemoPageFromVault,
   loadPinnedMemosFromVault,
@@ -67,6 +68,49 @@ test("memo repository exposes storage-independent page, stats, and detail APIs",
   assert.deepEqual(
     calls.map(function (call) { return call.options.method; }),
     ["GET", "GET", "GET", "GET"],
+  );
+});
+
+test("memo repository loads every page for the complete derived index", async function (t) {
+  const original_invoke = globalThis.invoke;
+  t.after(function () {
+    if (original_invoke === undefined) delete globalThis.invoke;
+    else globalThis.invoke = original_invoke;
+  });
+
+  const pages = new Map([
+    [
+      "",
+      {
+        hasMore: true,
+        memos: [
+          { content: "one", id: "memo-1" },
+          { content: "duplicate", id: "memo-1" },
+          { content: "two", id: "memo-2" },
+        ],
+        nextCursor: "page-2",
+      },
+    ],
+    [
+      "page-2",
+      {
+        hasMore: false,
+        memos: [{ content: "three", id: "memo-3" }],
+        nextCursor: "",
+      },
+    ],
+  ]);
+
+  globalThis.invoke = async function (url) {
+    const cursor = new URL(url, "http://threadnote.local").searchParams.get("cursor") || "";
+    const page = pages.get(cursor);
+    if (!page) throw new Error("unexpected cursor: " + cursor);
+    return { code: 0, data: page };
+  };
+
+  assert.deepEqual(
+    (await loadAllMemosFromVault()).map(function (memo) { return memo.id; }),
+    ["memo-1", "memo-2", "memo-3"],
   );
 });
 
