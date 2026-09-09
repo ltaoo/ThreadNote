@@ -274,13 +274,14 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 			return c.Error(err.Error())
 		}
 		b.OpenWindow(&velo.VeloWebviewOpt{
-			Name:       windowName,
-			Title:      windowing.AppTitle,
-			Pathname:   memoWindowPathname(memoID, req.Fixed),
-			Width:      460,
-			Height:     560,
-			Frameless:  true,
-			EntryPage:  "memo-window.html",
+			Name:        windowName,
+			Title:       windowing.AppTitle,
+			Pathname:    memoWindowPathname(memoID, req.Fixed),
+			Width:       460,
+			Height:      560,
+			Frameless:   true,
+			DisableZoom: true,
+			EntryPage:   "memo-window.html",
 			FrontendFS: appAssets.FrontendFS,
 			OnClose:    forgetPersistedOpenWindowOnClose(b.Store, logger),
 		})
@@ -334,13 +335,14 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 
 		windowName := memoWindowName(memoID) + "-edit"
 		b.OpenWindow(&velo.VeloWebviewOpt{
-			Name:       windowName,
-			Title:      windowing.AppTitle,
-			Pathname:   "edit-memo-window.html?id=" + memoID,
-			Width:      520,
-			Height:     600,
-			Frameless:  true,
-			EntryPage:  "edit-memo-window.html",
+			Name:        windowName,
+			Title:       windowing.AppTitle,
+			Pathname:    "edit-memo-window.html?id=" + memoID,
+			Width:       520,
+			Height:      600,
+			Frameless:   true,
+			DisableZoom: true,
+			EntryPage:   "edit-memo-window.html",
 			FrontendFS: appAssets.FrontendFS,
 			OnClose:    forgetPersistedOpenWindowOnClose(b.Store, logger),
 		})
@@ -435,13 +437,14 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 
 		window_name := "comment-replies-" + sanitizeStorageID(comment_id)
 		b.OpenWindow(&velo.VeloWebviewOpt{
-			Name:       window_name,
-			Title:      windowing.AppTitle,
-			Pathname:   "comment-replies.html?id=" + comment_id,
-			Width:      460,
-			Height:     560,
-			Frameless:  true,
-			EntryPage:  "comment-replies.html",
+			Name:        window_name,
+			Title:       windowing.AppTitle,
+			Pathname:    "comment-replies.html?id=" + comment_id,
+			Width:       460,
+			Height:      560,
+			Frameless:   true,
+			DisableZoom: true,
+			EntryPage:   "comment-replies.html",
 			FrontendFS: appAssets.FrontendFS,
 		})
 		b.SendMessage(velo.H{"type": "comment_detail_updated", "commentId": comment_id})
@@ -488,13 +491,14 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 
 		window_name := "todo-window-" + sanitizeStorageID(todo_id)
 		b.OpenWindow(&velo.VeloWebviewOpt{
-			Name:       window_name,
-			Title:      windowing.AppTitle,
-			Pathname:   "todo-window.html?id=" + url.QueryEscape(todo_id),
-			Width:      460,
-			Height:     560,
-			Frameless:  true,
-			EntryPage:  "todo-window.html",
+			Name:        window_name,
+			Title:       windowing.AppTitle,
+			Pathname:    "todo-window.html?id=" + url.QueryEscape(todo_id),
+			Width:       460,
+			Height:      560,
+			Frameless:   true,
+			DisableZoom: true,
+			EntryPage:   "todo-window.html",
 			FrontendFS: appAssets.FrontendFS,
 		})
 		b.SendMessage(velo.H{"type": "todo_detail_updated", "todoId": todo_id})

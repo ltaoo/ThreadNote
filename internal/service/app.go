@@ -164,6 +164,7 @@ func mainWindowOptions(pathname string, b *velo.Box, logger *zerolog.Logger) *ve
 		Pathname:             pathname,
 		Width:                1024,
 		Height:               768,
+		DisableZoom:          true,
 		PreserveStateOnFocus: true,
 		OnReopen: func() {
 			showMainWindow(b, logger)
@@ -209,6 +210,7 @@ func vaultPickerWindowOptions(primary bool) *velo.VeloWebviewOpt {
 		Pathname:             spec.Pathname,
 		Width:                spec.Width,
 		Height:               spec.Height,
+		DisableZoom:          true,
 		PreserveStateOnFocus: true,
 	}
 }

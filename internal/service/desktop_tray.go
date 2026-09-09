@@ -54,12 +54,13 @@ func open_settings_from_tray(b *velo.Box, logger *zerolog.Logger) {
 	}
 
 	b.OpenWindow(&velo.VeloWebviewOpt{
-		Name:       settings_spec.Name,
-		Title:      settings_spec.Title,
-		Pathname:   pathname,
-		Width:      settings_spec.Width,
-		Height:     settings_spec.Height,
-		EntryPage:  settings_spec.EntryPage,
+		Name:        settings_spec.Name,
+		Title:       settings_spec.Title,
+		Pathname:    pathname,
+		Width:       settings_spec.Width,
+		Height:      settings_spec.Height,
+		DisableZoom: true,
+		EntryPage:   settings_spec.EntryPage,
 		FrontendFS: appAssets.FrontendFS,
 		OnClose:    forgetPersistedOpenWindowOnClose(b.Store, logger),
 	})

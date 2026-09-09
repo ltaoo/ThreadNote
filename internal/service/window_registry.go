@@ -115,26 +115,28 @@ func restorePersistedOpenWindows(b *velo.Box, logger *zerolog.Logger) {
 				pathname = pathnameWithFixed(item.Pathname, payload.Fixed)
 			}
 			b.OpenWindow(&velo.VeloWebviewOpt{
-				Name:       item.Name,
-				Title:      windowing.AppTitle,
-				Pathname:   pathname,
-				Width:      positiveOr(item.Width, 460),
-				Height:     positiveOr(item.Height, 560),
-				Frameless:  item.Frameless,
-				EntryPage:  firstNonEmpty(item.EntryPage, "memo-window.html"),
+				Name:        item.Name,
+				Title:       windowing.AppTitle,
+				Pathname:    pathname,
+				Width:       positiveOr(item.Width, 460),
+				Height:      positiveOr(item.Height, 560),
+				Frameless:   item.Frameless,
+				DisableZoom: true,
+				EntryPage:   firstNonEmpty(item.EntryPage, "memo-window.html"),
 				FrontendFS: appAssets.FrontendFS,
 				OnClose:    onClose,
 			})
 		default:
 			pathname := pathnameWithFixed(item.Pathname, item.Fixed)
 			b.OpenWindow(&velo.VeloWebviewOpt{
-				Name:       item.Name,
-				Title:      windowing.AppTitle,
-				Pathname:   pathname,
-				Width:      positiveOr(item.Width, 760),
-				Height:     positiveOr(item.Height, 640),
-				Frameless:  item.Frameless,
-				EntryPage:  firstNonEmpty(item.EntryPage, "index.html"),
+				Name:        item.Name,
+				Title:       windowing.AppTitle,
+				Pathname:    pathname,
+				Width:       positiveOr(item.Width, 760),
+				Height:      positiveOr(item.Height, 640),
+				Frameless:   item.Frameless,
+				DisableZoom: true,
+				EntryPage:   firstNonEmpty(item.EntryPage, "index.html"),
 				FrontendFS: appAssets.FrontendFS,
 				OnClose:    onClose,
 			})

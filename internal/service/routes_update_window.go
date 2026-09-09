@@ -127,12 +127,13 @@ func register_update_and_window_routes(b *velo.Box, app_updater *application_upd
 			_ = updatePersistedOpenWindowFixed(b.Store, spec.Name, true)
 		}
 		b.OpenWindow(&velo.VeloWebviewOpt{
-			Name:       spec.Name,
-			Title:      spec.Title,
-			Pathname:   pathname,
-			Width:      spec.Width,
-			Height:     spec.Height,
-			EntryPage:  spec.EntryPage,
+			Name:        spec.Name,
+			Title:       spec.Title,
+			Pathname:    pathname,
+			Width:       spec.Width,
+			Height:      spec.Height,
+			DisableZoom: true,
+			EntryPage:   spec.EntryPage,
 			FrontendFS: appAssets.FrontendFS,
 			OnClose:    forgetPersistedOpenWindowOnClose(b.Store, nil),
 		})

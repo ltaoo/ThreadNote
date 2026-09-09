@@ -140,6 +140,7 @@ func openSnippetLauncher(b *velo.Box) {
 		Width:                720,
 		Height:               60,
 		Frameless:            true,
+		DisableZoom:          true,
 		HideTrafficLights:    true,
 		NonActivating:        true,
 		PreserveStateOnFocus: true,

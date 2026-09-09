@@ -627,6 +627,41 @@ function inlineMarkdown(value, context = {}) {
   return html;
 }
 
+function extractHtmlAnchorTags(text) {
+  const tags = [];
+  const processed = text.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, function (match) {
+    const sanitized = sanitizeHtmlAnchorTag(match);
+    if (!sanitized) return match;
+    var idx = tags.length;
+    tags.push(sanitized);
+    return "\x00HTMLA" + idx + "\x00";
+  });
+  return { text: processed, tags: tags };
+}
+
+function sanitizeHtmlAnchorTag(raw) {
+  var hrefMatch = raw.match(/href\s*=\s*"([^"]*)"/i) || raw.match(/href\s*=\s*'([^']*)'/i);
+  if (!hrefMatch) return "";
+  var href = safeUrl(hrefMatch[1]);
+  if (!href || href === "#") return "";
+
+  // Extract inner content between <a ...> and </a>
+  var innerMatch = raw.match(/<a\b[^>]*>([\s\S]*?)<\/a>/i);
+  if (!innerMatch) return "";
+  var inner = innerMatch[1].trim();
+  if (!inner) return "";
+
+  // Sanitize inner <img> tags, escape everything else
+  var sanitizedInner = inner.replace(/<img\b[^>]*\/?>/gi, function (imgTag) {
+    return sanitizeHtmlImgTag(imgTag) || "";
+  });
+  // Remove any remaining HTML tags except <img>
+  sanitizedInner = sanitizedInner.replace(/<(?!\/?img\b)[^>]+>/gi, "");
+  if (!sanitizedInner.trim()) return "";
+
+  return '<a class="memo-inline-link" href="' + escapeAttr(href) + '" target="_blank" rel="noreferrer">' + sanitizedInner + "</a>";
+}
+
 function extractHtmlImgTags(text) {
   const tags = [];
   const processed = text.replace(/<img\b[^>]*\/?>/gi, function (match) {
@@ -695,8 +730,11 @@ function extractInlineLinks(text) {
 }
 
 function inlineMarkdownBase(value, context = {}) {
+  // Step 0: Extract raw HTML <a> tags (before <img> extraction so <a><img></a> is handled as a unit)
+  var anchorExtracted = extractHtmlAnchorTags(value);
+
   // Step 1: Extract raw HTML <img> tags
-  var extracted = extractHtmlImgTags(value);
+  var extracted = extractHtmlImgTags(anchorExtracted.text);
 
   // Step 2: Extract markdown links, images, and auto-links BEFORE escaping
   var linkExtracted = extractInlineLinks(extracted.text);
@@ -743,6 +781,11 @@ function inlineMarkdownBase(value, context = {}) {
   // Step 9: Restore HTML <img> tags
   html = html.replace(/\x00HTMLIMG(\d+)\x00/g, function (_, idx) {
     return extracted.tags[parseInt(idx)] || "";
+  });
+
+  // Step 10: Restore HTML <a> tags
+  html = html.replace(/\x00HTMLA(\d+)\x00/g, function (_, idx) {
+    return anchorExtracted.tags[parseInt(idx)] || "";
   });
 
   return html;
