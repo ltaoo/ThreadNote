@@ -69,28 +69,60 @@ export function createHomeImageController(options) {
     return /^(data:|local:\/\/|blob:)/i.test(url);
   }
 
+  function images_feed() {
+    return options.resources.images;
+  }
+
   function visible_resources() {
     const query = state.query.toLowerCase();
-    return collectResources(options.scopedMemoDocuments())
-      .filter(function (resource) {
-        if (
-          state.activeTag &&
-          !extractTags(resource.memo.content).includes(state.activeTag)
-        ) {
-          return false;
-        }
-        if (!query) return true;
-        return `${resource.label} ${resource.url} ${resource.sourceText} ${resource.memo.content} ${resource.memo.visibility} ${resource.memo.alias || ""} ${resource.type}`
-          .toLowerCase()
-          .includes(query);
-      })
-      .sort(function (left, right) {
-        return sortMemoReference(left, right, state.sortDesc);
-      });
+    const feed = images_feed();
+    if (!feed.ready) {
+      return collectResources(options.scopedMemoDocuments())
+        .filter(function (resource) {
+          if (
+            state.activeTag &&
+            !extractTags(resource.memo.content).includes(state.activeTag)
+          ) {
+            return false;
+          }
+          if (!query) return true;
+          return `${resource.label} ${resource.url} ${resource.sourceText} ${resource.memo.content} ${resource.memo.visibility} ${resource.memo.alias || ""} ${resource.type}`
+            .toLowerCase()
+            .includes(query);
+        })
+        .sort(function (left, right) {
+          return sortMemoReference(left, right, state.sortDesc);
+        });
+    }
+    return feed.items.filter(function (resource) {
+      if (state.activeTag && !(resource.tags || []).includes(state.activeTag)) {
+        return false;
+      }
+      if (!query) return true;
+      return `${resource.label} ${resource.url} ${resource.sourceText} ${resource.memoTitle} ${resource.type}`
+        .toLowerCase()
+        .includes(query);
+    });
   }
 
   function render_images() {
     options.beforeRender();
+    const feed = images_feed();
+    feed.ensure(
+      JSON.stringify({ scope: options.resourceScopeParams(), q: state.query }),
+      {
+        ...options.resourceScopeParams(),
+        type: "image",
+        q: state.query,
+      },
+      render_images_collection,
+    );
+    // The image grid is unpaginated; keep pulling pages until exhausted.
+    feed.loadAll(render_images_collection);
+    render_images_collection();
+  }
+
+  function render_images_collection() {
     const images = visible_resources().filter(function (resource) {
       return resource.type === "image" && is_local_asset(resource);
     });

@@ -618,14 +618,26 @@ func (store *mirrored_d1_memo_query_store) List(call_ctx context.Context, query 
 }
 
 func (store *mirrored_d1_memo_query_store) Stats(call_ctx context.Context) (MemoStats, error) {
+	var stats MemoStats
+	var err error
+	used_remote := false
 	if !load_memo_storage_sync_state(store.vault_ctx).Dirty {
-		stats, err := store.remote_store.Stats(call_ctx)
+		stats, err = store.remote_store.Stats(call_ctx)
 		if err == nil {
-			return stats, nil
+			used_remote = true
+		} else {
+			record_memo_storage_read_error(store.vault_ctx, err)
 		}
-		record_memo_storage_read_error(store.vault_ctx, err)
 	}
-	return store.local_store.Stats(call_ctx)
+	if !used_remote {
+		// The local sqlite index always mirrors every memo, and it is the only
+		// store that can extract content resource counts, so prefer it.
+		return store.local_store.Stats(call_ctx)
+	}
+	if err := store.local_store.fill_content_stats(call_ctx, &stats); err != nil {
+		return MemoStats{}, err
+	}
+	return stats, nil
 }
 
 func (store *mirrored_d1_memo_query_store) upsert_memo(call_ctx context.Context, memo MemoRecord) error {
@@ -653,4 +665,14 @@ func (store *mirrored_d1_memo_query_store) cache_remote_memos(memos []MemoRecord
 				Msg("failed to refresh local Markdown cache from D1")
 		}
 	}
+}
+
+// The local index is authoritative for extracted resource listings, both in
+// pure sqlite mode and when D1 mirroring is enabled.
+func (store *mirrored_d1_memo_query_store) ListReferences(call_ctx context.Context, query MemoResourceQuery) (MemoResourcePage, error) {
+	return store.local_store.ListReferences(call_ctx, query)
+}
+
+func (store *mirrored_d1_memo_query_store) ListCodeBlocks(call_ctx context.Context, query MemoResourceQuery) (MemoResourcePage, error) {
+	return store.local_store.ListCodeBlocks(call_ctx, query)
 }

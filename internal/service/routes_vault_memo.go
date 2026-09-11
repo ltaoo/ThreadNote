@@ -319,6 +319,48 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 		return c.Ok(velo.H{"stats": stats})
 	})
 
+	b.Get("/api/memos/references", func(c *velo.BoxContext) interface{} {
+		vault_ctx, err := requireActiveVault()
+		if err != nil {
+			return c.Error(err.Error())
+		}
+		resource_store, err := memo_resource_query_store(vault_ctx)
+		if err != nil {
+			log_memo_query_failure(logger, vault_ctx, "references.open", err)
+			return c.Error(err.Error())
+		}
+		query := parse_memo_resource_query(c)
+		query.Type = c.Query("type")
+		page, err := resource_store.ListReferences(c.Context(), query)
+		if err != nil {
+			log_memo_query_failure(logger, vault_ctx, "references.query", err)
+			return c.Error(err.Error())
+		}
+		return c.Ok(velo.H{"page": page})
+	})
+
+	b.Get("/api/memos/code-blocks", func(c *velo.BoxContext) interface{} {
+		vault_ctx, err := requireActiveVault()
+		if err != nil {
+			return c.Error(err.Error())
+		}
+		resource_store, err := memo_resource_query_store(vault_ctx)
+		if err != nil {
+			log_memo_query_failure(logger, vault_ctx, "codeblocks.open", err)
+			return c.Error(err.Error())
+		}
+		query := parse_memo_resource_query(c)
+		query.MarkedOnly = strings.EqualFold(strings.TrimSpace(c.Query("marked")), "1") ||
+			strings.EqualFold(strings.TrimSpace(c.Query("marked")), "true")
+		query.Language = c.Query("language")
+		page, err := resource_store.ListCodeBlocks(c.Context(), query)
+		if err != nil {
+			log_memo_query_failure(logger, vault_ctx, "codeblocks.query", err)
+			return c.Error(err.Error())
+		}
+		return c.Ok(velo.H{"page": page})
+	})
+
 	b.Get("/api/memos/get", func(c *velo.BoxContext) interface{} {
 		vault_ctx, err := requireActiveVault()
 		if err != nil {

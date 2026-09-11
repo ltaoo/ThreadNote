@@ -198,32 +198,53 @@ export function createHomeLinkState() {
 export function createHomeLinkController(options) {
   const { elements, root, state } = options;
 
+  function links_feed() {
+    return options.resources.links;
+  }
+
   function visible_links() {
     const query = state.query.toLowerCase();
     const domain_filter = state.linksDomainFilter.toLowerCase();
-    return collectLinks(options.scopedMemoDocuments())
-      .filter(function (link) {
-        if (
-          state.activeTag &&
-          !extractTags(link.memo.content).includes(state.activeTag)
-        ) {
-          return false;
-        }
-        if (domain_filter) {
-          const host = parseHost(link.url).host;
-          if (!host.includes(domain_filter)) return false;
-        }
-        if (!query) return true;
-        return `${link.label} ${link.url} ${link.sourceText} ${link.memo.content} ${link.memo.visibility} ${link.memo.alias || ""}`
-          .toLowerCase()
-          .includes(query);
-      })
-      .sort(function (left, right) {
-        return sortMemoReference(left, right, state.sortDesc);
-      });
+    const feed = links_feed();
+    if (!feed.ready) {
+      return collectLinks(options.scopedMemoDocuments())
+        .filter(function (link) {
+          if (
+            state.activeTag &&
+            !extractTags(link.memo.content).includes(state.activeTag)
+          ) {
+            return false;
+          }
+          if (domain_filter) {
+            const host = parseHost(link.url).host;
+            if (!host.includes(domain_filter)) return false;
+          }
+          if (!query) return true;
+          return `${link.label} ${link.url} ${link.sourceText} ${link.memo.content} ${link.memo.visibility} ${link.memo.alias || ""}`
+            .toLowerCase()
+            .includes(query);
+        })
+        .sort(function (left, right) {
+          return sortMemoReference(left, right, state.sortDesc);
+        });
+    }
+    return feed.items.filter(function (link) {
+      if (state.activeTag && !(link.tags || []).includes(state.activeTag)) {
+        return false;
+      }
+      if (domain_filter) {
+        const host = parseHost(link.url).host;
+        if (!host.includes(domain_filter)) return false;
+      }
+      if (!query) return true;
+      return `${link.label} ${link.url} ${link.sourceText} ${link.memoTitle}`
+        .toLowerCase()
+        .includes(query);
+    });
   }
 
   function render_links_collection() {
+    const feed = links_feed();
     const links = visible_links();
     const paginated = links.slice(0, state.linksPage * LINKS_PAGE_SIZE);
     let input_value = state.linksDomainFilter;
@@ -233,7 +254,9 @@ export function createHomeLinkController(options) {
       LinksView({
         activeDomain: state.linksDomainFilter,
         chips: state.domainChips,
-        hasMore: paginated.length < links.length,
+        hasMore: feed.ready
+          ? feed.hasMore || paginated.length < links.length
+          : paginated.length < links.length,
         inputValue: input_value,
         links: paginated.map(function (link) {
           const fetched = state.linkTitles[link.url] || "";
@@ -253,6 +276,16 @@ export function createHomeLinkController(options) {
   function render_links() {
     options.beforeRender();
     state.linksPage = 1;
+    const feed = links_feed();
+    feed.ensure(
+      JSON.stringify({ scope: options.resourceScopeParams(), q: state.query }),
+      {
+        ...options.resourceScopeParams(),
+        type: "link",
+        q: state.query,
+      },
+      render_links_collection,
+    );
     render_links_collection();
     saveLinksDomainFilter(state.linksDomainFilter);
   }
@@ -266,9 +299,14 @@ export function createHomeLinkController(options) {
   }
 
   function load_next_page() {
+    const feed = links_feed();
     const links = visible_links();
     const maximum_page = Math.ceil(links.length / LINKS_PAGE_SIZE);
-    if (state.linksPage >= maximum_page) return false;
+    if (state.linksPage >= maximum_page) {
+      return Boolean(
+        feed.ready && feed.hasMore && feed.loadMore(render_links_collection),
+      );
+    }
     state.linksPage += 1;
     append_links_page();
     return true;

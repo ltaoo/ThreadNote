@@ -7,6 +7,7 @@ import {
   compactText,
   extractProjectDirective,
   extractTags,
+  buildMemoCommentIndex,
   isMemoFenceClosingLine,
   memoBacklinkCount,
   memoReferenceAlias,
@@ -33,6 +34,11 @@ import {
   collectLinks,
   collectResources,
 } from "@/domain/memo-resources.js";
+import {
+  loadCodeBlockPage,
+  loadMemoReferencePage,
+} from "@/domain/memo-resource-repository.js";
+import { createMemoResourceFeed } from "@/domain/memo-resource-feed.js";
 import {
   createMemoCommentInVault,
   deleteMemoCommentInVault,
@@ -880,6 +886,27 @@ export function mountMemosHome(root, options = {}) {
     showToast,
     state,
   });
+  // Vault-wide resource feeds backed by the memo index. When the feed cannot
+  // reach the backend (browser dev without the native bridge), the views fall
+  // back to collecting from the loaded memo page.
+  const resource_feeds = {
+    codeblocks: createMemoResourceFeed(loadCodeBlockPage),
+    files: createMemoResourceFeed(loadMemoReferencePage),
+    images: createMemoResourceFeed(loadMemoReferencePage),
+    links: createMemoResourceFeed(loadMemoReferencePage),
+  };
+  function resourceScopeParams() {
+    const filter = state.activeProjectFilter;
+    if (!filter || filter === "all") return {};
+    if (filter === "unassigned") return { projectScope: "unassigned" };
+    return { projectId: normalizeProjectID(filter) };
+  }
+  function invalidateResourceFeeds() {
+    Object.keys(resource_feeds).forEach(function (key) {
+      resource_feeds[key].invalidate();
+    });
+  }
+
   const link_controller = createHomeLinkController({
     beforeRender() {
       if (!editEditor) return;
@@ -889,6 +916,8 @@ export function mountMemosHome(root, options = {}) {
       editEditorMemoId = "";
     },
     elements: els,
+    resourceScopeParams,
+    resources: resource_feeds,
     root,
     scopedMemoDocuments,
     showToast,
@@ -940,6 +969,8 @@ export function mountMemosHome(root, options = {}) {
     projectLabel(project_id) {
       return project_controller.projectLabel(project_id);
     },
+    resourceScopeParams,
+    resources: resource_feeds,
     scopedMemoDocuments,
     showToast,
     state,
@@ -956,6 +987,8 @@ export function mountMemosHome(root, options = {}) {
     onCopy: copyFileBrowserURL,
     onOpenSource: openFileBrowserSource,
     onView: openFileBrowserItem,
+    resourceScopeParams,
+    resources: resource_feeds,
     root,
     scopedMemoDocuments,
     state,
@@ -969,6 +1002,8 @@ export function mountMemosHome(root, options = {}) {
       editEditorMemoId = "";
     },
     elements: els,
+    resourceScopeParams,
+    resources: resource_feeds,
     scopedMemoDocuments,
     state,
   });
@@ -1335,6 +1370,12 @@ export function mountMemosHome(root, options = {}) {
     return createMiniEditor(els.composerHost, {
       memoItems() {
         return state.memos;
+      },
+      commentItems() {
+        return state.comments;
+      },
+      taskItems() {
+        return state.tasks;
       },
       tagItems: editorTagItems,
       onChange(nextValue) {
@@ -1952,6 +1993,21 @@ export function mountMemosHome(root, options = {}) {
     if (memoRefTarget && root.contains(memoRefTarget)) {
       event.preventDefault();
       detachMemo(memoRefTarget.dataset.memoRefTarget);
+      return;
+    }
+
+    const commentRefTarget = closestElement(
+      event.target,
+      "[data-comment-ref-target]",
+    );
+    if (commentRefTarget && root.contains(commentRefTarget)) {
+      event.preventDefault();
+      const comment = findComment(commentRefTarget.dataset.commentRefTarget);
+      if (!comment || !comment.memoId) {
+        showToast("找不到评论");
+        return;
+      }
+      activateMemo(comment.memoId, { commentId: comment.id });
       return;
     }
 
@@ -3974,6 +4030,7 @@ export function mountMemosHome(root, options = {}) {
         saveLabel: comment_editing ? "保存" : "评论",
         onAction: runMemoDialogAction,
         store: openDialogStore({
+          closeable: false,
           onCancel() {
             if (canCloseMemoDialog(state.memoDialog, dialogState)) {
               closeMemoDialog();
@@ -4005,6 +4062,12 @@ export function mountMemosHome(root, options = {}) {
     memoDialogEditor = createMiniEditor(host, {
       memoItems() {
         return state.memos;
+      },
+      commentItems() {
+        return state.comments;
+      },
+      taskItems() {
+        return state.tasks;
       },
       tagItems: editorTagItems,
       onChange(value) {
@@ -5639,11 +5702,22 @@ export function mountMemosHome(root, options = {}) {
   function renderViewButtons() {
     const documents = scopedMemoDocuments();
     const todoStats = getTaskStats(scopedTasks());
-    const linkCount = collectLinks(documents).length;
+    // The indexed stats cover the whole vault (and per project), while the
+    // loaded feed page only holds a slice of the memos.
+    const indexed_counts = scopedMemoContentCounts();
+    const linkCount = indexed_counts
+      ? indexed_counts.links
+      : collectLinks(documents).length;
     const codeBlocks = collectCodeBlocks(documents);
-    const codeSnippetCount = codeBlocks.filter((block) => block.marked).length;
-    const codeBlockCount = codeBlocks.length;
-    const resourceCount = collectResources(documents).length;
+    const codeSnippetCount = indexed_counts
+      ? indexed_counts.codeSnippets
+      : codeBlocks.filter((block) => block.marked).length;
+    const codeBlockCount = indexed_counts
+      ? indexed_counts.codeBlocks
+      : codeBlocks.length;
+    const resourceCount = indexed_counts
+      ? indexed_counts.files + indexed_counts.images
+      : collectResources(documents).length;
     const activeMilestoneCount = scopedGTDMilestones().filter(
       (milestone) =>
         milestone.status === "active" || milestone.status === "planned",
@@ -5661,9 +5735,11 @@ export function mountMemosHome(root, options = {}) {
         : "",
     );
     ui.fileNavCount.as(resourceCount ? String(resourceCount) : "");
-    const imageCount = collectResources(documents).filter(
-      (resource) => resource.type === "image",
-    ).length;
+    const imageCount = indexed_counts
+      ? indexed_counts.images
+      : collectResources(documents).filter(
+        (resource) => resource.type === "image",
+      ).length;
     ui.imageNavCount.as(imageCount ? String(imageCount) : "");
     ui.clipboardNavCount.as(
       state.clipboardItem && state.clipboardItem.id ? "1" : "",
@@ -6885,6 +6961,8 @@ export function mountMemosHome(root, options = {}) {
     loadMemoStatsFromVault().then(
       function (stats) {
         state.memoStats = stats || null;
+        // Memo/comment changes also affect the indexed resource lists.
+        invalidateResourceFeeds();
         if (render_feed_content) scheduleRenderAll();
         else renderAll({ feed: false });
       },
@@ -7121,6 +7199,18 @@ export function mountMemosHome(root, options = {}) {
     );
   }
 
+  // Returns the vault-indexed resource counts for the active project scope
+  // ("" maps to unassigned), or null when the backend stats do not carry
+  // content counts yet.
+  function scopedMemoContentCounts() {
+    const stats = state.memoStats;
+    if (!stats) return null;
+    const filter = state.activeProjectFilter;
+    if (!filter || filter === "all") return stats.contentCounts || null;
+    const key = filter === "unassigned" ? "" : filter;
+    return stats.projectContentCounts?.[key] || null;
+  }
+
   function findMemo(memoId) {
     return state.memos.find((memo) => memo.id === memoId) ||
       state.pinnedMemos.find((memo) => memo.id === memoId);
@@ -7141,9 +7231,13 @@ export function mountMemosHome(root, options = {}) {
   function memoRenderContext(sourceId, options = {}) {
     const index = state.memoRefIndex || buildMemoReferenceIndex(state.memos);
     state.memoRefIndex = index;
+    const renderIndex = {
+      ...index,
+      commentById: buildMemoCommentIndex(state.comments),
+    };
     return {
       depth: options.depth || 0,
-      index,
+      index: renderIndex,
       maxDepth: options.maxDepth || 2,
       readonly: Boolean(options.readonly),
       editorSettings: state.editorSettings,

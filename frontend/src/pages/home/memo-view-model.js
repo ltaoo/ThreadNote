@@ -1,4 +1,4 @@
-import { buildMemoReferenceIndex } from "@/domain/memos.js";
+import { buildMemoCommentIndex, buildMemoReferenceIndex } from "@/domain/memos.js";
 
 export function parseHost(url) {
   try {
@@ -27,6 +27,7 @@ export function replaceDropdownMenuItems(store, items) {
 export function detachedMemoRenderContext(state, source_id, options = {}) {
   const index = state.memoRefIndex || buildMemoReferenceIndex(state.memos);
   state.memoRefIndex = index;
+  index.commentById = buildMemoCommentIndex(state.comments);
   return {
     depth: options.depth || 0,
     editorSettings: state.editorSettings,

@@ -19,7 +19,7 @@ import (
 )
 
 const memo_index_file_name = "memo-index.db"
-const memo_index_schema_version = 3
+const memo_index_schema_version = 4
 const memo_index_sync_interval = 350 * time.Millisecond
 
 const memo_index_select_columns = `
@@ -111,6 +111,9 @@ func (store *sqlite_memo_query_store) initialize_database(call_ctx context.Conte
 			"DROP TABLE IF EXISTS memo_index_tags",
 			"DROP TABLE IF EXISTS memo_index_records",
 			"DROP TABLE IF EXISTS memo_index_files",
+			"DROP TABLE IF EXISTS memo_index_references",
+			"DROP TABLE IF EXISTS memo_index_code_blocks",
+			"DROP TABLE IF EXISTS memo_index_comment_files",
 		} {
 			if _, err := store.database.ExecContext(call_ctx, statement); err != nil {
 				return fmt.Errorf("reset memo index schema: %w", err)
@@ -152,6 +155,56 @@ func (store *sqlite_memo_query_store) initialize_database(call_ctx context.Conte
 			file_mtime_ns INTEGER NOT NULL,
 			file_size INTEGER NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS memo_index_references (
+			id TEXT PRIMARY KEY,
+			memo_id TEXT NOT NULL,
+			source_type TEXT NOT NULL,
+			source_id TEXT NOT NULL,
+			source_comment_id TEXT NOT NULL,
+			project_id TEXT NOT NULL,
+			ref_type TEXT NOT NULL,
+			syntax TEXT NOT NULL,
+			url TEXT NOT NULL,
+			label TEXT NOT NULL,
+			line_index INTEGER NOT NULL,
+			seq INTEGER NOT NULL,
+			source_text TEXT NOT NULL,
+			memo_title TEXT NOT NULL,
+			visibility TEXT NOT NULL,
+			tags_json TEXT NOT NULL,
+			archived INTEGER NOT NULL,
+			sort_time_ns INTEGER NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS memo_index_code_blocks (
+			id TEXT PRIMARY KEY,
+			memo_id TEXT NOT NULL,
+			source_type TEXT NOT NULL,
+			source_id TEXT NOT NULL,
+			source_comment_id TEXT NOT NULL,
+			project_id TEXT NOT NULL,
+			language TEXT NOT NULL,
+			title TEXT NOT NULL,
+			aliases_json TEXT NOT NULL,
+			code TEXT NOT NULL,
+			marked INTEGER NOT NULL,
+			line_index INTEGER NOT NULL,
+			end_line_index INTEGER NOT NULL,
+			source_text TEXT NOT NULL,
+			memo_title TEXT NOT NULL,
+			visibility TEXT NOT NULL,
+			tags_json TEXT NOT NULL,
+			archived INTEGER NOT NULL,
+			sort_time_ns INTEGER NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS memo_index_comment_files (
+			path TEXT PRIMARY KEY,
+			comment_id TEXT NOT NULL,
+			memo_id TEXT NOT NULL,
+			file_mtime_ns INTEGER NOT NULL,
+			file_size INTEGER NOT NULL
+		)`,
 		"CREATE INDEX IF NOT EXISTS memo_index_records_sort ON memo_index_records(sort_time_ns DESC, id DESC)",
 		"CREATE INDEX IF NOT EXISTS memo_index_records_archived_sort ON memo_index_records(archived, sort_time_ns DESC, id DESC)",
 		"CREATE INDEX IF NOT EXISTS memo_index_records_pinned_sort ON memo_index_records(pinned, sort_time_ns DESC, id DESC)",
@@ -159,6 +212,12 @@ func (store *sqlite_memo_query_store) initialize_database(call_ctx context.Conte
 		"CREATE INDEX IF NOT EXISTS memo_index_records_visibility_sort ON memo_index_records(visibility, sort_time_ns DESC, id DESC)",
 		"CREATE INDEX IF NOT EXISTS memo_index_tags_fold ON memo_index_tags(tag_fold, memo_id)",
 		"CREATE INDEX IF NOT EXISTS memo_index_files_memo_id ON memo_index_files(memo_id, path)",
+		"CREATE INDEX IF NOT EXISTS memo_index_references_type_sort ON memo_index_references(ref_type, archived, sort_time_ns DESC)",
+		"CREATE INDEX IF NOT EXISTS memo_index_references_project ON memo_index_references(project_id, ref_type, archived)",
+		"CREATE INDEX IF NOT EXISTS memo_index_references_source ON memo_index_references(source_type, source_id)",
+		"CREATE INDEX IF NOT EXISTS memo_index_code_blocks_sort ON memo_index_code_blocks(archived, sort_time_ns DESC)",
+		"CREATE INDEX IF NOT EXISTS memo_index_code_blocks_project ON memo_index_code_blocks(project_id, archived)",
+		"CREATE INDEX IF NOT EXISTS memo_index_code_blocks_source ON memo_index_code_blocks(source_type, source_id)",
 		`CREATE VIRTUAL TABLE IF NOT EXISTS memo_index_fts
 		 USING fts5(id UNINDEXED, content, tokenize='trigram')`,
 		fmt.Sprintf("PRAGMA user_version = %d", memo_index_schema_version),
@@ -340,7 +399,330 @@ func (store *sqlite_memo_query_store) Stats(call_ctx context.Context) (MemoStats
 	if err := rows.Err(); err != nil {
 		return MemoStats{}, fmt.Errorf("read memo project stats: %w", err)
 	}
+	if err := store.fill_content_stats_locked(call_ctx, &stats); err != nil {
+		return MemoStats{}, err
+	}
 	return stats, nil
+}
+
+// fill_content_stats scans active memo content in the local index and fills
+// the aggregated resource counts onto stats. Used by the mirrored D1 store
+// because the remote database does not extract content resources.
+func (store *sqlite_memo_query_store) fill_content_stats(call_ctx context.Context, stats *MemoStats) error {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	if err := store.sync_index_if_needed_locked(call_ctx, false); err != nil {
+		return err
+	}
+	return store.fill_content_stats_locked(call_ctx, stats)
+}
+
+// sync_comment_extractions_locked walks the comment directory and keeps the
+// comment-extracted reference/code-block rows in the index up to date,
+// detecting changes by file fingerprint like the memo sync does.
+func (store *sqlite_memo_query_store) sync_comment_extractions_locked(call_ctx context.Context) error {
+	existing_files, err := store.load_index_comment_fingerprints(call_ctx)
+	if err != nil {
+		return err
+	}
+	workspace_fs, err := require_vault_fs(store.vault_ctx)
+	if err != nil {
+		return err
+	}
+	type comment_change struct {
+		comment  MemoCommentRecord
+		path     string
+		mtime_ns int64
+		size     int64
+	}
+	changes := []comment_change{}
+	removed_paths := []string{}
+	seen_paths := map[string]bool{}
+	err = workspace_fs.walk_dir(vaultMemoCommentDirName, func(path string, entry fs.DirEntry, walk_err error) error {
+		if walk_err != nil {
+			return walk_err
+		}
+		select {
+		case <-call_ctx.Done():
+			return call_ctx.Err()
+		default:
+		}
+		if entry.IsDir() || strings.ToLower(filepath.Ext(entry.Name())) != ".md" {
+			return nil
+		}
+		file_info, info_err := entry.Info()
+		if info_err != nil {
+			return info_err
+		}
+		seen_paths[path] = true
+		if existing, found := existing_files[path]; found &&
+			existing.mtime_ns == file_info.ModTime().UnixNano() && existing.size == file_info.Size() {
+			return nil
+		}
+		comment, read_err := readMemoCommentFile(store.vault_ctx, path)
+		if read_err != nil {
+			return read_err
+		}
+		if strings.TrimSpace(comment.MemoID) == "" {
+			return nil
+		}
+		file_info, info_err = workspace_fs.stat_file(path)
+		if info_err != nil {
+			return info_err
+		}
+		changes = append(changes, comment_change{
+			comment:  comment,
+			path:     path,
+			mtime_ns: file_info.ModTime().UnixNano(),
+			size:     file_info.Size(),
+		})
+		return nil
+	})
+	if err != nil {
+		if is_vault_file_not_exist(err) {
+			err = nil
+		} else {
+			return fmt.Errorf("scan memo comment index: %w", err)
+		}
+	}
+	for path := range existing_files {
+		if !seen_paths[path] {
+			removed_paths = append(removed_paths, path)
+		}
+	}
+	if len(changes) == 0 && len(removed_paths) == 0 {
+		return nil
+	}
+
+	transaction, err := store.database.BeginTx(call_ctx, nil)
+	if err != nil {
+		return err
+	}
+	for _, change := range changes {
+		// The pool allows a single connection, so parent lookups must go
+		// through the open transaction instead of the database handle.
+		parent, parent_err := read_indexed_memo(call_ctx, transaction, change.comment.MemoID)
+		if parent_err != nil {
+			_ = transaction.Rollback()
+			return parent_err
+		}
+		// Parent memo gone from the index: drop any stale comment rows.
+		if err := delete_comment_index_extractions(call_ctx, transaction, change.comment.ID); err != nil {
+			_ = transaction.Rollback()
+			return err
+		}
+		if parent.ID == "" {
+			if _, err := transaction.ExecContext(
+				call_ctx,
+				"DELETE FROM memo_index_comment_files WHERE path = ?",
+				change.path,
+			); err != nil {
+				_ = transaction.Rollback()
+				return err
+			}
+			continue
+		}
+		if err := replace_comment_index_extractions(call_ctx, transaction, change.comment, parent); err != nil {
+			_ = transaction.Rollback()
+			return fmt.Errorf("index comment extractions: %w", err)
+		}
+		if _, err := transaction.ExecContext(call_ctx, `
+			INSERT INTO memo_index_comment_files (path, comment_id, memo_id, file_mtime_ns, file_size)
+			VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT(path) DO UPDATE SET
+				comment_id = excluded.comment_id,
+				memo_id = excluded.memo_id,
+				file_mtime_ns = excluded.file_mtime_ns,
+				file_size = excluded.file_size
+		`,
+			change.path,
+			change.comment.ID,
+			change.comment.MemoID,
+			change.mtime_ns,
+			change.size,
+		); err != nil {
+			_ = transaction.Rollback()
+			return err
+		}
+	}
+	for _, path := range removed_paths {
+		if _, err := transaction.ExecContext(call_ctx, "DELETE FROM memo_index_comment_files WHERE path = ?", path); err != nil {
+			_ = transaction.Rollback()
+			return err
+		}
+	}
+	return transaction.Commit()
+}
+
+type memo_comment_file_fingerprint struct {
+	comment_id string
+	memo_id    string
+	mtime_ns   int64
+	size       int64
+}
+
+func (store *sqlite_memo_query_store) load_index_comment_fingerprints(call_ctx context.Context) (map[string]memo_comment_file_fingerprint, error) {
+	rows, err := store.database.QueryContext(
+		call_ctx,
+		"SELECT path, comment_id, memo_id, file_mtime_ns, file_size FROM memo_index_comment_files",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	fingerprints := map[string]memo_comment_file_fingerprint{}
+	for rows.Next() {
+		var path string
+		var fingerprint memo_comment_file_fingerprint
+		if err := rows.Scan(&path, &fingerprint.comment_id, &fingerprint.memo_id, &fingerprint.mtime_ns, &fingerprint.size); err != nil {
+			return nil, err
+		}
+		fingerprints[path] = fingerprint
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return fingerprints, nil
+}
+
+// read_indexed_memo loads a memo record from the index; a missing memo
+// returns a zero record without error.
+func read_indexed_memo(call_ctx context.Context, querier interface {
+	QueryRowContext(context.Context, string, ...interface{}) *sql.Row
+}, memo_id string) (MemoRecord, error) {
+	row := querier.QueryRowContext(
+		call_ctx,
+		"SELECT "+memo_index_select_columns+" FROM memo_index_records WHERE id = ?",
+		strings.TrimSpace(memo_id),
+	)
+	memo, err := scan_memo_index_record(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return MemoRecord{}, nil
+	}
+	if err != nil {
+		return MemoRecord{}, err
+	}
+	return memo, nil
+}
+
+func (store *sqlite_memo_query_store) ListReferences(call_ctx context.Context, query MemoResourceQuery) (MemoResourcePage, error) {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	if err := store.sync_index_if_needed_locked(call_ctx, false); err != nil {
+		return MemoResourcePage{}, err
+	}
+	return list_memo_resources_locked(call_ctx, store.database, query, "memo_index_references")
+}
+
+func (store *sqlite_memo_query_store) ListCodeBlocks(call_ctx context.Context, query MemoResourceQuery) (MemoResourcePage, error) {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	if err := store.sync_index_if_needed_locked(call_ctx, false); err != nil {
+		return MemoResourcePage{}, err
+	}
+	return list_memo_resources_locked(call_ctx, store.database, query, "memo_index_code_blocks")
+}
+
+// fill_content_stats_locked aggregates resource counts from the extraction
+// tables so sidebar counters and the paged lists share one source of truth.
+// Checkbox todos still come from a content scan of memo bodies.
+func (store *sqlite_memo_query_store) fill_content_stats_locked(call_ctx context.Context, stats *MemoStats) error {
+	stats.ContentCounts = memo_content_counts{}
+	stats.ProjectContentCounts = map[string]memo_content_counts{}
+	reference_rows, err := store.database.QueryContext(call_ctx, `
+		SELECT ref_type, project_id, COUNT(*)
+		FROM memo_index_references
+		WHERE archived = 0
+		GROUP BY ref_type, project_id
+	`)
+	if err != nil {
+		return fmt.Errorf("read memo reference stats: %w", err)
+	}
+	defer reference_rows.Close()
+	for reference_rows.Next() {
+		var ref_type string
+		var project_id string
+		var count int
+		if err := reference_rows.Scan(&ref_type, &project_id, &count); err != nil {
+			return fmt.Errorf("scan memo reference stats: %w", err)
+		}
+		apply_reference_count(&stats.ContentCounts, ref_type, count)
+		project_counts := stats.ProjectContentCounts[project_id]
+		apply_reference_count(&project_counts, ref_type, count)
+		stats.ProjectContentCounts[project_id] = project_counts
+	}
+	if err := reference_rows.Err(); err != nil {
+		return fmt.Errorf("read memo reference stats: %w", err)
+	}
+
+	block_rows, err := store.database.QueryContext(call_ctx, `
+		SELECT marked, project_id, COUNT(*)
+		FROM memo_index_code_blocks
+		WHERE archived = 0
+		GROUP BY marked, project_id
+	`)
+	if err != nil {
+		return fmt.Errorf("read memo code block stats: %w", err)
+	}
+	defer block_rows.Close()
+	for block_rows.Next() {
+		var marked int
+		var project_id string
+		var count int
+		if err := block_rows.Scan(&marked, &project_id, &count); err != nil {
+			return fmt.Errorf("scan memo code block stats: %w", err)
+		}
+		stats.ContentCounts.CodeBlocks += count
+		project_counts := stats.ProjectContentCounts[project_id]
+		project_counts.CodeBlocks += count
+		if marked != 0 {
+			stats.ContentCounts.CodeSnippets += count
+			project_counts.CodeSnippets += count
+		}
+		stats.ProjectContentCounts[project_id] = project_counts
+	}
+	if err := block_rows.Err(); err != nil {
+		return fmt.Errorf("read memo code block stats: %w", err)
+	}
+
+	content_rows, err := store.database.QueryContext(call_ctx, `
+		SELECT project_id, content
+		FROM memo_index_records
+		WHERE archived = 0
+	`)
+	if err != nil {
+		return fmt.Errorf("read memo content stats: %w", err)
+	}
+	defer content_rows.Close()
+	for content_rows.Next() {
+		var project_id string
+		var content string
+		if err := content_rows.Scan(&project_id, &content); err != nil {
+			return fmt.Errorf("scan memo content stats: %w", err)
+		}
+		counts := analyze_memo_content(content)
+		stats.ContentCounts.OpenTodos += counts.OpenTodos
+		stats.ContentCounts.DoneTodos += counts.DoneTodos
+		project_counts := stats.ProjectContentCounts[project_id]
+		project_counts.OpenTodos += counts.OpenTodos
+		project_counts.DoneTodos += counts.DoneTodos
+		stats.ProjectContentCounts[project_id] = project_counts
+	}
+	if err := content_rows.Err(); err != nil {
+		return fmt.Errorf("read memo content stats: %w", err)
+	}
+	return nil
+}
+
+func apply_reference_count(counts *memo_content_counts, ref_type string, count int) {
+	switch ref_type {
+	case "image":
+		counts.Images += count
+	case "file":
+		counts.Files += count
+	case "link":
+		counts.Links += count
+	}
 }
 
 func (store *sqlite_memo_query_store) upsert_memo(call_ctx context.Context, memo MemoRecord) error {
@@ -539,6 +921,9 @@ func (store *sqlite_memo_query_store) sync_index_locked(call_ctx context.Context
 		}
 	}
 	if len(changed_files) == 0 && len(removed_paths) == 0 && len(record_updates) == 0 && len(removed_record_ids) == 0 {
+		if err := store.sync_comment_extractions_locked(call_ctx); err != nil {
+			return err
+		}
 		store.report_duplicate_memo_files(duplicate_paths, selected_paths)
 		return nil
 	}
@@ -573,8 +958,15 @@ func (store *sqlite_memo_query_store) sync_index_locked(call_ctx context.Context
 			_ = transaction.Rollback()
 			return err
 		}
+		if err := delete_memo_index_extractions(call_ctx, transaction, memo_id); err != nil {
+			_ = transaction.Rollback()
+			return err
+		}
 	}
 	if err := transaction.Commit(); err != nil {
+		return err
+	}
+	if err := store.sync_comment_extractions_locked(call_ctx); err != nil {
 		return err
 	}
 	store.report_duplicate_memo_files(duplicate_paths, selected_paths)
@@ -806,6 +1198,12 @@ func upsert_memo_index_record(call_ctx context.Context, transaction *sql.Tx, sna
 		return err
 	}
 	if _, err := transaction.ExecContext(call_ctx, "INSERT INTO memo_index_fts(id, content) VALUES (?, ?)", memo.ID, memo.Content); err != nil {
+		return err
+	}
+	if err := replace_memo_index_extractions(call_ctx, transaction, memo); err != nil {
+		return fmt.Errorf("index memo extractions: %w", err)
+	}
+	if err := sync_memo_meta_for_comment_rows(call_ctx, transaction, memo); err != nil {
 		return err
 	}
 	return nil

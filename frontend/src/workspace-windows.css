@@ -122,11 +122,6 @@ body.is-fixed-window .memo-window-shell {
 }
 
 .memo-window-card .memo-card-head-actions {
-  opacity: 0.4;
-}
-
-.memo-window-card:hover .memo-card-head-actions,
-.memo-window-card:focus-within .memo-card-head-actions {
   opacity: 1;
 }
 

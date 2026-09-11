@@ -19,6 +19,37 @@ export function createHomeCodeblockController(options) {
   const { elements, state } = options;
   const model = new CodeBlocksModel();
 
+  function blocks_feed() {
+    return options.resources.codeblocks;
+  }
+
+  // Shapes an indexed code-block row into the view model the renderer and
+  // sort helpers expect.
+  function indexed_block_view(block) {
+    return {
+      aliases: Array.isArray(block.aliases) ? block.aliases : [],
+      code: block.code || "",
+      endLineIndex: block.endLineIndex,
+      id: block.id,
+      label:
+        block.title ||
+        (block.language ? block.language + " 代码片段" : "代码片段"),
+      language: block.language || "",
+      lineIndex: block.lineIndex,
+      marked: Boolean(block.marked),
+      memo: {
+        alias: "",
+        content: "",
+        createdAt: block.createdAt,
+        projectId: block.projectId,
+        visibility: "",
+      },
+      memoId: block.memoId,
+      sourceText: block.sourceText || "",
+      tags: Array.isArray(block.tags) ? block.tags : [],
+    };
+  }
+
   function matches_search_query(value, query) {
     const haystack = String(value || "").toLowerCase();
     const needle = String(query || "").trim().toLowerCase();
@@ -57,12 +88,25 @@ export function createHomeCodeblockController(options) {
 
   function visible_blocks() {
     const query = state.query.toLowerCase();
-    return collectCodeBlocks(options.scopedMemoDocuments())
+    const feed = blocks_feed();
+    if (!feed.ready) {
+      return collectCodeBlocks(options.scopedMemoDocuments())
+        .filter(function (block) {
+          if (
+            state.activeTag &&
+            !extractTags(block.memo.content).includes(state.activeTag)
+          ) {
+            return false;
+          }
+          if (!query) return true;
+          return matches_search_query(search_text(block), query);
+        })
+        .sort(sort_blocks);
+    }
+    return feed.items
+      .map(indexed_block_view)
       .filter(function (block) {
-        if (
-          state.activeTag &&
-          !extractTags(block.memo.content).includes(state.activeTag)
-        ) {
+        if (state.activeTag && !block.tags.includes(state.activeTag)) {
           return false;
         }
         if (!query) return true;
@@ -109,13 +153,26 @@ export function createHomeCodeblockController(options) {
   function render_codeblocks() {
     options.beforeRender();
     model.resetPagination();
+    const feed = blocks_feed();
+    feed.ensure(
+      JSON.stringify({ scope: options.resourceScopeParams(), q: state.query }),
+      {
+        ...options.resourceScopeParams(),
+        q: state.query,
+      },
+      render_collection,
+    );
     render_collection();
   }
 
   function append_page() {
     const next_page = model.loadNext(visible_blocks());
-    if (next_page.items.length === 0) return;
-    render_collection();
+    if (next_page.items.length > 0) {
+      render_collection();
+      return;
+    }
+    const feed = blocks_feed();
+    if (feed.ready && feed.hasMore) feed.loadMore(render_collection);
   }
 
   function copy_codeblock(action) {

@@ -2320,33 +2320,144 @@ function renderSlashCommandMenu(menu, pluginState) {
   );
 }
 
-function memoReferenceItems(options, query) {
+function memoReferenceMemoItems(options, sourceMemoId) {
   const source = typeof options.memoItems === "function"
     ? options.memoItems()
     : options.memoItems;
-  const sourceMemoId = String(options.sourceMemoId || "");
-  const keyword = String(query || "")
-    .trim()
-    .replace(/^memo:/i, "")
-    .toLowerCase();
-
   return (Array.isArray(source) ? source : [])
     .filter(function (memo) {
       return memo && memo.id && memo.id !== sourceMemoId;
     })
     .map(function (memo) {
       const title = memoTitle(memo);
-      const detail = memoReferenceDetail(memo);
       return {
         alias: memoReferenceAlias(title),
         content: memo.content || "",
-        detail,
+        detail: memoReferenceDetail(memo),
         id: memo.id,
         label: title,
         pinned: Boolean(memo.pinned),
         time: new Date(memo.updatedAt || memo.createdAt || 0).getTime() || 0,
       };
+    });
+}
+
+const MEMO_COMMENT_REFERENCE_EXCERPT_LENGTH = 30;
+
+function memoCommentExcerpt(value) {
+  const text = String(value || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map(function (line) {
+      return line.trim();
     })
+    .filter(Boolean)
+    .join(" ");
+  return text.length > MEMO_COMMENT_REFERENCE_EXCERPT_LENGTH
+    ? text.slice(0, MEMO_COMMENT_REFERENCE_EXCERPT_LENGTH) + "…"
+    : text;
+}
+
+function memoCommentReferenceItems(options) {
+  const source = typeof options.commentItems === "function"
+    ? options.commentItems()
+    : options.commentItems;
+  if (!Array.isArray(source) || !source.length) return [];
+
+  const memos = typeof options.memoItems === "function"
+    ? options.memoItems()
+    : options.memoItems;
+  const memoById = new Map(
+    (Array.isArray(memos) ? memos : [])
+      .filter(function (memo) {
+        return memo && memo.id;
+      })
+      .map(function (memo) {
+        return [memo.id, memo];
+      }),
+  );
+
+  return source
+    .filter(function (comment) {
+      return comment && comment.id;
+    })
+    .map(function (comment) {
+      const parent = memoById.get(comment.memoId);
+      const label = memoCommentExcerpt(comment.content) || comment.id;
+      const detail = [
+        "评论",
+        parent ? memoTitle(parent) : comment.memoId || "",
+        formatShortDate(comment.updatedAt || comment.createdAt),
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return {
+        alias: label,
+        content: comment.content || "",
+        detail,
+        id: comment.id,
+        kind: "comment",
+        label,
+        time: new Date(comment.updatedAt || comment.createdAt || 0).getTime() || 0,
+      };
+    });
+}
+
+function memoTaskReferenceItems(options) {
+  const source = typeof options.taskItems === "function"
+    ? options.taskItems()
+    : options.taskItems;
+  return (Array.isArray(source) ? source : [])
+    .filter(function (task) {
+      return task && task.id && task.title;
+    })
+    .map(function (task) {
+      const detail = [
+        "任务",
+        task.status || "",
+        task.dueAt ? "due " + formatShortDate(task.dueAt) : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return {
+        alias: memoReferenceAlias(task.title),
+        content: task.title,
+        detail,
+        id: task.id,
+        kind: "task",
+        label: task.title,
+        time: new Date(task.updatedAt || task.createdAt || 0).getTime() || 0,
+      };
+    });
+}
+
+function memoReferenceItems(options, query) {
+  const rawQuery = String(query || "").trim();
+  const lowerQuery = rawQuery.toLowerCase();
+  const commentOnly = lowerQuery.startsWith("comment:");
+  const memoOnly = !commentOnly && lowerQuery.startsWith("memo:");
+  const taskOnly = !commentOnly && !memoOnly && lowerQuery.startsWith("task:");
+  const keyword = rawQuery
+    .replace(/^(memo:|comment:|task:)/i, "")
+    .trim()
+    .toLowerCase();
+  const sourceMemoId = String(options.sourceMemoId || "");
+
+  const memoItems = memoOnly
+    ? []
+    : memoReferenceMemoItems(options, sourceMemoId);
+
+  const commentItems = commentOnly || (!memoOnly && !taskOnly)
+    ? memoCommentReferenceItems(options)
+    : [];
+
+  const taskItems = taskOnly || (!memoOnly && !commentOnly)
+    ? memoTaskReferenceItems(options)
+    : [];
+
+  return memoItems
+    .concat(commentItems)
+    .concat(taskItems)
     .filter(function (item) {
       if (!keyword) return true;
       return [item.label, item.detail, item.id, item.content]
@@ -2374,7 +2485,13 @@ function memoReferenceDetail(memo) {
 
 function memoReferenceInsertText(item, embed) {
   const alias = memoReferenceAlias(item.alias || item.label || "");
-  const target = "memo:" + item.id + (alias ? "|" + alias : "");
+  const prefix =
+    item && item.kind === "comment"
+      ? "comment:"
+      : item && item.kind === "task"
+        ? "task:"
+        : "memo:";
+  const target = prefix + item.id + (alias ? "|" + alias : "");
   return (embed ? "![[" : "[[") + target + "]]";
 }
 
@@ -2484,7 +2601,7 @@ function renderMemoReferenceMenu(menu, pluginState) {
                 class: "memo-ref-option-kind",
                 attributes: { n: "memo-reference-kind" },
               },
-              [pluginState.embed ? "EMBED" : "LINK"],
+              [item.kind === "comment" ? "评论" : item.kind === "task" ? "任务" : pluginState.embed ? "EMBED" : "LINK"],
             ),
             View(
               {

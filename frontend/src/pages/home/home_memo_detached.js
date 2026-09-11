@@ -256,6 +256,9 @@ export function mountDetachedMemoWindow(root, options = {}) {
       memoItems() {
         return state.memos;
       },
+      commentItems() {
+        return state.comments;
+      },
       tagItems: detachedEditorTagItems,
       onChange(nextValue) {
         state.commentDraft = nextValue;
@@ -323,6 +326,9 @@ export function mountDetachedMemoWindow(root, options = {}) {
     return createMiniEditor(host, {
       memoItems() {
         return state.memos;
+      },
+      commentItems() {
+        return state.comments;
       },
       tagItems: detachedEditorTagItems,
       onChange(nextValue) {
@@ -953,6 +959,23 @@ export function mountDetachedMemoWindow(root, options = {}) {
     if (memoRefTarget && root.contains(memoRefTarget)) {
       event.preventDefault();
       detachMemoFromWindow(memoRefTarget.dataset.memoRefTarget);
+      return;
+    }
+
+    const commentRefTarget = closestElement(
+      event.target,
+      "[data-comment-ref-target]",
+    );
+    if (commentRefTarget && root.contains(commentRefTarget)) {
+      event.preventDefault();
+      const comment = state.comments.find(function (item) {
+        return item && item.id === commentRefTarget.dataset.commentRefTarget;
+      });
+      if (!comment || !comment.memoId) {
+        showToast("找不到评论");
+        return;
+      }
+      detachMemoFromWindow(comment.memoId);
       return;
     }
 
@@ -2020,7 +2043,9 @@ export function mountDetachedMemoWindow(root, options = {}) {
         memos: state.memos,
         projects: [],
       },
-    }).catch(function () {});
+    }).catch(function (err) {
+      showToast("打开编辑窗口失败: " + errorMessage(err));
+    });
   }
 
   function renderDetachedMemo() {

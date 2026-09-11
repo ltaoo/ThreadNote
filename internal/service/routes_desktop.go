@@ -360,7 +360,14 @@ func registerDesktopRoutes(b *velo.Box, logger *zerolog.Logger) {
 		payload, ok := memoWindowCache.items[editCacheKey]
 		memoWindowCache.RUnlock()
 		if !ok {
-			return c.Ok(velo.H{"found": false})
+			fallback, fErr := memoWindowPayloadFromVault(memoID)
+			if fErr != nil {
+				return c.Ok(velo.H{"found": false})
+			}
+			payload = fallback
+			memoWindowCache.Lock()
+			memoWindowCache.items[editCacheKey] = payload
+			memoWindowCache.Unlock()
 		}
 		return c.Ok(velo.H{
 			"found":      true,

@@ -236,6 +236,15 @@ export function buildMemoReferenceIndex(memos) {
   };
 }
 
+export function buildMemoCommentIndex(comments) {
+  const commentById = new Map();
+  (Array.isArray(comments) ? comments : []).forEach(function (comment) {
+    if (!comment || !comment.id) return;
+    commentById.set(comment.id, comment);
+  });
+  return commentById;
+}
+
 export function parseMemoReferences(content) {
   const refs = [];
   const lines = memoLines(content);

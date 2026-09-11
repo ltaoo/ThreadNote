@@ -36,11 +36,16 @@ type MemoStats struct {
 	Pinned        int            `json:"pinned"`
 	Private       int            `json:"private"`
 	ProjectCounts map[string]int `json:"projectCounts"`
-	Protected     int            `json:"protected"`
-	Public        int            `json:"public"`
-	Secret        int            `json:"secret"`
-	Total         int            `json:"total"`
-	Unassigned    int            `json:"unassigned"`
+	// ContentCounts aggregates resource counts (images, files, links, code
+	// blocks, snippets, todos) extracted from active memo content, so sidebar
+	// counters reflect the whole vault instead of the loaded feed page.
+	ContentCounts        memo_content_counts            `json:"contentCounts"`
+	ProjectContentCounts map[string]memo_content_counts `json:"projectContentCounts"`
+	Protected            int                            `json:"protected"`
+	Public               int                            `json:"public"`
+	Secret               int                            `json:"secret"`
+	Total                int                            `json:"total"`
+	Unassigned           int                            `json:"unassigned"`
 }
 
 // MemoQueryStore is the read-side port for memo storage. Implementations may

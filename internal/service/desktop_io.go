@@ -155,6 +155,38 @@ func memoWindowMemosPayload(memo json.RawMessage, memos json.RawMessage) json.Ra
 	return json.RawMessage("[" + string(memo) + "]")
 }
 
+// memoWindowPayloadFromVault rebuilds a memo window payload by reading the
+// latest memo (and memos list) from the active vault. Used as a fallback when
+// the in-memory window cache is missing the entry (app restart, eviction).
+func memoWindowPayloadFromVault(memoID string) (MemoWindowPayload, error) {
+	ctx, err := requireActiveVault()
+	if err != nil {
+		return MemoWindowPayload{}, err
+	}
+	path, err := findMemoFilePath(ctx, memoID)
+	if err != nil {
+		return MemoWindowPayload{}, err
+	}
+	memo, err := readMemoFile(ctx, path)
+	if err != nil {
+		return MemoWindowPayload{}, err
+	}
+	memoJSON, err := json.Marshal(memo)
+	if err != nil {
+		return MemoWindowPayload{}, err
+	}
+	var memosJSON json.RawMessage
+	if memos, lErr := listVaultMemos(ctx); lErr == nil && len(memos) > 0 {
+		if raw, mErr := json.Marshal(memos); mErr == nil {
+			memosJSON = raw
+		}
+	}
+	return MemoWindowPayload{
+		Memo:  memoJSON,
+		Memos: memoWindowMemosPayload(memoJSON, memosJSON),
+	}, nil
+}
+
 func comment_replies_window_comment_id(raw json.RawMessage) (string, error) {
 	if len(raw) == 0 || !json.Valid(raw) {
 		return "", fmt.Errorf("comment is required")

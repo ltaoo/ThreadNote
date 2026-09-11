@@ -868,6 +868,11 @@ function renderMemoRefChip(ref, context) {
     return renderTaskRefChip(taskRef, ref);
   }
 
+  const commentRef = parseCommentReferenceTarget(ref);
+  if (commentRef) {
+    return renderCommentRefChip(commentRef, ref, context);
+  }
+
   const target = resolveMemoReferenceTarget(ref, context);
   const label = target ? memoRefTitle(ref, target) : ref.alias || ref.target;
   const range = target && ref.selector ? memoSelectorLabel(ref.selector) : "";
@@ -888,6 +893,11 @@ function renderMemoEmbedCard(ref, context) {
   const taskRef = parseTaskReferenceTarget(ref);
   if (taskRef) {
     return renderMemoRefStateCard("is-task", taskRef.label, "任务引用");
+  }
+
+  const commentRef = parseCommentReferenceTarget(ref);
+  if (commentRef) {
+    return renderCommentEmbedCard(commentRef, ref, context);
   }
 
   const target = resolveMemoReferenceTarget(ref, context);
@@ -941,6 +951,63 @@ function parseTaskReferenceTarget(ref) {
     id,
     label: ref.alias || id,
   };
+}
+
+function parseCommentReferenceTarget(ref) {
+  const raw = String((ref && ref.target) || "").trim();
+  if (!raw.toLowerCase().startsWith("comment:")) return null;
+  const id = raw.slice(8).trim();
+  if (!id) return null;
+  return {
+    id,
+    label: ref.alias || id,
+  };
+}
+
+function resolveCommentReferenceTarget(commentRef, context) {
+  const index = (context && context.index) || {};
+  const commentById = index.commentById || new Map();
+  return commentById.get(commentRef.id) || null;
+}
+
+function renderCommentRefChip(commentRef, ref, context) {
+  const comment = resolveCommentReferenceTarget(commentRef, context);
+  const label = commentRef.label;
+
+  if (!comment) {
+    return `<span class="memo-ref-chip is-missing" title="找不到 ${escapeAttr(commentRef.id)}">[[${escapeHTML(label)}]]</span>`;
+  }
+
+  const parent = resolveMemoReferenceTarget({ target: "memo:" + comment.memoId }, context);
+  const title = parent
+    ? "评论 · " + escapeAttr(memoTitle(parent))
+    : "打开评论";
+  return `
+    <button class="memo-ref-chip memo-comment-ref-chip ${ref.embed ? "is-embed" : ""}" type="button" data-comment-ref-target="${escapeAttr(comment.id)}" title="${title}">
+      <span>${escapeHTML(label)}</span>
+    </button>
+  `;
+}
+
+function renderCommentEmbedCard(commentRef, ref, context) {
+  const comment = resolveCommentReferenceTarget(commentRef, context);
+  if (!comment) {
+    return renderMemoRefStateCard("is-missing", commentRef.label, "找不到评论 " + commentRef.id);
+  }
+
+  const parent = resolveMemoReferenceTarget({ target: "memo:" + comment.memoId }, context);
+  const updatedAt = comment.updatedAt || comment.createdAt;
+  const meta = [
+    parent ? `<span>${escapeHTML(memoTitle(parent))}</span>` : "",
+    updatedAt ? `<time datetime="${escapeAttr(updatedAt)}">${formatRelativeDate(updatedAt)}</time>` : "",
+  ].filter(Boolean).join("");
+
+  return `
+    <aside class="memo-ref-card is-comment" data-comment-ref-card="${escapeAttr(comment.id)}">
+      ${meta ? `<div class="memo-ref-meta-line">${meta}</div>` : ""}
+      <div class="memo-ref-body memo-content">${escapeHTML(comment.content || "")}</div>
+    </aside>
+  `;
 }
 
 function renderTaskRefChip(taskRef, ref) {
