@@ -58,6 +58,19 @@ const MEMO_MENU = Object.freeze([
   },
 ]);
 
+const VIEW_MENU = Object.freeze([
+  {
+    icon: "calendar",
+    id: "week",
+    label: "周视图",
+  },
+  {
+    icon: "calendar",
+    id: "month",
+    label: "月视图",
+  },
+]);
+
 const TOOL_MENU = Object.freeze([
   {
     count: "data-link-nav-count",
@@ -233,6 +246,28 @@ function SidebarProjects(vm$) {
   );
 }
 
+function SidebarViews(vm$) {
+  return View(
+    {
+      class: "memo-sidebar-section",
+      attributes: { n: "memo-view-navigation-section" },
+    },
+    [
+      View(
+        {
+          class: "memo-sidebar-heading",
+          attributes: { n: "memo-view-navigation-heading" },
+        },
+        ["视图"],
+      ),
+      SidebarMenu(vm$, VIEW_MENU, {
+        label: "时间视图",
+        name: "view-navigation",
+      }),
+    ],
+  );
+}
+
 function SidebarMenu(vm$, items, props) {
   return View(
     {
@@ -354,6 +389,7 @@ function HomeSidebar(vm$) {
             label: "Memo menu",
             name: "memo-navigation",
           }),
+          SidebarViews(vm$),
           SidebarProjects(vm$),
           SidebarMenu(vm$, TOOL_MENU, {
             class: "memo-sidebar-section",

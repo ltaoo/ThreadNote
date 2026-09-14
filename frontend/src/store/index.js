@@ -41,6 +41,16 @@ const routes_configure = {
             pathname: "/home/index/milestone",
             component: Timeless.lazy("@/pages/home/home_milestone.js"),
           },
+          week: {
+            title: "周视图",
+            pathname: "/home/index/week",
+            component: Timeless.lazy("@/pages/home/home_period.js"),
+          },
+          month: {
+            title: "月视图",
+            pathname: "/home/index/month",
+            component: Timeless.lazy("@/pages/home/home_period.js"),
+          },
           link: {
             title: "超链接",
             pathname: "/home/index/link",

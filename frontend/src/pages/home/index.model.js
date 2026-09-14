@@ -17,8 +17,10 @@ const HOME_VIEW_ROUTE_KEYS = Object.freeze({
   logs: "logs",
   memos: "memo",
   milestones: "milestone",
+  month: "month",
   rules: "rule",
   todos: "todo",
+  week: "week",
 });
 
 /** @type {Readonly<Record<string, HomeSection>>} */

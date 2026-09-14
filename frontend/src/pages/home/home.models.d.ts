@@ -54,8 +54,10 @@ export type HomeSection =
   | "logs"
   | "memos"
   | "milestones"
+  | "month"
   | "rules"
-  | "todos";
+  | "todos"
+  | "week";
 
 export type HomeRouteKey =
   | "board"
@@ -69,8 +71,10 @@ export type HomeRouteKey =
   | "logs"
   | "memo"
   | "milestone"
+  | "month"
   | "rule"
-  | "todo";
+  | "todo"
+  | "week";
 
 export type MemoListFilter =
   | ""

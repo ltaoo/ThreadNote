@@ -22,6 +22,7 @@
 @import url("./standalone-tools.css");
 @import url("./pages/home/home_logs.css?v=20260826-application-diagnostics");
 @import url("./pages/home/home_credentials.css?v=20260904-credential-vault");
+@import url("./pages/home/home_period.css?v=20260912-period-views");
 @import url("./atomic.css");
 
 :root {

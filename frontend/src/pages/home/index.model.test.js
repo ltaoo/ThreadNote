@@ -22,6 +22,16 @@ function filter_click(filter) {
   };
 }
 
+function view_click(view) {
+  return {
+    target: {
+      closest(selector) {
+        return selector === "[data-view]" ? { dataset: { view } } : null;
+      },
+    },
+  };
+}
+
 test("home memo default filter reuses the default cached route", function () {
   const pushes = [];
   const model = HomePageModel({
@@ -41,5 +51,28 @@ test("home memo default filter reuses the default cached route", function () {
     ["root.home_layout.index.memo", {}],
     ["root.home_layout.index.memo", { filter: "pinned" }],
   ]);
+  model.destroy();
+});
+
+test("home period views navigate to their dedicated cached routes", function () {
+  const pushes = [];
+  const model = HomePageModel({
+    app: {},
+    history: {
+      push(...args) {
+        pushes.push(args);
+      },
+    },
+    view: {},
+  });
+
+  model.methods.handleClick(view_click("week"));
+  model.methods.handleClick(view_click("month"));
+
+  assert.deepEqual(pushes, [
+    ["root.home_layout.index.week", {}],
+    ["root.home_layout.index.month", {}],
+  ]);
+  assert.equal(model.state.activeView.value, "month");
   model.destroy();
 });

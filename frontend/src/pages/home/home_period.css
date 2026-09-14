@@ -1,0 +1,342 @@
+.home-period-page {
+  background: var(--tn-color-bg-canvas);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.period-header {
+  align-items: center;
+  background: color-mix(in srgb, var(--tn-color-bg-canvas) 92%, transparent);
+  border-bottom: 1px solid var(--tn-color-border-translucent);
+  display: flex;
+  flex: none;
+  gap: var(--tn-space-6);
+  justify-content: space-between;
+  min-height: 104px;
+  padding: var(--tn-space-4) var(--tn-space-5);
+}
+
+@supports (backdrop-filter: blur(12px)) {
+  .period-header {
+    backdrop-filter: blur(14px) saturate(120%);
+  }
+}
+
+.period-heading-copy {
+  min-width: 0;
+}
+
+.period-eyebrow {
+  color: var(--tn-color-text-tertiary);
+  display: block;
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+  font-weight: var(--tn-font-weight-semibold);
+  letter-spacing: var(--tn-letter-spacing-wide);
+  margin-bottom: var(--tn-space-1);
+  text-transform: uppercase;
+}
+
+.period-heading-copy h1 {
+  font-family: var(--tn-font-family-display);
+  font-size: var(--tn-font-size-display);
+  font-weight: var(--tn-font-weight-bold);
+  letter-spacing: var(--tn-letter-spacing-tight);
+  line-height: var(--tn-line-height-tight);
+}
+
+.period-heading-copy p {
+  color: var(--tn-color-text-tertiary);
+  font-size: var(--tn-font-size-sm);
+  line-height: var(--tn-line-height-snug);
+  margin-top: var(--tn-space-1-5);
+}
+
+.period-heading-copy p strong {
+  color: var(--tn-color-text-secondary);
+  font-family: var(--tn-font-family-mono);
+  font-weight: var(--tn-font-weight-semibold);
+}
+
+.period-toolbar,
+.period-navigation {
+  align-items: center;
+  display: flex;
+}
+
+.period-toolbar {
+  flex-wrap: wrap;
+  gap: var(--tn-space-3);
+  justify-content: flex-end;
+}
+
+.period-navigation {
+  background: var(--tn-color-bg-subtle);
+  border: 1px solid var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-md);
+  gap: var(--tn-space-0-5);
+  padding: var(--tn-space-0-5);
+}
+
+.period-icon-button,
+.period-today-button,
+.period-retry-button {
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--tn-radius-sm);
+  color: var(--tn-color-text-secondary);
+  font-size: var(--tn-font-size-sm);
+  min-height: var(--tn-control-height-lg);
+}
+
+.period-icon-button {
+  padding: 0;
+  width: var(--tn-control-height-lg);
+}
+
+.period-today-button,
+.period-retry-button {
+  padding-inline: var(--tn-space-2-5);
+}
+
+.period-icon-button:hover,
+.period-today-button:hover,
+.period-retry-button:hover {
+  background: var(--tn-color-fill-translucent);
+  color: var(--tn-color-text-primary);
+}
+
+.period-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--tn-space-5);
+  scrollbar-color: var(--tn-color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.period-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tn-space-4);
+  margin-inline: auto;
+  max-width: var(--tn-layout-content-max);
+  width: 100%;
+}
+
+.period-day {
+  background: var(--tn-color-bg-surface);
+  border: 1px solid var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-lg);
+  box-shadow: var(--tn-shadow-xs);
+  overflow: hidden;
+}
+
+.period-day-heading {
+  align-items: center;
+  background: color-mix(in srgb, var(--tn-color-bg-subtle) 62%, transparent);
+  border-bottom: 1px solid var(--tn-color-border-translucent);
+  display: flex;
+  justify-content: space-between;
+  min-height: var(--tn-space-12);
+  padding-inline: var(--tn-space-4);
+}
+
+.period-day-date {
+  align-items: center;
+  color: var(--tn-color-text-primary);
+  display: flex;
+  gap: var(--tn-space-2);
+}
+
+.period-day-weekday {
+  font-size: var(--tn-font-size-lg);
+  font-weight: var(--tn-font-weight-semibold);
+}
+
+.period-day-number {
+  align-items: center;
+  border-radius: var(--tn-radius-full);
+  color: var(--tn-color-text-secondary);
+  display: inline-flex;
+  font-family: var(--tn-font-family-mono);
+  font-variant-numeric: tabular-nums;
+  height: var(--tn-control-height-xs);
+  justify-content: center;
+  width: var(--tn-control-height-xs);
+}
+
+.period-day.is-today .period-day-number {
+  background: var(--tn-color-primary-fill);
+  color: var(--tn-color-on-primary);
+  font-weight: var(--tn-font-weight-semibold);
+}
+
+.period-day-count {
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.period-day-projects,
+.period-project-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.period-project-group + .period-project-group {
+  border-top: 1px solid var(--tn-color-border-translucent);
+}
+
+.period-project-heading {
+  align-items: center;
+  display: grid;
+  gap: var(--tn-space-2);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: var(--tn-space-10);
+  padding-inline: var(--tn-space-4);
+}
+
+.period-project-dot {
+  background: var(--project-color);
+  border-radius: var(--tn-radius-full);
+  height: var(--tn-space-2);
+  width: var(--tn-space-2);
+}
+
+.period-project-heading h3 {
+  color: var(--tn-color-text-secondary);
+  font-size: var(--tn-font-size-sm);
+  font-weight: var(--tn-font-weight-semibold);
+  overflow-wrap: break-word;
+}
+
+.period-project-heading strong {
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-xs);
+  font-weight: var(--tn-font-weight-medium);
+}
+
+.period-project-items {
+  background: color-mix(in srgb, var(--tn-color-bg-subtle) 36%, transparent);
+  gap: var(--tn-space-2);
+  padding: 0 var(--tn-space-4) var(--tn-space-4);
+}
+
+.period-item {
+  background: var(--tn-color-bg-surface);
+  border-color: var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-md);
+  box-shadow: var(--tn-shadow-xs);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tn-space-1-5);
+  min-height: 62px;
+  min-width: 0;
+  padding: var(--tn-space-2-5) var(--tn-space-3);
+}
+
+.period-item-meta {
+  align-items: center;
+  display: flex;
+  gap: var(--tn-space-2);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.period-item .tn-badge {
+  flex: none;
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-2xs);
+  letter-spacing: var(--tn-letter-spacing-wide);
+  min-height: 18px;
+  padding-inline: var(--tn-space-1-5);
+  text-transform: uppercase;
+}
+
+.period-item-detail {
+  color: var(--tn-color-text-tertiary);
+  font-family: var(--tn-font-family-mono);
+  font-size: var(--tn-font-size-xs);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.period-item.is-completed .period-item-title {
+  color: var(--tn-color-text-tertiary);
+  text-decoration: line-through;
+}
+
+.period-item.is-cancelled .period-item-title {
+  color: var(--tn-color-text-disabled);
+}
+
+.period-item-title {
+  color: var(--tn-color-text-primary);
+  font-size: var(--tn-font-size-sm);
+  font-weight: var(--tn-font-weight-medium);
+  line-height: var(--tn-line-height-snug);
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.period-day-empty {
+  color: var(--tn-color-text-tertiary);
+  font-size: var(--tn-font-size-sm);
+  padding: var(--tn-space-4);
+}
+
+.period-status {
+  align-items: center;
+  background: var(--tn-color-bg-surface);
+  border: 1px solid var(--tn-color-border-translucent);
+  border-radius: var(--tn-radius-lg);
+  color: var(--tn-color-text-secondary);
+  display: flex;
+  gap: var(--tn-space-3);
+  justify-content: center;
+  margin-inline: auto;
+  max-width: var(--tn-layout-content-max);
+  min-height: var(--tn-space-16);
+  padding: var(--tn-space-5);
+  text-align: center;
+}
+
+.period-status.is-error {
+  border-color: var(--tn-color-danger-border);
+  color: var(--tn-color-danger);
+}
+
+.period-retry-button {
+  border-color: var(--tn-color-border-strong);
+}
+
+@media (max-width: 900px) {
+  .period-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--tn-space-3);
+  }
+}
+
+@media (max-width: 620px) {
+  .period-header,
+  .period-main {
+    padding-inline: var(--tn-space-3);
+  }
+
+  .period-toolbar,
+  .period-navigation {
+    justify-content: center;
+    width: 100%;
+  }
+}

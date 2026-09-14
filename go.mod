@@ -6,8 +6,9 @@ require (
 	github.com/Danny-Dasilva/CycleTLS/cycletls v1.0.23
 	github.com/aws/aws-sdk-go-v2 v1.16.16
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.11
+	github.com/aws/smithy-go v1.13.3
 	github.com/ltaoo/clipboard-go v0.2.0
-	github.com/ltaoo/velo v1.1.1
+	github.com/ltaoo/velo v1.2.0
 	github.com/rs/zerolog v1.34.0
 	golang.org/x/crypto v0.20.0
 	golang.org/x/image v0.28.0
@@ -28,7 +29,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.18 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.17 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.17 // indirect
-	github.com/aws/smithy-go v1.13.3 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cloudflare/circl v1.3.6 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
