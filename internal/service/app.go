@@ -304,6 +304,7 @@ func Run(assets Assets) {
 
 	b.NewWebview(mainWindowOptions(initial_pathname, b, logger))
 	setup_tray(b, logger)
+	stop_window_icon_setup := setup_desktop_window_icon(appAssets.AppIcon, logger)
 	if initial_pathname == "/home/index" {
 		go func() {
 			time.Sleep(1100 * time.Millisecond)
@@ -340,6 +341,7 @@ func Run(assets Assets) {
 	}()
 	b.Run()
 
+	stop_window_icon_setup()
 	reminderScheduler.Stop()
 	shutdown_mcp_http_server(logger)
 	shutdownExternalAPIServer(externalAPIServer, logger)

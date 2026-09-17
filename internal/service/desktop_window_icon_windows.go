@@ -3,12 +3,16 @@
 package service
 
 import (
+	"bytes"
+	"image"
+	"image/png"
 	"os"
 	"syscall"
 	"time"
 	"unsafe"
 
 	"github.com/rs/zerolog"
+	"golang.org/x/image/draw"
 )
 
 const (
@@ -86,10 +90,82 @@ func create_windows_icon_handles(icon_data []byte) windows_icon_handles {
 	if len(icon_data) == 0 {
 		return windows_icon_handles{}
 	}
+	large_width := system_metric(windows_sm_cxicon)
+	large_height := system_metric(windows_sm_cyicon)
+	small_width := system_metric(windows_sm_cxsmicon)
+	small_height := system_metric(windows_sm_cysmicon)
 	return windows_icon_handles{
-		large: create_windows_icon(icon_data, system_metric(windows_sm_cxicon), system_metric(windows_sm_cyicon)),
-		small: create_windows_icon(icon_data, system_metric(windows_sm_cxsmicon), system_metric(windows_sm_cysmicon)),
+		large: create_windows_icon(sized_windows_icon_png(icon_data, large_width, large_height), large_width, large_height),
+		small: create_windows_icon(sized_windows_icon_png(icon_data, small_width, small_height), small_width, small_height),
 	}
+}
+
+// sized_windows_icon_png rescales the application icon to the exact system
+// icon size. CreateIconFromResourceEx accepts PNG icon resources, but renders
+// them at the PNG's natural size; without rescaling the 1024x1024 logo every
+// taskbar/title bar icon would be a blurry system-side downscale. The source
+// logo also carries ~100px of transparent padding on every side (the visible
+// mark only fills ~65% of the canvas), so the transparent border is trimmed
+// before scaling. Otherwise the taskbar icon would show a tiny mark floating
+// inside an oversized invisible square.
+func sized_windows_icon_png(icon_data []byte, width int, height int) []byte {
+	if width <= 0 || height <= 0 {
+		return icon_data
+	}
+	decoded, _, err := image.Decode(bytes.NewReader(icon_data))
+	if err != nil {
+		return icon_data
+	}
+	source_bounds := opaque_bounds(decoded)
+	if source_bounds.Empty() {
+		source_bounds = decoded.Bounds()
+	}
+	if source_bounds.Dx() == width && source_bounds.Dy() == height {
+		return icon_data
+	}
+	resized := image.NewRGBA(image.Rect(0, 0, width, height))
+	draw.CatmullRom.Scale(resized, resized.Bounds(), decoded, source_bounds, draw.Src, nil)
+	var buffer bytes.Buffer
+	if err := png.Encode(&buffer, resized); err != nil {
+		return icon_data
+	}
+	return buffer.Bytes()
+}
+
+// opaque_bounds returns the bounding box of the non-transparent pixels.
+func opaque_bounds(decoded image.Image) image.Rectangle {
+	full_bounds := decoded.Bounds()
+	content := image.Rectangle{}
+	found := false
+	for y := full_bounds.Min.Y; y < full_bounds.Max.Y; y++ {
+		for x := full_bounds.Min.X; x < full_bounds.Max.X; x++ {
+			_, _, _, alpha := decoded.At(x, y).RGBA()
+			if alpha == 0 {
+				continue
+			}
+			if !found {
+				content = image.Rect(x, y, x+1, y+1)
+				found = true
+				continue
+			}
+			if x < content.Min.X {
+				content.Min.X = x
+			}
+			if y < content.Min.Y {
+				content.Min.Y = y
+			}
+			if x+1 > content.Max.X {
+				content.Max.X = x + 1
+			}
+			if y+1 > content.Max.Y {
+				content.Max.Y = y + 1
+			}
+		}
+	}
+	if !found {
+		return image.Rectangle{}
+	}
+	return content
 }
 
 func create_windows_icon(icon_data []byte, width int, height int) uintptr {

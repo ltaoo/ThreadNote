@@ -82,7 +82,6 @@ require (
 
 // Pin x/net and x/text to versions compatible with Go 1.20 (like wx_channels_download)
 replace (
-	github.com/ltaoo/velo => ../../velo
 	golang.org/x/net => golang.org/x/net v0.17.0
 	golang.org/x/text => golang.org/x/text v0.14.0
 )
