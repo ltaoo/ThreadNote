@@ -268,8 +268,8 @@ func Run(assets Assets) {
 		logger.Warn().Msgf("Updater init: %v", err)
 	}
 
-	// Closing every window keeps ThreadNote available from the system tray. The
-	// tray's Exit item remains the explicit way to terminate the application.
+	// Keep ThreadNote running after closing windows so global shortcuts can
+	// reopen it, including when the optional system tray icon is hidden.
 	quit_on_last_window_closed := false
 	opt := velo.VeloAppOpt{
 		Mode:                   velo.ModeBridge,

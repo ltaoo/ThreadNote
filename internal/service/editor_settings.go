@@ -10,6 +10,7 @@ import (
 const editorSettingsKey = "demo-desktop:settings:editor:v1"
 
 type EditorSettings struct {
+	ShowTrayIcon      bool                `json:"showTrayIcon"`
 	VimMode           bool                `json:"vimMode"`
 	CalendarWeekStart string              `json:"calendarWeekStart"`
 	FileEditor        *EditorAppSelection `json:"fileEditor,omitempty"`
@@ -46,6 +47,7 @@ func normalizeEditorSettings(settings EditorSettings) EditorSettings {
 		rules = defaultEditorFileRules()
 	}
 	return EditorSettings{
+		ShowTrayIcon:      settings.ShowTrayIcon,
 		VimMode:           settings.VimMode,
 		CalendarWeekStart: weekStart,
 		FileEditor:        normalizeEditorAppSelection(settings.FileEditor),

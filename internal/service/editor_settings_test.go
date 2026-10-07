@@ -129,7 +129,26 @@ func TestMarshalEditorSettingsForStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshalEditorSettingsForStore: %v", err)
 	}
-	if string(raw) != `{"vimMode":true,"calendarWeekStart":"sunday","fileEditor":{"id":"cursor","name":"Cursor"},"fileEditorRules":[{"extension":".mp4","editor":{"id":"none","name":"不打开"}}]}` {
+	if string(raw) != `{"showTrayIcon":false,"vimMode":true,"calendarWeekStart":"sunday","fileEditor":{"id":"cursor","name":"Cursor"},"fileEditorRules":[{"extension":".mp4","editor":{"id":"none","name":"不打开"}}]}` {
 		t.Fatalf("stored settings = %s, want vimMode true, sunday week start, cursor editor, and file rule", raw)
+	}
+}
+
+func TestTrayIconSettingsDefaultsAndPersistence(t *testing.T) {
+	for _, raw := range []json.RawMessage{nil, json.RawMessage(`{"vimMode":true}`)} {
+		settings, err := loadStoredEditorSettings(raw)
+		if err != nil || settings.ShowTrayIcon {
+			t.Fatalf("tray should default to hidden: %+v, %v", settings, err)
+		}
+	}
+	for _, visible := range []bool{true, false} {
+		raw, err := marshalEditorSettingsForStore(EditorSettings{ShowTrayIcon: visible})
+		if err != nil {
+			t.Fatal(err)
+		}
+		settings, err := loadStoredEditorSettings(raw)
+		if err != nil || settings.ShowTrayIcon != visible {
+			t.Fatalf("tray visibility did not persist: %+v, %v", settings, err)
+		}
 	}
 }

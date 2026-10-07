@@ -2,6 +2,7 @@ package service
 
 import (
 	"runtime"
+	"sync"
 
 	"example/simple/internal/desktopapp/windowing"
 
@@ -10,7 +11,30 @@ import (
 	"github.com/rs/zerolog"
 )
 
+var tray_visibility_lock sync.Mutex
+var tray_visibility_handler func(bool)
+
 func setup_tray(b *velo.Box, logger *zerolog.Logger) {
+	tray_visibility_lock.Lock()
+	defer tray_visibility_lock.Unlock()
+	tray_visibility_handler = new_tray_visibility_handler(b, logger)
+	settings, err := loadStoredEditorSettings(b.Store.Get(editorSettingsKey))
+	if err != nil {
+		logger.Warn().Err(err).Msg("failed to load tray visibility setting")
+		return
+	}
+	tray_visibility_handler(settings.ShowTrayIcon)
+}
+
+func apply_tray_visibility(visible bool) {
+	tray_visibility_lock.Lock()
+	defer tray_visibility_lock.Unlock()
+	if tray_visibility_handler != nil {
+		tray_visibility_handler(visible)
+	}
+}
+
+func create_legacy_tray(b *velo.Box, logger *zerolog.Logger) {
 	settings_item := &tray.MenuItem{
 		Label: "设置",
 		Click: func(_ *tray.MenuItem) {
@@ -61,7 +85,7 @@ func open_settings_from_tray(b *velo.Box, logger *zerolog.Logger) {
 		Height:      settings_spec.Height,
 		DisableZoom: true,
 		EntryPage:   settings_spec.EntryPage,
-		FrontendFS: appAssets.FrontendFS,
-		OnClose:    forgetPersistedOpenWindowOnClose(b.Store, logger),
+		FrontendFS:  appAssets.FrontendFS,
+		OnClose:     forgetPersistedOpenWindowOnClose(b.Store, logger),
 	})
 }

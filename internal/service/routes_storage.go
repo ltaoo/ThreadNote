@@ -32,6 +32,7 @@ func registerStorageRoutes(b *velo.Box) {
 		if err := b.Store.Set(editorSettingsKey, json.RawMessage(raw)); err != nil {
 			return c.Error(err.Error())
 		}
+		apply_tray_visibility(settings.ShowTrayIcon)
 		return c.Ok(velo.H{"success": true, "config": normalizeEditorSettings(settings)})
 	})
 

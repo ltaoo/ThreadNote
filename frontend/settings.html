@@ -1282,6 +1282,24 @@
       <div class="settings-form settings-panel" data-settings-panel="about" hidden>
         <section class="settings-section">
           <div class="settings-profile-head">
+            <div class="settings-profile-title">托盘图标</div>
+          </div>
+          <div class="settings-shortcut-card">
+            <div>
+              <div class="settings-shortcut-title">是否显示托盘图标</div>
+              <div class="settings-shortcut-description">默认不显示，修改后立即生效。</div>
+            </div>
+            <label class="settings-check">
+              <input type="checkbox" data-show-tray-icon aria-label="是否显示托盘图标" />
+              <span>显示</span>
+            </label>
+          </div>
+          <div class="settings-actions">
+            <div class="settings-message" data-tray-message role="status"></div>
+          </div>
+        </section>
+        <section class="settings-section">
+          <div class="settings-profile-head">
             <div class="settings-profile-title">应用信息</div>
           </div>
           <div class="settings-info-list">
@@ -1375,6 +1393,8 @@
       var shortcutInput = document.querySelector('[data-shortcut-input="openMemoSearch"]');
       var shortcutEnabled = document.querySelector('[data-shortcut-enabled="openMemoSearch"]');
       var shortcutMessage = document.querySelector("[data-shortcut-message]");
+      var showTrayIcon = document.querySelector("[data-show-tray-icon]");
+      var trayMessage = document.querySelector("[data-tray-message]");
       var editorVimEnabled = document.querySelector("[data-editor-vim-enabled]");
       var editorAppCurrent = document.querySelector("[data-editor-app-current]");
       var editorAppSearch = document.querySelector("[data-editor-app-search]");
@@ -1540,6 +1560,26 @@
           editorAppSearchTimer = null;
           loadEditorApps(event.target.value || "", { force: true });
         }, 180);
+      });
+
+      showTrayIcon.addEventListener("change", function () {
+        var previousSettings = editorSettings;
+        editorSettings = normalizeEditorSettings(Object.assign({}, editorSettings, {
+          showTrayIcon: showTrayIcon.checked,
+        }));
+        showTrayIcon.disabled = true;
+        trayMessage.textContent = "正在保存托盘图标设置...";
+        saveEditorSettings(editorSettings).then(function (saved) {
+          editorSettings = normalizeEditorSettings(saved || editorSettings);
+          renderEditorSettings();
+          trayMessage.textContent = editorSettings.showTrayIcon ? "已显示托盘图标" : "已隐藏托盘图标";
+          showTrayIcon.disabled = false;
+        }, function (err) {
+          editorSettings = previousSettings;
+          renderEditorSettings();
+          trayMessage.textContent = "保存托盘图标设置失败: " + errorMessage(err);
+          showTrayIcon.disabled = false;
+        });
       });
 
       shortcutsPanel.addEventListener("change", function (event) {
@@ -2236,6 +2276,7 @@
 
       function renderEditorSettings() {
         editorSettings = normalizeEditorSettings(editorSettings);
+        if (showTrayIcon) showTrayIcon.checked = editorSettings.showTrayIcon;
         if (editorVimEnabled) editorVimEnabled.checked = editorSettings.vimMode;
         calendarWeekStartInputs.forEach(function (input) {
           input.checked = input.value === editorSettings.calendarWeekStart;
@@ -2968,6 +3009,7 @@
           calendarWeekStart: "monday",
           fileEditor: defaultFileEditor(),
           fileEditorRules: defaultFileEditorRules(),
+          showTrayIcon: false,
           vimMode: false,
         };
       }
@@ -2980,6 +3022,7 @@
           calendarWeekStart: weekStart,
           fileEditor: normalizeFileEditor(raw.fileEditor),
           fileEditorRules: rules,
+          showTrayIcon: raw.showTrayIcon === true,
           vimMode: raw.vimMode === true,
         };
       }

@@ -46,6 +46,7 @@ function defaultEditorSettings() {
     calendarWeekStart: "monday",
     fileEditor: defaultFileEditor(),
     fileEditorRules: defaultFileEditorRules(),
+    showTrayIcon: false,
     vimMode: false,
   };
 }
@@ -57,6 +58,7 @@ function normalizeEditorSettings(value) {
     calendarWeekStart: raw.calendarWeekStart === "sunday" ? "sunday" : "monday",
     fileEditor: normalizeFileEditor(raw.fileEditor),
     fileEditorRules: rules,
+    showTrayIcon: raw.showTrayIcon === true,
     vimMode: raw.vimMode === true,
   };
 }
