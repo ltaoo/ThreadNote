@@ -1097,6 +1097,24 @@
   box-shadow: var(--tn-shadow-sm);
 }
 
+/* Pointer-drag feedback: the card being dragged and the column under it. */
+.memo-board-card.is-dragging {
+  cursor: grabbing;
+  opacity: 0.45;
+}
+
+.memo-board-column-body.is-drop-target {
+  background: color-mix(in srgb, var(--tn-color-primary-fill) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--tn-color-primary-border-strong);
+  border-radius: var(--tn-radius-md);
+}
+
+/* Dropping on another board's tab moves the card to that board. */
+.memo-project-tab.is-drop-target {
+  background: color-mix(in srgb, var(--tn-color-primary-fill) 14%, transparent);
+  color: var(--tn-color-primary-text);
+}
+
 .memo-board-presets-overlay {
   background: var(--tn-color-bg-scrim);
 }

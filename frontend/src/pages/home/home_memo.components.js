@@ -3960,7 +3960,12 @@ export function InlinePromptView(props = {}) {
       class: "memo-inline-prompt-dialog",
       confirmText: "确认",
       store: props.store,
-      attributes: { n: "memo-inline-prompt-dialog" },
+      // The dialog is portaled out of the rendering parent, so the dialog id
+      // is what lets the prompt caller find and tear its DOM down again.
+      attributes: {
+        "data-inline-prompt-id": props.dialogId,
+        n: "memo-inline-prompt-dialog",
+      },
     },
     [
       tn.DialogBody(
@@ -3970,7 +3975,14 @@ export function InlinePromptView(props = {}) {
             class: "memo-inline-prompt-input",
             type: "text",
             value: props.value,
-            attributes: { n: "memo-inline-prompt-input", type: "text" },
+            attributes: {
+              "data-inline-prompt-input-id": props.dialogId,
+              n: "memo-inline-prompt-input",
+              type: "text",
+            },
+            onInput(event) {
+              props.onInput?.(event?.target?.value ?? "");
+            },
           }),
         ],
       ),

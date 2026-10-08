@@ -12,6 +12,7 @@ func registerRoutes(b *velo.Box, logger *zerolog.Logger, appUpdater *application
 	register_capability_routes(b)
 	register_mcp_routes(b, logger)
 	registerVaultProjectMemoRoutes(b, logger)
+	registerSearchRoutes(b, logger)
 	register_vault_sync_routes(b)
 	registerTaskRoutes(b)
 	registerGTDRoutes(b)

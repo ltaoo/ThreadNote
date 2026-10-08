@@ -783,6 +783,7 @@ export function mountMemosHome(root, options = {}) {
   let editEditorMemoId = "";
   let memoDialogEditor = null;
   let memoDialogController = null;
+  let inline_prompt_sequence = 0;
   let acpChatController = null;
   let memo_virtual_list_controller = null;
   const pending_memo_task_line_changes = new Map();
@@ -1022,11 +1023,6 @@ export function mountMemosHome(root, options = {}) {
     editRule,
     handleBoardAddTaskSubmit,
     handleBoardCreateSubmit,
-    handleBoardDragEnd,
-    handleBoardDragLeave,
-    handleBoardDragOver,
-    handleBoardDragStart,
-    handleBoardDrop,
     handleBoardTaskSelect,
     moveRuleDown,
     moveRuleUp,
@@ -1216,11 +1212,6 @@ export function mountMemosHome(root, options = {}) {
   window.addEventListener("blur", handleWindowBlur);
   window.addEventListener("keydown", handleKeydown);
   window.addEventListener("storage", handleStorage);
-  root.addEventListener("dragstart", handleBoardDragStart);
-  root.addEventListener("dragover", handleBoardDragOver);
-  root.addEventListener("dragleave", handleBoardDragLeave);
-  root.addEventListener("drop", handleBoardDrop);
-  root.addEventListener("dragend", handleBoardDragEnd);
   root.addEventListener("change", handleBoardTaskSelect);
 
   return {
@@ -2808,9 +2799,9 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function syncMemoQuickSearchSources() {
+    // Matching now happens in the server-side search index; the palette only
+    // needs the project list to label results.
     memoQuickSearchModel.setSources({
-      comments: state.comments,
-      memos: state.memoIndexLoaded ? state.memoIndexMemos : state.memos,
       projects: state.projects,
     });
   }
@@ -3147,6 +3138,12 @@ export function mountMemosHome(root, options = {}) {
   }
 
   function handleMemoSearchKeydown(event) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeMemoSearchPalette();
+      return;
+    }
+
     if (event.key === "ArrowDown") {
       event.preventDefault();
       memoQuickSearchModel.moveActive(1);
@@ -6839,16 +6836,42 @@ export function mountMemosHome(root, options = {}) {
     else ui.composerPublishButton.enable();
   }
 
+  /**
+   * `tn.Dialog` renders through a portal that the runtime mounts on
+   * `document.body`, so the dialog DOM never lives inside the host element
+   * that rendered it. Unmounting the host while the dialog is still on screen
+   * strands that portaled subtree, leaving a dialog that can no longer be
+   * closed, so detach it explicitly.
+   *
+   * @param {string} dialog_id
+   */
+  function removeInlinePromptDialog(dialog_id) {
+    const dialog = event_document.querySelector(
+      `[data-inline-prompt-id="${dialog_id}"]`,
+    );
+    if (!dialog) return;
+    let portal = dialog;
+    while (portal.parentElement && portal.parentElement !== event_document.body) {
+      portal = portal.parentElement;
+    }
+    if (portal.parentElement === event_document.body) portal.remove();
+  }
+
   function showInlinePrompt(title, defaultValue) {
     return new Promise(function (resolve) {
+      inline_prompt_sequence += 1;
+      const dialog_id = `inline-prompt-${inline_prompt_sequence}`;
       const host = appendTimelessHost(root, {
         attributes: { n: "inline-prompt-dialog-host" },
       });
       let settled = false;
+      let prompt_value = String(defaultValue || "");
+      let submitted_value = null;
 
       function close(value) {
         if (settled) return;
         settled = true;
+        removeInlinePromptDialog(dialog_id);
         unmountTimelessView(host);
         host.remove();
         resolve(value);
@@ -6856,31 +6879,40 @@ export function mountMemosHome(root, options = {}) {
 
       const store = openDialogStore({
         footer: true,
+        // Both buttons hide the dialog and settle through this handler, so a
+        // confirmed prompt resolves only once the dialog finished closing.
         onCancel() {
-          close(null);
+          close(submitted_value);
         },
         onOk() {
-          close(host.querySelector(".memo-inline-prompt-input")?.value || "");
+          submitted_value = prompt_value;
+          store.hide();
         },
         title,
       });
       renderTimelessView(
         host,
         InlinePromptView({
+          dialogId: dialog_id,
+          onInput(value) {
+            prompt_value = value;
+          },
           store,
           value: defaultValue || "",
         }),
       );
 
-      const input = host.querySelector(".memo-inline-prompt-input");
+      const input = event_document.querySelector(
+        `[data-inline-prompt-input-id="${dialog_id}"]`,
+      );
       input?.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
           e.preventDefault();
-          close(input.value);
+          store.ok();
         }
         if (e.key === "Escape") {
           e.preventDefault();
-          close(null);
+          store.hide();
         }
       });
 

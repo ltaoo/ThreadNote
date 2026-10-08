@@ -17,6 +17,7 @@ import {
 import { tn } from "@/tnui.js";
 
 import { HomeBoardPageModel } from "./home_board.model.js";
+import { createBoardCardDragModel } from "./home_board_drag.model.js";
 import { HomePageHeader, HomePageToast } from "./home_page_header.js";
 import { formatRelativeDate } from "./memo-date.js";
 import { closestElement } from "./memo-utils.js";
@@ -104,6 +105,11 @@ export function createHomeBoardController(options) {
     return BoardView({
       availableTasks: available_tasks || [],
       board: { id: board.id, title: board.title },
+      drag: {
+        onPointerDown: handle_board_card_pointer_down,
+        onPointerMove: handle_board_card_pointer_move,
+        onPointerUp: handle_board_card_pointer_up,
+      },
       columns: board.columns.map(function (column) {
         return {
           id: column.id,
@@ -578,8 +584,12 @@ export function createHomeBoardController(options) {
       .catch((error) => toast("添加失败: " + errorMessage(error)));
   }
 
-  function column_patch(task, board, column, from_column) {
+  function column_patch(task, board, column, from_column, from_board) {
     const labels = new Set(board.columns.map((item) => item.label));
+    // A cross-board drop leaves the old board's column tags behind otherwise.
+    if (from_board && from_board.id !== board.id) {
+      (from_board.columns || []).forEach((item) => labels.add(item.label));
+    }
     const column_tags = (task.tags || [])
       .filter((tag) => !labels.has(tag))
       .concat(column.label);
@@ -634,59 +644,122 @@ export function createHomeBoardController(options) {
       .catch((error) => toast("操作失败: " + errorMessage(error)));
   }
 
-  function move_task(task_id, board, column) {
+  function move_task(task_id, board, column, from_board) {
     getTask(task_id)
       .then((task) =>
-        updateTask(
-          task_id,
-          column_patch(task, board, column, findTaskColumn(board, task)),
-        ),
+        updateTask(task_id, {
+          // A drop can land on another board's column, so the task follows.
+          boardId: board.id,
+          ...column_patch(
+            task,
+            board,
+            column,
+            findTaskColumn(board, task),
+            from_board,
+          ),
+        }),
       )
       .then(refresh_tasks_and_render)
       .catch((error) => toast("操作失败: " + errorMessage(error)));
   }
 
-  function handle_board_drag_start(event) {
-    const card = event.target.closest(".memo-board-card");
-    if (!card?.dataset.taskId) return;
-    event.dataTransfer.setData("text/plain", card.dataset.taskId);
-    event.dataTransfer.effectAllowed = "move";
-    card.classList.add("is-dragging");
+  const board_card_drag = createBoardCardDragModel();
+  let board_drag_card = null;
+  let board_drop_target = null;
+
+  // A drag can land on a column of the visible board, or on another board's tab
+  // (the project view keeps one board panel visible at a time).
+  function board_drop_target_at(x, y) {
+    if (typeof document?.elementFromPoint !== "function") return null;
+    const target = document
+      .elementFromPoint(x, y)
+      ?.closest?.("[data-column-drop], [data-project-tab]");
+    if (!target || !root.contains(target)) return null;
+    return target;
   }
 
-  function handle_board_drag_over(event) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    event.target.closest("[data-column-drop]")?.classList.add("is-drop-target");
+  function clear_board_drag_marks() {
+    board_drag_card?.classList.remove("is-dragging");
+    board_drag_card = null;
+    board_drop_target?.classList.remove("is-drop-target");
+    board_drop_target = null;
   }
 
-  function handle_board_drag_leave(event) {
-    const column = event.target.closest("[data-column-drop]");
-    if (column && !column.contains(event.relatedTarget)) {
-      column.classList.remove("is-drop-target");
+  function board_drop_placement(target, source_column_label) {
+    if ("columnDrop" in target.dataset) {
+      const board = find_board(
+        target.closest("[data-board-id]")?.dataset.boardId,
+      );
+      const column = board?.columns.find(
+        (item) => item.id === target.dataset.columnDrop,
+      );
+      return board && column ? { board, column } : null;
     }
+    const board = find_board(target.dataset.projectTab);
+    if (!board?.columns.length) return null;
+    // Keep the column meaning when the target board shares the label.
+    const column =
+      board.columns.find((item) => item.label === source_column_label) ||
+      board.columns[0];
+    return { board, column };
   }
 
-  function handle_board_drop(event) {
-    event.preventDefault();
-    const column_node = event.target.closest("[data-column-drop]");
-    if (!column_node) return;
-    column_node.classList.remove("is-drop-target");
-    const task_id = event.dataTransfer.getData("text/plain");
+  function board_drag_source() {
+    const column_node = board_drag_card?.closest?.("[data-column-drop]");
     const board = find_board(
-      column_node.closest("[data-board-id]")?.dataset.boardId,
+      column_node?.closest("[data-board-id]")?.dataset.boardId,
     );
-    const column = board?.columns.find(
-      (item) => item.id === column_node.dataset.columnDrop,
-    );
-    if (task_id && board && column) move_task(task_id, board, column);
+    return {
+      board,
+      columnLabel: board?.columns.find(
+        (item) => item.id === column_node?.dataset.columnDrop,
+      )?.label,
+    };
   }
 
-  function handle_board_drag_end(event) {
-    event.target.closest(".memo-board-card")?.classList.remove("is-dragging");
-    root
-      .querySelectorAll("[data-column-drop].is-drop-target")
-      .forEach((column) => column.classList.remove("is-drop-target"));
+  function handle_board_card_pointer_down(event, info, task) {
+    if (event?.button !== 0 || event?.isPrimary === false) return;
+    // The completion checkbox and other controls keep their own press handling.
+    if (event?.target?.closest?.("input, button, a, textarea, select")) return;
+    const card =
+      event.currentTarget || event.target?.closest?.(".memo-board-card");
+    const started = board_card_drag.pointerDown({
+      taskId: task?.id,
+      x: info?.x,
+      y: info?.y,
+    });
+    if (!started) return;
+    board_drag_card = card || null;
+  }
+
+  // Timeless View keeps reporting pointer moves after the press leaves the
+  // card, so the drop target under the pointer is found by hit-testing the
+  // document.
+  function handle_board_card_pointer_move(info) {
+    if (!board_card_drag.taskId) return;
+    if (!board_card_drag.dragging) {
+      const dragging = board_card_drag.pointerMove({ x: info?.x, y: info?.y });
+      if (!dragging) return;
+      board_drag_card?.classList.add("is-dragging");
+    }
+    const target = board_drop_target_at(info?.x, info?.y);
+    if (target === board_drop_target) return;
+    board_drop_target?.classList.remove("is-drop-target");
+    board_drop_target = target;
+    board_drop_target?.classList.add("is-drop-target");
+  }
+
+  function handle_board_card_pointer_up(event) {
+    const finished = board_card_drag.pointerUp();
+    const target = board_drop_target;
+    const source = board_drag_source();
+    clear_board_drag_marks();
+    // A cancelled pointer (touch scrolling, a re-render) is not a drop.
+    if (!finished?.dragging || event?.type === "pointercancel") return;
+    if (!target) return;
+    const placement = board_drop_placement(target, source.columnLabel);
+    if (!placement) return;
+    move_task(finished.taskId, placement.board, placement.column, source.board);
   }
 
   function handle_board_task_select(event) {
@@ -791,11 +864,6 @@ export function createHomeBoardController(options) {
     findBoard: find_board,
     handleBoardAddTaskSubmit: handle_board_add_task_submit,
     handleBoardCreateSubmit: handle_board_create_submit,
-    handleBoardDragEnd: handle_board_drag_end,
-    handleBoardDragLeave: handle_board_drag_leave,
-    handleBoardDragOver: handle_board_drag_over,
-    handleBoardDragStart: handle_board_drag_start,
-    handleBoardDrop: handle_board_drop,
     handleBoardTaskSelect: handle_board_task_select,
     moveRuleDown: (board_id, rule_id) => move_rule(board_id, rule_id, 1),
     moveRuleUp: (board_id, rule_id) => move_rule(board_id, rule_id, -1),
@@ -1167,6 +1235,7 @@ export function BoardListView(props = {}) {
 function BoardCardView(props) {
   const { View } = props.runtime;
   const task = props.task;
+  const drag = props.drag || {};
   const class_name_ = computed(
     ref({
       complete: Boolean(task.complete),
@@ -1187,8 +1256,18 @@ function BoardCardView(props) {
       attributes: {
         "data-board-id": task.boardId,
         "data-task-id": task.id,
-        draggable: "true",
         n: "board-task-card",
+      },
+      // Dragging is pointer-based: the desktop webview does not deliver the
+      // native HTML5 drag events the board used to rely on.
+      onPointerDown(event, info) {
+        drag.onPointerDown?.(event, info, task);
+      },
+      onPointerMove(event, info) {
+        drag.onPointerMove?.(event, info, task);
+      },
+      onPointerUp(event, info) {
+        drag.onPointerUp?.(event, info, task);
       },
     },
     [
@@ -1397,7 +1476,11 @@ export function BoardView(props = {}) {
                             return For({
                               each: column.tasks,
                               render(task) {
-                                return BoardCardView({ runtime, task });
+                                return BoardCardView({
+                                  drag: props.drag,
+                                  runtime,
+                                  task,
+                                });
                               },
                             });
                           },

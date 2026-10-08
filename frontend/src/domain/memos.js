@@ -121,8 +121,14 @@ const TASK_TITLE_PREFIX_PAIRS = [
   { open: "『", close: "』", requireGap: false },
 ];
 
+export function unwrapMemoLinks(value) {
+  return String(value || "")
+    .replace(/\[\[[^\]|]*\|([^\]|][^\]]*)\]\]/g, "$1")
+    .replace(/\[\[([^\]]+)\]\]/g, "$1");
+}
+
 export function parseTaskTitleAndDesc(text) {
-  const trimmed = String(text || "").trim();
+  const trimmed = unwrapMemoLinks(String(text || "").trim());
   for (const pair of TASK_TITLE_PREFIX_PAIRS) {
     if (!trimmed.startsWith(pair.open)) continue;
     const closeIndex = trimmed.indexOf(pair.close, pair.open.length);
@@ -442,9 +448,8 @@ export function memoTitle(memo) {
 }
 
 export function stripMemoTitleMarkdown(value) {
-  return String(value || "")
-    .replace(/!\[\[([^\]]+)\]\]/g, "$1")
-    .replace(/\[\[([^\]]+)\]\]/g, "$1")
+  const without_embeds = String(value || "").replace(/!\[\[([^\]]+)\]\]/g, "$1");
+  return unwrapMemoLinks(without_embeds)
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/[`*_>#-]+/g, " ")

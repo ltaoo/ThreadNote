@@ -15,6 +15,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"example/simple/internal/search"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -437,7 +439,9 @@ func (store *sqlite_memo_query_store) sync_comment_extractions_locked(call_ctx c
 	}
 	changes := []comment_change{}
 	removed_paths := []string{}
+	removed_comment_ids := []string{}
 	seen_paths := map[string]bool{}
+	search_documents := map[string][]search.Document{}
 	err = workspace_fs.walk_dir(vaultMemoCommentDirName, func(path string, entry fs.DirEntry, walk_err error) error {
 		if walk_err != nil {
 			return walk_err
@@ -488,6 +492,7 @@ func (store *sqlite_memo_query_store) sync_comment_extractions_locked(call_ctx c
 	for path := range existing_files {
 		if !seen_paths[path] {
 			removed_paths = append(removed_paths, path)
+			removed_comment_ids = append(removed_comment_ids, existing_files[path].comment_id)
 		}
 	}
 	if len(changes) == 0 && len(removed_paths) == 0 {
@@ -520,12 +525,15 @@ func (store *sqlite_memo_query_store) sync_comment_extractions_locked(call_ctx c
 				_ = transaction.Rollback()
 				return err
 			}
+			// A comment whose parent memo is gone has no searchable identity.
+			removed_comment_ids = append(removed_comment_ids, change.comment.ID)
 			continue
 		}
 		if err := replace_comment_index_extractions(call_ctx, transaction, change.comment, parent); err != nil {
 			_ = transaction.Rollback()
 			return fmt.Errorf("index comment extractions: %w", err)
 		}
+		search_documents[change.comment.ID] = search_comment_documents(change.comment, parent)
 		if _, err := transaction.ExecContext(call_ctx, `
 			INSERT INTO memo_index_comment_files (path, comment_id, memo_id, file_mtime_ns, file_size)
 			VALUES (?, ?, ?, ?, ?)
@@ -551,7 +559,32 @@ func (store *sqlite_memo_query_store) sync_comment_extractions_locked(call_ctx c
 			return err
 		}
 	}
-	return transaction.Commit()
+	if err := transaction.Commit(); err != nil {
+		return err
+	}
+	store.sync_search_comments(search_documents, removed_comment_ids)
+	return nil
+}
+
+// sync_search_comments mirrors comment documents into the Bleve index. It runs
+// after the SQLite transaction commits so a failed index write can never leave
+// the primary index inconsistent.
+func (store *sqlite_memo_query_store) sync_search_comments(documents map[string][]search.Document, removed_comment_ids []string) {
+	if len(documents) == 0 && len(removed_comment_ids) == 0 {
+		return
+	}
+	if cached_search_index(store.vault_ctx) == nil {
+		return
+	}
+	for comment_id, comment_documents := range documents {
+		replace_search_source(store.vault_ctx, search.CommentTodoPrefix(comment_id), comment_documents)
+	}
+	for _, comment_id := range removed_comment_ids {
+		if comment_id == "" {
+			continue
+		}
+		delete_search_source(store.vault_ctx, search.CommentTodoPrefix(comment_id), search.CommentDocID(comment_id))
+	}
 }
 
 type memo_comment_file_fingerprint struct {
@@ -761,6 +794,8 @@ func (store *sqlite_memo_query_store) upsert_memo(call_ctx context.Context, memo
 		return err
 	}
 	store.last_sync_at = time.Now()
+	// Keep search results current without waiting for the next throttled sync.
+	replace_search_source(store.vault_ctx, search.MemoTodoPrefix(memo.ID), search_memo_documents(memo))
 	return nil
 }
 
@@ -966,11 +1001,34 @@ func (store *sqlite_memo_query_store) sync_index_locked(call_ctx context.Context
 	if err := transaction.Commit(); err != nil {
 		return err
 	}
+	store.sync_search_memos(record_updates, removed_record_ids)
 	if err := store.sync_comment_extractions_locked(call_ctx); err != nil {
 		return err
 	}
 	store.report_duplicate_memo_files(duplicate_paths, selected_paths)
 	return nil
+}
+
+// sync_search_memos mirrors memo and todo documents into the Bleve index. It
+// runs after the SQLite transaction commits so a failed index write can never
+// leave the primary index inconsistent.
+func (store *sqlite_memo_query_store) sync_search_memos(record_updates map[string]memo_index_snapshot, removed_record_ids []string) {
+	if len(record_updates) == 0 && len(removed_record_ids) == 0 {
+		return
+	}
+	if cached_search_index(store.vault_ctx) == nil {
+		return
+	}
+	for _, snapshot := range record_updates {
+		memo := snapshot.memo
+		replace_search_source(store.vault_ctx, search.MemoTodoPrefix(memo.ID), search_memo_documents(memo))
+	}
+	for _, memo_id := range removed_record_ids {
+		if memo_id == "" {
+			continue
+		}
+		delete_search_source(store.vault_ctx, search.MemoTodoPrefix(memo_id), search.MemoDocID(memo_id))
+	}
 }
 
 func (store *sqlite_memo_query_store) load_index_fingerprints(call_ctx context.Context) (map[string]memo_index_fingerprint, error) {

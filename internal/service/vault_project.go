@@ -515,6 +515,9 @@ func setActiveVault(vault_ctx *VaultContext) {
 		credential_session_lock()
 		close_cached_memo_query_store(previous_vault_ctx)
 	}
+	// Opening a vault is what builds its search index; searching never does.
+	// This runs in the background so a large vault cannot delay the open.
+	start_vault_search_index_build(vault_ctx)
 }
 
 func set_active_vault_sync_driver(vault_ctx *VaultContext, driver sync_driver) error {

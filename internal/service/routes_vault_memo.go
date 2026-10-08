@@ -265,6 +265,9 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 		})
 	})
 
+	// /api/memos/search is a backward-compatible shim over the Bleve index. It
+	// keeps the memo-only result shape for the feed's filtered view and falls
+	// back to the SQLite full-text index if the search index is unavailable.
 	b.Get("/api/memos/search", func(c *velo.BoxContext) interface{} {
 		vault_ctx, err := requireActiveVault()
 		if err != nil {
@@ -287,15 +290,14 @@ func registerVaultProjectMemoRoutes(b *velo.Box, logger *zerolog.Logger) {
 			logger.Error().Err(err).Str("component", "memo_search").Msg("search: failed to open query store")
 			return c.Error(err.Error())
 		}
-		sqlite_store := resolve_sqlite_memo_store(vault_ctx)
-		if sqlite_store == nil {
-			logger.Error().Str("component", "memo_search").Msg("search: resolve_sqlite_memo_store returned nil")
-			return c.Error("full-text search is not available for this vault")
+		results, search_err := search_memos_index(c.Context(), vault_ctx, q, limit)
+		if search_err != nil {
+			logger.Warn().Err(search_err).Str("component", "memo_search").Str("query", q).Msg("search: falling back to sqlite full-text search")
+			results, search_err = search_memos_sqlite(c.Context(), vault_ctx, q, limit)
 		}
-		results, err := sqlite_store.search_fts(c.Context(), q, limit)
-		if err != nil {
-			logger.Error().Err(err).Str("component", "memo_search").Str("query", q).Msg("search: search_fts failed")
-			return c.Error(err.Error())
+		if search_err != nil {
+			logger.Error().Err(search_err).Str("component", "memo_search").Str("query", q).Msg("search: failed")
+			return c.Error(search_err.Error())
 		}
 		logger.Info().Str("component", "memo_search").Str("query", q).Int("resultCount", len(results)).Msg("search: completed")
 		return c.Ok(velo.H{"results": results})

@@ -40,6 +40,8 @@ function createHomeWorkspaceModel() {
   const active_tag_ = ref("");
   /** @type {Map<HomeSection, HomeSectionController>} */
   const controllers_ = new Map();
+  /** @type {Map<HomeSection, Map<string, Array<unknown>>>} */
+  const pending_runs_ = new Map();
   const sidebar_ = create_sidebar_state();
 
   return {
@@ -84,6 +86,18 @@ function createHomeWorkspaceModel() {
         controller[method](...args);
         return true;
       },
+      runWhenReady(section, method, ...args) {
+        const controller = controllers_.get(section);
+        if (controller) {
+          if (typeof controller[method] !== "function") return false;
+          controller[method](...args);
+          return true;
+        }
+        const pending = pending_runs_.get(section) || new Map();
+        pending.set(method, args);
+        pending_runs_.set(section, pending);
+        return true;
+      },
       syncSidebarSelection(selection = {}) {
         active_filter_.as(String(selection.activeFilter || "all"));
         active_tag_.as(String(selection.activeTag || ""));
@@ -92,6 +106,14 @@ function createHomeWorkspaceModel() {
       register(section, controller) {
         controllers_.set(section, controller);
         if (active_section_.value === section) controller?.activateView(section);
+        const pending = pending_runs_.get(section);
+        if (pending) {
+          pending_runs_.delete(section);
+          pending.forEach(function (args, method) {
+            if (typeof controller?.[method] !== "function") return;
+            controller[method](...args);
+          });
+        }
 
         return function unregister() {
           if (controllers_.get(section) === controller) {

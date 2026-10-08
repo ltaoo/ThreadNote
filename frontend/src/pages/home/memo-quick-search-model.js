@@ -1,7 +1,8 @@
-import { collectTodos, memoTitle, parseTaskTitleAndDesc } from "@/domain/memos.js";
+import { parseTaskTitleAndDesc } from "@/domain/memos.js";
 
 export const MEMO_QUICK_SEARCH_CONTEXT_PREFIX = "demo-desktop:memo-quick-search:v1:";
 export const DEFAULT_MEMO_QUICK_SEARCH_LIMIT = 20;
+export const MEMO_QUICK_SEARCH_DEBOUNCE_MS = 200;
 
 export function memoQuickSearchTerms(value) {
   const query = String(value || "").trim().toLocaleLowerCase();
@@ -11,17 +12,9 @@ export function memoQuickSearchTerms(value) {
   });
 }
 
-export function matchesMemoQuickSearch(value, query) {
-  const haystack = String(value || "").toLocaleLowerCase();
-  const needle = String(query || "").trim().toLocaleLowerCase();
-  if (!needle) return true;
-  if (haystack.includes(needle)) return true;
-  const terms = memoQuickSearchTerms(needle);
-  return terms.length > 0 && terms.every(function (term) {
-    return haystack.includes(term);
-  });
-}
-
+// Highlights query terms inside plain text the caller already holds (a todo
+// line, a comment body, a detached memo). Search results are highlighted by the
+// server instead, via highlightPartsFromMarkup.
 export function memoQuickSearchHighlightParts(value, query) {
   const text = String(value || "");
   const terms = memoQuickSearchTerms(query);
@@ -41,6 +34,48 @@ export function memoQuickSearchHighlightParts(value, query) {
   }
   if (cursor < text.length) parts.push({ matched: false, text: text.slice(cursor) });
   return parts.length ? parts : [{ matched: false, text }];
+}
+
+// highlightPartsFromMarkup turns the server-rendered highlight markup into the
+// { matched, text } parts the palette renders as plain text nodes. The server
+// HTML-escapes the original text, so every fragment is decoded here: nothing
+// from the result is ever injected as markup.
+export function highlightPartsFromMarkup(markup) {
+  const html = String(markup || "");
+  if (!html) return [];
+
+  const parts = [];
+  const pattern = /<mark>([\s\S]*?)<\/mark>/g;
+  let cursor = 0;
+  let match = pattern.exec(html);
+  while (match) {
+    if (match.index > cursor) {
+      parts.push({ matched: false, text: decodeHighlightText(html.slice(cursor, match.index)) });
+    }
+    parts.push({ matched: true, text: decodeHighlightText(match[1]) });
+    cursor = match.index + match[0].length;
+    match = pattern.exec(html);
+  }
+  if (cursor < html.length) {
+    parts.push({ matched: false, text: decodeHighlightText(html.slice(cursor)) });
+  }
+  return parts.filter(function (part) { return part.text; });
+}
+
+function decodeHighlightText(value) {
+  return String(value || "")
+    .replace(/&#(\d+);/g, function (_match, code) {
+      return String.fromCodePoint(Number(code));
+    })
+    .replace(/&#x([0-9a-fA-F]+);/g, function (_match, code) {
+      return String.fromCodePoint(parseInt(code, 16));
+    })
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    // &amp; last, so an escaped "&lt;" in the source stays literal text.
+    .replace(/&amp;/g, "&");
 }
 
 export function memoQuickSearchContextKey(memoId) {
@@ -81,6 +116,98 @@ export function readMemoQuickSearchOpenContext(storage, memoId, rawValue) {
   }
 }
 
+// hitToResult restores the result shape the palette renders, keeping the
+// activation contract (kind / id / memoId / todo) the callers rely on.
+export function hitToResult(hit, options) {
+  const source = hit || {};
+  const config = options || {};
+  const project_name = projectNameFor(config.projects, source.projectId);
+  const format_date = typeof config.formatDate === "function"
+    ? config.formatDate
+    : function (value) { return value ? String(value) : ""; };
+  const query = String(config.query || "");
+  const kind = String(source.kind || "");
+  const time = new Date(source.updatedAt || source.createdAt || 0).getTime() || 0;
+
+  if (kind === "todo") {
+    const text = String(source.text || "");
+    const parsed = parseTaskTitleAndDesc(text);
+    const title = parsed.title || "未命名代办";
+    const memo_id = String(source.memoId || "");
+    const summary = [parsed.desc, source.sourceText, source.title]
+      .filter(Boolean)
+      .join(" · ");
+    const todo = {
+      checked: Boolean(source.checked),
+      id: String(source.sourceCommentId || memo_id) + ":" + Number(source.lineIndex || 0),
+      lineIndex: Number(source.lineIndex || 0),
+      memoId: memo_id,
+      projectId: String(source.projectId || ""),
+      sourceCommentId: String(source.sourceCommentId || ""),
+      sourceId: String(source.sourceCommentId || memo_id),
+      sourceMemoId: memo_id,
+      sourceText: String(source.sourceText || ""),
+      sourceType: String(source.sourceType || (source.sourceCommentId ? "comment" : "memo")),
+      text,
+    };
+    return {
+      id: todo.id,
+      key: "todo:" + todo.id,
+      kind: "todo",
+      kindLabel: source.checked ? "DONE" : "TODO",
+      memoId: memo_id,
+      meta: [
+        source.checked ? "已完成" : "未完成",
+        source.sourceCommentId ? "来自评论" : "来自 Memo",
+        project_name,
+        format_date(source.createdAt),
+      ].filter(Boolean).join(" · "),
+      score: Number(source.score) || 0,
+      summary,
+      summaryParts: memoQuickSearchHighlightParts(summary, query),
+      time,
+      title,
+      titleParts: memoQuickSearchHighlightParts(title, query),
+      todo,
+    };
+  }
+
+  const id = String(kind === "comment" ? source.commentId : source.memoId);
+  const title = String(source.title || "");
+  const summary = highlightPartsFromMarkup(source.snippetHTML)
+    .map(function (part) { return part.text; })
+    .join("");
+  const result = {
+    id,
+    key: kind + ":" + id,
+    kind,
+    kindLabel: kind === "comment" ? "COMMENT" : "MEMO",
+    memoId: String(source.memoId || ""),
+    meta: [
+      source.archived ? "归档" : "",
+      source.pinned ? "置顶" : "",
+      project_name,
+      format_date(source.createdAt),
+    ].filter(Boolean).join(" · "),
+    score: Number(source.score) || 0,
+    summary,
+    summaryParts: highlightPartsFromMarkup(source.snippetHTML),
+    time,
+    title,
+    titleParts: highlightPartsFromMarkup(source.titleHTML),
+  };
+  return result;
+}
+
+function projectNameFor(projects, projectId) {
+  const wanted = String(projectId || "");
+  if (!wanted) return "";
+  const found = (Array.isArray(projects) ? projects : []).find(function (project) {
+    return project && String(project.id || "") === wanted;
+  });
+  return found ? String(found.name || "") : "";
+}
+
 export class MemoQuickSearchModel {
   constructor(services, options) {
     const config = options || {};
@@ -89,31 +216,30 @@ export class MemoQuickSearchModel {
       ? config.limit
       : DEFAULT_MEMO_QUICK_SEARCH_LIMIT;
     this.onUpdate = typeof config.onUpdate === "function" ? config.onUpdate : null;
-    this.sources = { comments: [], memos: [], projects: [] };
+    this.sources = { projects: [] };
     this.state = {
       activeIndex: 0,
       open: false,
       query: "",
       results: [],
     };
-    this._ftsTimer = null;
-    this._ftsResults = null;
-    this._ftsQuery = "";
+    this._debounceTimer = null;
+    this._requestSeq = 0;
   }
 
   setSources(sources) {
     const next = sources || {};
     this.sources = {
-      comments: Array.isArray(next.comments) ? next.comments.filter(Boolean) : [],
-      memos: Array.isArray(next.memos) ? next.memos.filter(Boolean) : [],
       projects: Array.isArray(next.projects) ? next.projects.filter(Boolean) : [],
     };
-    this.rebuildResults();
+    // Project names only decorate already-fetched results, so a refresh is
+    // needed only while the palette is showing them.
+    if (this.state.open) this._requestSearch(false);
   }
 
   open() {
     this.state.open = true;
-    this.rebuildResults();
+    this._requestSearch(true);
   }
 
   close() {
@@ -121,34 +247,9 @@ export class MemoQuickSearchModel {
   }
 
   setQuery(value) {
-    this.state.query = String(value || "").trim();
+    this.state.query = String(value || "");
     this.state.activeIndex = 0;
-    this.rebuildResults();
-    this._scheduleFtsSearch();
-  }
-
-  _scheduleFtsSearch() {
-    clearTimeout(this._ftsTimer);
-    const query = this.state.query;
-    if (query.length < 2 || typeof globalThis.invoke !== "function") {
-      this._ftsResults = null;
-      this._ftsQuery = "";
-      return;
-    }
-    this._ftsTimer = setTimeout(() => {
-      if (this.state.query !== query) return;
-      var url = "/api/memos/search?q=" + encodeURIComponent(query) + "&limit=" + this.limit;
-      globalThis.invoke(url, { method: "GET" })
-        .then((resp) => {
-          if (this.state.query !== query) return;
-          var results = resp && resp.code === 0 && resp.data && Array.isArray(resp.data.results) ? resp.data.results : [];
-          this._ftsResults = results;
-          this._ftsQuery = query;
-          this.rebuildResults();
-          if (this.onUpdate) this.onUpdate();
-        })
-        .catch(function () {});
-    }, 200);
+    this._requestSearch(false);
   }
 
   moveActive(delta) {
@@ -195,147 +296,39 @@ export class MemoQuickSearchModel {
     };
   }
 
-  rebuildResults() {
-    if (!this.state.open) return;
+  // _requestSearch debounces the query and tags each request with a sequence
+  // number, so a slow earlier response cannot overwrite a newer one.
+  _requestSearch(immediate) {
+    clearTimeout(this._debounceTimer);
     const query = this.state.query;
-    const memo_by_id = new Map();
-    const project_by_id = new Map();
-    const reply_counts = new Map();
-    this.sources.memos.forEach(function (memo) {
-      if (memo && memo.id) memo_by_id.set(String(memo.id), memo);
-    });
-    this.sources.projects.forEach(function (project) {
-      if (project && project.id) project_by_id.set(String(project.id), project);
-    });
-    this.sources.comments.forEach(function (comment) {
-      if (!comment || !comment.replyTo) return;
-      const parent_id = String(comment.replyTo);
-      reply_counts.set(parent_id, (reply_counts.get(parent_id) || 0) + 1);
-    });
-
-    const memo_results = this.sources.memos.map((memo) => {
-      const title = memoTitle(memo);
-      const project = project_by_id.get(String(memo.projectId || ""));
-      const project_name = project ? String(project.name || "") : "";
-      const searchable = [title, memo.content].join(" ");
-      if (query && !matchesMemoQuickSearch(searchable, query)) return null;
-      const summary = quickSearchSummary(memo.content, query, 140);
-      return this.resultWithHighlights({
-        id: String(memo.id),
-        key: "memo:" + memo.id,
-        kind: "memo",
-        kindLabel: "MEMO",
-        memoId: String(memo.id),
-        meta: [memo.archived ? "归档" : "", memo.pinned ? "置顶" : "", project_name, this.formatDate(memo.createdAt)].filter(Boolean).join(" · "),
-        score: quickSearchScore(title, memo.content, query),
-        summary,
-        time: recordTime(memo),
-        title,
-      }, query);
-    }).filter(Boolean);
-
-    const comment_results = this.sources.comments.map((comment) => {
-      const memo = memo_by_id.get(String(comment.memoId || ""));
-      if (!memo) return null;
-      const parent_title = memoTitle(memo);
-      const searchable = [comment.content, parent_title].join(" ");
-      if (query && !matchesMemoQuickSearch(searchable, query)) return null;
-      const reply_count = reply_counts.get(String(comment.id)) || 0;
-      const relation_label = comment.replyTo ? "回复" : "评论";
-      const summary = quickSearchSummary(comment.content, query, 140);
-      return this.resultWithHighlights({
-        id: String(comment.id),
-        key: "comment:" + comment.id,
-        kind: "comment",
-        kindLabel: comment.replyTo ? "REPLY" : "COMMENT",
-        memoId: String(comment.memoId),
-        meta: [relation_label, reply_count ? reply_count + " 条回复" : "", this.formatDate(comment.updatedAt || comment.createdAt)].filter(Boolean).join(" · "),
-        score: quickSearchScore(parent_title, comment.content, query),
-        summary,
-        time: recordTime(comment),
-        title: parent_title,
-      }, query);
-    }).filter(Boolean);
-
-    const todo_results = collectTodos(quickSearchTodoDocuments(this.sources.memos, this.sources.comments, memo_by_id))
-      .map((todo) => {
-        const memo = memo_by_id.get(String(todo.memoId || ""));
-        if (!memo) return null;
-        const parent_title = memoTitle(memo);
-        const project = project_by_id.get(String(todo.projectId || ""));
-        const project_name = project ? String(project.name || "") : "";
-        const parsed = parseTaskTitleAndDesc(todo.text);
-        const searchable = [todo.text, todo.sourceText, parent_title].join(" ");
-        if (query && !matchesMemoQuickSearch(searchable, query)) return null;
-        const summary = quickSearchSummary([parsed.desc, todo.sourceText, parent_title].filter(Boolean).join(" · "), query, 140);
-        return this.resultWithHighlights({
-          id: String(todo.id),
-          key: "todo:" + todo.id,
-          kind: "todo",
-          kindLabel: todo.checked ? "DONE" : "TODO",
-          memoId: String(todo.memoId),
-          meta: [todo.checked ? "已完成" : "未完成", todo.sourceCommentId ? "来自评论" : "来自 Memo", project_name, this.formatDate(todo.memo.createdAt)].filter(Boolean).join(" · "),
-          score: quickSearchScore(parsed.title, searchable, query),
-          summary,
-          time: recordTime(todo.memo),
-          title: parsed.title || "未命名代办",
-          todo,
-        }, query);
-      })
-      .filter(Boolean);
-
-    this.state.results = memo_results.concat(comment_results, todo_results)
-      .sort(function (left, right) {
-        if (query && left.score !== right.score) return left.score - right.score;
-        if (left.time !== right.time) return right.time - left.time;
-        return left.key.localeCompare(right.key);
-      })
-      .slice(0, this.limit);
-
-    // Merge FTS results: boost memos that appear in backend FTS results
-    if (query && this._ftsResults && this._ftsQuery === query) {
-      const fts_ids = new Set(this._ftsResults.map(function (r) { return r.memoId; }));
-      this.state.results.forEach(function (r) {
-        if (r.kind === "memo" && fts_ids.has(r.id)) {
-          r.score = Math.min(r.score, 0);
-        }
-      });
-      // Add FTS-only results not already present
-      const existing_memo_ids = new Set(this.state.results.filter(function (r) { return r.kind === "memo"; }).map(function (r) { return r.id; }));
-      const fts_only = this._ftsResults.filter(function (r) { return !existing_memo_ids.has(r.memoId); });
-      for (let i = 0; i < fts_only.length && this.state.results.length < this.limit; i++) {
-        const fr = fts_only[i];
-        this.state.results.push({
-          id: fr.memoId,
-          key: "memo:" + fr.memoId,
-          kind: "memo",
-          kindLabel: "MEMO",
-          memoId: fr.memoId,
-          meta: [fr.archived ? "归档" : "", fr.pinned ? "置顶" : ""].filter(Boolean).join(" · "),
-          score: -1,
-          summary: fr.snippet || "",
-          summaryParts: fr.snippet ? memoQuickSearchHighlightParts(fr.snippet.replace(/<\/?mark>/g, ""), query) : [],
-          time: new Date(fr.updatedAt || fr.createdAt || 0).getTime() || 0,
-          title: fr.title || "",
-          titleParts: memoQuickSearchHighlightParts(fr.title || "", query),
-        });
-      }
-      this.state.results.sort(function (left, right) {
-        if (left.score !== right.score) return left.score - right.score;
-        if (left.time !== right.time) return right.time - left.time;
-        return left.key.localeCompare(right.key);
-      });
-    }
-
-    this.state.activeIndex = Math.max(0, Math.min(this.state.activeIndex, this.state.results.length - 1));
+    const seq = ++this._requestSeq;
+    this._debounceTimer = setTimeout(() => {
+      if (!this.state.open || seq !== this._requestSeq) return;
+      this._search(query, seq);
+    }, immediate ? 0 : MEMO_QUICK_SEARCH_DEBOUNCE_MS);
   }
 
-  resultWithHighlights(result, query) {
-    return {
-      ...result,
-      summaryParts: memoQuickSearchHighlightParts(result.summary, query),
-      titleParts: memoQuickSearchHighlightParts(result.title, query),
-    };
+  _search(query, seq) {
+    if (typeof globalThis.invoke !== "function") return;
+    const url = "/api/search?q=" + encodeURIComponent(query) + "&limit=" + this.limit;
+    globalThis.invoke(url, { method: "GET" })
+      .then((resp) => {
+        if (seq !== this._requestSeq || !this.state.open) return;
+        const hits = resp && resp.code === 0 && resp.data && Array.isArray(resp.data.hits)
+          ? resp.data.hits
+          : [];
+        const projects = this.sources.projects;
+        const formatDate = this.formatDate.bind(this);
+        this.state.results = hits.map(function (hit) {
+          return hitToResult(hit, { formatDate, projects, query });
+        });
+        this.state.activeIndex = Math.max(
+          0,
+          Math.min(this.state.activeIndex, this.state.results.length - 1),
+        );
+        if (this.onUpdate) this.onUpdate();
+      })
+      .catch(function () {});
   }
 
   formatDate(value) {
@@ -343,61 +336,6 @@ export class MemoQuickSearchModel {
     if (typeof this.services.formatDate === "function") return this.services.formatDate(value);
     return String(value);
   }
-}
-
-function quickSearchTodoDocuments(memos, comments, memoById) {
-  const documents = (Array.isArray(memos) ? memos : []).filter(Boolean).slice();
-  (Array.isArray(comments) ? comments : []).forEach(function (comment) {
-    if (!comment || !comment.id || !comment.memoId) return;
-    const parent = memoById.get(String(comment.memoId));
-    if (!parent) return;
-    documents.push({
-      content: String(comment.content || ""),
-      createdAt: comment.createdAt || parent.createdAt,
-      id: String(comment.id),
-      projectId: String(parent.projectId || ""),
-      sourceCommentId: String(comment.id),
-      sourceId: String(comment.id),
-      sourceMemoId: String(comment.memoId),
-      sourceType: "comment",
-    });
-  });
-  return documents;
-}
-
-function quickSearchScore(title, content, query) {
-  const needle = String(query || "").trim().toLocaleLowerCase();
-  if (!needle) return 0;
-  const normalized_title = String(title || "").toLocaleLowerCase();
-  const normalized_content = String(content || "").toLocaleLowerCase();
-  if (normalized_title === needle) return 0;
-  if (normalized_title.includes(needle)) return 1;
-  if (normalized_content.includes(needle)) return 2;
-  return 3;
-}
-
-function quickSearchSummary(value, query, limit) {
-  const text = String(value || "").replace(/\s+/g, " ").trim();
-  const max_length = Number.isInteger(limit) && limit > 8 ? limit : 140;
-  if (text.length <= max_length) return text;
-
-  const lower_text = text.toLocaleLowerCase();
-  const match_index = memoQuickSearchTerms(query).reduce(function (earliest, term) {
-    const index = lower_text.indexOf(term);
-    if (index < 0) return earliest;
-    return earliest < 0 ? index : Math.min(earliest, index);
-  }, -1);
-  if (match_index < 0 || match_index < max_length * 0.7) {
-    return text.slice(0, max_length - 1) + "...";
-  }
-
-  const start = Math.max(0, Math.min(match_index - Math.floor(max_length * 0.3), text.length - max_length));
-  const end = Math.min(text.length, start + max_length - 2);
-  return (start > 0 ? "..." : "") + text.slice(start, end) + (end < text.length ? "..." : "");
-}
-
-function recordTime(record) {
-  return new Date((record && (record.updatedAt || record.createdAt)) || 0).getTime() || 0;
 }
 
 function escapeRegExp(value) {

@@ -149,7 +149,14 @@ export function HomePageModel(props) {
       if (!action) return;
       const active_section = workspace$.state.activeSection.value;
       if (action.dataset.action === "createProject") {
-        workspace$.methods.run(active_section, "createProject");
+        // Sections without an embedded memo workspace (week/month/
+        // credentials/logs) have no controller for this action; hand it to
+        // the memo section, waiting for its lazy controller if needed.
+        if (!workspace$.methods.run(active_section, "createProject")) {
+          workspace$.methods.activate("memos");
+          props.history.push(home_route_name("memos"), {});
+          workspace$.methods.runWhenReady("memos", "createProject");
+        }
       } else if (action.dataset.action === "openSettings") {
         openSettingsWindow().catch(function (error) {
           console.error("[home] failed to open settings window", error);

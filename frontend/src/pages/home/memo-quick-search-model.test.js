@@ -2,106 +2,266 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  MEMO_QUICK_SEARCH_DEBOUNCE_MS,
   MemoQuickSearchModel,
-  memoQuickSearchHighlightParts,
+  highlightPartsFromMarkup,
+  hitToResult,
   readMemoQuickSearchOpenContext,
   writeMemoQuickSearchOpenContext,
 } from "./memo-quick-search-model.js";
 
-const memo = {
-  content: "Roadmap and launch notes\n- [ ] Verify launch package",
+const project = { id: "project-1", name: "Desktop" };
+
+const memo_hit = {
+  archived: false,
+  commentId: "",
   createdAt: "2026-08-10T10:00:00Z",
-  id: "memo-1",
+  id: "memo:memo-1",
+  kind: "memo",
+  memoId: "memo-1",
+  pinned: false,
   projectId: "project-1",
+  score: 2.5,
+  snippetHTML: "prefix <mark>launch</mark> package",
+  sourceCommentId: "",
+  sourceType: "",
+  text: "",
+  title: "Roadmap and launch notes",
+  titleHTML: "Roadmap and <mark>launch</mark> notes",
+  todoId: "",
+  updatedAt: "2026-08-11T10:00:00Z",
 };
 
-const comments = [
-  { content: "Original launch question", createdAt: "2026-08-10T11:00:00Z", id: "comment-1", memoId: "memo-1", replyTo: "" },
-  { content: "Launch reply with details", createdAt: "2026-08-10T12:00:00Z", id: "comment-2", memoId: "memo-1", replyTo: "comment-1" },
-  { content: "Nested launch answer", createdAt: "2026-08-10T13:00:00Z", id: "comment-3", memoId: "memo-1", replyTo: "comment-2" },
-  { content: "Unrelated sibling", createdAt: "2026-08-10T14:00:00Z", id: "comment-4", memoId: "memo-1", replyTo: "comment-1" },
-];
+const comment_hit = {
+  archived: false,
+  commentId: "comment-2",
+  createdAt: "2026-08-10T12:00:00Z",
+  id: "comment:comment-2",
+  kind: "comment",
+  memoId: "memo-1",
+  projectId: "project-1",
+  score: 1.5,
+  snippetHTML: "<mark>launch</mark> reply with details",
+  title: "Roadmap and launch notes",
+  titleHTML: "Roadmap and <mark>launch</mark> notes",
+  updatedAt: "2026-08-10T12:00:00Z",
+};
 
-test("quick search returns memo, comment, and todo results and activates their contexts", function () {
+const todo_hit = {
+  archived: false,
+  checked: false,
+  createdAt: "2026-08-10T10:00:00Z",
+  id: "todo:memo:memo-1:1",
+  kind: "todo",
+  lineIndex: 1,
+  memoId: "memo-1",
+  projectId: "project-1",
+  score: 3,
+  sourceCommentId: "",
+  sourceText: "Roadmap and launch notes",
+  sourceType: "memo",
+  text: "Verify launch package",
+  title: "Roadmap and launch notes",
+  todoId: "memo:memo-1:1",
+  updatedAt: "2026-08-11T10:00:00Z",
+};
+
+const comment_todo_hit = {
+  ...todo_hit,
+  id: "todo:comment:comment-5:0",
+  lineIndex: 0,
+  sourceCommentId: "comment-5",
+  sourceType: "comment",
+  text: "Confirm launch time",
+  todoId: "comment:comment-5:0",
+};
+
+function wait(ms) {
+  return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
+
+async function withInvoke(handler, run) {
+  const original = globalThis.invoke;
+  globalThis.invoke = handler;
+  try {
+    return await run();
+  } finally {
+    if (original === undefined) delete globalThis.invoke;
+    else globalThis.invoke = original;
+  }
+}
+
+function servingHits(hits) {
+  return function (url) {
+    assert.match(url, /^\/api\/search\?q=/);
+    return Promise.resolve({ code: 0, data: { hits } });
+  };
+}
+
+async function settled(model) {
+  await wait(MEMO_QUICK_SEARCH_DEBOUNCE_MS + 60);
+  return model.snapshot();
+}
+
+test("highlight parts decode server markup into plain text", function () {
+  assert.deepEqual(highlightPartsFromMarkup("Roadmap and <mark>launch</mark> notes"), [
+    { matched: false, text: "Roadmap and " },
+    { matched: true, text: "launch" },
+    { matched: false, text: " notes" },
+  ]);
+  assert.deepEqual(highlightPartsFromMarkup("a &lt;b&gt; <mark>&amp;c</mark>"), [
+    { matched: false, text: "a <b> " },
+    { matched: true, text: "&c" },
+  ]);
+  assert.deepEqual(highlightPartsFromMarkup("<mark>it&#39;s</mark> &#34;quoted&#34;"), [
+    { matched: true, text: "it's" },
+    { matched: false, text: ' "quoted"' },
+  ]);
+  assert.deepEqual(highlightPartsFromMarkup("plain text"), [
+    { matched: false, text: "plain text" },
+  ]);
+  assert.deepEqual(highlightPartsFromMarkup(""), []);
+});
+
+test("palette renders server hits for memos, comments, and todos", async function () {
   let opened = null;
   const model = new MemoQuickSearchModel({
+    formatDate: function (value) { return String(value); },
     openResult(context) { opened = context; },
   });
-  model.setSources({ comments, memos: [memo], projects: [{ id: "project-1", name: "Desktop" }] });
-  model.open();
-  model.setQuery("launch");
+  model.setSources({ projects: [project] });
+
+  await withInvoke(servingHits([memo_hit, comment_hit, todo_hit]), async function () {
+    model.open();
+    model.setQuery("launch");
+    await settled(model);
+  });
 
   const snapshot = model.snapshot();
-  assert.deepEqual(new Set(snapshot.results.map(function (item) { return item.kind; })), new Set(["memo", "comment", "todo"]));
+  assert.deepEqual(
+    new Set(snapshot.results.map(function (item) { return item.kind; })),
+    new Set(["memo", "comment", "todo"]),
+  );
 
-  const reply = snapshot.results.find(function (item) { return item.id === "comment-2"; });
-  assert.ok(reply);
-  assert.equal(model.activateByKey(reply.key), true);
+  const memo = snapshot.results.find(function (item) { return item.kind === "memo"; });
+  assert.equal(memo.id, "memo-1");
+  assert.equal(memo.key, "memo:memo-1");
+  assert.equal(memo.kindLabel, "MEMO");
+  assert.ok(memo.meta.includes("Desktop"));
+  assert.ok(memo.titleParts.some(function (part) { return part.matched && part.text === "launch"; }));
+  assert.ok(memo.summaryParts.some(function (part) { return part.matched && part.text === "launch"; }));
+
+  const comment = snapshot.results.find(function (item) { return item.kind === "comment"; });
+  assert.equal(comment.id, "comment-2");
+  assert.equal(comment.key, "comment:comment-2");
+  assert.equal(comment.kindLabel, "COMMENT");
+  assert.equal(comment.memoId, "memo-1");
+
+  assert.equal(model.activateByKey("comment:comment-2"), true);
   assert.equal(opened.memoId, "memo-1");
   assert.equal(opened.commentId, "comment-2");
   assert.equal(opened.query, "launch");
 
   const todo = snapshot.results.find(function (item) { return item.kind === "todo"; });
-  assert.ok(todo);
-  assert.equal(model.activateByKey(todo.key), true);
+  assert.equal(todo.id, "memo-1:1");
+  assert.equal(todo.key, "todo:memo-1:1");
+  assert.equal(todo.kindLabel, "TODO");
+  assert.equal(todo.title, "Verify launch package");
+  assert.ok(todo.meta.includes("来自 Memo"));
+  assert.ok(todo.titleParts.some(function (part) { return part.matched; }));
+
+  assert.equal(model.activateByKey("todo:memo-1:1"), true);
   assert.equal(opened.memoId, "memo-1");
   assert.equal(opened.todoId, "memo-1:1");
   assert.equal(opened.result.todo.text, "Verify launch package");
+  assert.equal(opened.result.todo.checked, false);
+  assert.equal(opened.result.todo.lineIndex, 1);
+  assert.equal(opened.result.todo.sourceType, "memo");
 });
 
-test("quick search finds todos inside comments", function () {
+test("todos extracted from comments keep their comment source", async function () {
   const model = new MemoQuickSearchModel();
-  model.setSources({
-    comments: comments.concat({
-      content: "Reply checklist\n- [x] Confirm launch time",
-      createdAt: "2026-08-10T15:00:00Z",
-      id: "comment-5",
-      memoId: "memo-1",
-      replyTo: "comment-1",
-    }),
-    memos: [memo],
-    projects: [],
+  await withInvoke(servingHits([comment_todo_hit]), async function () {
+    model.open();
+    model.setQuery("confirm launch");
+    await settled(model);
   });
-  model.open();
-  model.setQuery("confirm launch time");
 
-  const todo = model.snapshot().results.find(function (item) { return item.kind === "todo"; });
-  assert.ok(todo);
-  assert.equal(todo.todo.checked, true);
-  assert.equal(todo.todo.sourceCommentId, "comment-5");
+  const todo = model.snapshot().results[0];
+  assert.equal(todo.id, "comment-5:0");
   assert.equal(todo.memoId, "memo-1");
+  assert.equal(todo.todo.sourceCommentId, "comment-5");
+  assert.equal(todo.todo.sourceType, "comment");
+  assert.ok(todo.meta.includes("来自评论"));
 });
 
-test("highlight parts mark every case-insensitive query term", function () {
-  assert.deepEqual(memoQuickSearchHighlightParts("Launch roadmap LAUNCH", "launch roadmap"), [
-    { matched: true, text: "Launch" },
-    { matched: false, text: " " },
-    { matched: true, text: "roadmap" },
-    { matched: false, text: " " },
-    { matched: true, text: "LAUNCH" },
-  ]);
-});
+test("a slow earlier response cannot overwrite a newer one", async function () {
+  const slow_hit = memo_hit;
+  const fast_hit = todo_hit;
+  const seen = [];
 
-test("a late content match remains visible and highlighted in the result summary", function () {
-  const model = new MemoQuickSearchModel();
-  model.setSources({
-    comments: [],
-    memos: [{ ...memo, content: "prefix ".repeat(40) + "needle at the end" }],
-    projects: [],
+  await withInvoke(function (url) {
+    seen.push(url);
+    if (url.includes("slow")) {
+      return wait(120).then(function () {
+        return { code: 0, data: { hits: [slow_hit] } };
+      });
+    }
+    return Promise.resolve({ code: 0, data: { hits: [fast_hit] } });
+  }, async function () {
+    const model = new MemoQuickSearchModel();
+    model.open();
+    model.setQuery("slow");
+    await wait(MEMO_QUICK_SEARCH_DEBOUNCE_MS + 20);
+    model.setQuery("fast");
+    await wait(MEMO_QUICK_SEARCH_DEBOUNCE_MS + 200);
+
+    assert.deepEqual(
+      model.snapshot().results.map(function (item) { return item.kind; }),
+      ["todo"],
+    );
+    assert.equal(seen.length, 2);
   });
-  model.open();
-  model.setQuery("needle");
-
-  const result = model.snapshot().results[0];
-  assert.ok(result.summary.includes("needle"));
-  assert.ok(result.summaryParts.some(function (part) { return part.matched && part.text === "needle"; }));
 });
 
-test("closing and reopening quick search preserves its query, results, and selection", function () {
+test("matching happens server-side, so the palette has no in-memory results", async function () {
   const model = new MemoQuickSearchModel();
-  model.setSources({ comments, memos: [memo], projects: [] });
+  model.setSources({ projects: [] });
   model.open();
   model.setQuery("launch");
+  await settled(model);
+
+  assert.deepEqual(model.snapshot().results, []);
+});
+
+test("a failed request keeps the previous results", async function () {
+  const model = new MemoQuickSearchModel();
+  await withInvoke(servingHits([memo_hit]), async function () {
+    model.open();
+    model.setQuery("launch");
+    await settled(model);
+  });
+
+  await withInvoke(function () {
+    return Promise.reject(new Error("offline"));
+  }, async function () {
+    model.setQuery("offline query");
+    await settled(model);
+  });
+
+  assert.deepEqual(
+    model.snapshot().results.map(function (item) { return item.id; }),
+    ["memo-1"],
+  );
+});
+
+test("closing and reopening quick search preserves its query, results, and selection", async function () {
+  const model = new MemoQuickSearchModel();
+  await withInvoke(servingHits([memo_hit, comment_hit]), async function () {
+    model.open();
+    model.setQuery("launch");
+    await settled(model);
+  });
   model.moveActive(1);
 
   const before_close = model.snapshot();
@@ -118,6 +278,32 @@ test("closing and reopening quick search preserves its query, results, and selec
   assert.equal(reopened.query, before_close.query);
   assert.equal(reopened.activeIndex, before_close.activeIndex);
   assert.deepEqual(reopened.results, before_close.results);
+});
+
+test("query keeps typed spaces verbatim", function () {
+  const model = new MemoQuickSearchModel();
+  model.open();
+
+  model.setQuery("launch ");
+  assert.equal(model.snapshot().query, "launch ");
+
+  model.setQuery("  launch");
+  assert.equal(model.snapshot().query, "  launch");
+
+  model.setQuery("roadmap  launch");
+  assert.equal(model.snapshot().query, "roadmap  launch");
+});
+
+test("hitToResult labels projects and omits unknown ones", function () {
+  const with_project = hitToResult(memo_hit, { projects: [project], query: "launch" });
+  assert.ok(with_project.meta.includes("Desktop"));
+
+  const unknown_project = hitToResult(
+    { ...memo_hit, projectId: "project-9" },
+    { projects: [project], query: "launch" },
+  );
+  assert.ok(!unknown_project.meta.includes("project-9"));
+  assert.ok(!unknown_project.meta.includes("Desktop"));
 });
 
 test("detached-window search context can be shared and cleared", function () {

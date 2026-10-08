@@ -93,6 +93,11 @@ func new_vault_memo_query_store(vault_ctx *VaultContext) (MemoQueryStore, error)
 		return nil, err
 	}
 	vault_ctx.memo_query_store = query_store
+	// A failure to open the search index must not break memo listing, so it is
+	// only logged. Search falls back to the SQLite full-text index.
+	if _, err := open_vault_search_index(vault_ctx); err != nil {
+		log_search_index_error(vault_ctx, err)
+	}
 	return query_store, nil
 }
 
@@ -155,6 +160,7 @@ func close_cached_memo_query_store(vault_ctx *VaultContext) {
 	if query_store != nil {
 		_ = query_store.close()
 	}
+	close_vault_search_index(vault_ctx)
 }
 
 func rebuild_vault_memo_query_index(call_ctx context.Context, vault_ctx *VaultContext) (MemoStats, error) {
@@ -176,6 +182,11 @@ func rebuild_vault_memo_query_index(call_ctx context.Context, vault_ctx *VaultCo
 	if err := delete_memo_index_database(database_path); err != nil {
 		return MemoStats{}, err
 	}
+	// The search index is derived from the same records, so a full rebuild
+	// rebuilds both.
+	if err := reset_vault_search_index(vault_ctx); err != nil {
+		return MemoStats{}, err
+	}
 	next_store, err := new_sqlite_memo_query_store(vault_ctx)
 	if err != nil {
 		return MemoStats{}, fmt.Errorf("create memo index: %w", err)
@@ -193,6 +204,12 @@ func rebuild_vault_memo_query_index(call_ctx context.Context, vault_ctx *VaultCo
 		vault_ctx.memo_query_store = wrap_mirrored_d1_memo_query_store(vault_ctx, remote_store, next_store)
 	} else {
 		vault_ctx.memo_query_store = next_store
+	}
+	// The memo-index sync above only mirrors records whose file fingerprint
+	// changed, so a search index that was deleted independently of the SQLite
+	// index would stay empty. Rebuild it from the vault explicitly.
+	if err := build_vault_search_index(call_ctx, vault_ctx, true); err != nil {
+		return MemoStats{}, fmt.Errorf("rebuild search index: %w", err)
 	}
 	return stats, nil
 }

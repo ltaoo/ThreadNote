@@ -504,6 +504,11 @@ export interface HomeWorkspaceModelInstance {
       controller: HomeSectionController,
     ): () => void;
     run(section: HomeSection, method: string, ...args: unknown[]): boolean;
+    runWhenReady(
+      section: HomeSection,
+      method: string,
+      ...args: unknown[]
+    ): boolean;
     syncSidebarSelection(selection: {
       activeFilter?: string;
       activeProjectId?: string;
