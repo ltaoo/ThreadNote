@@ -370,12 +370,19 @@ function CredentialListView(vm$) {
 }
 
 function CredentialEditorFieldView(vm$, field) {
-  const { Button, Checkbox, Input, Textarea, View } = TimelessPrimitive;
-  const secret_class_ = TimelessPrimitive.computed(
-    vm$.state.draftRevealedFields,
-    function (revealed) {
+  const { Button, Checkbox, Input, Show, Textarea, View } = TimelessPrimitive;
+  const field_value_ = function (name) {
+    return TimelessPrimitive.computed(vm$.state.draftFields, function (fields) {
+      return fields.find(function (item) { return item.id === field.id; })?.[name] ?? "";
+    });
+  };
+  const label_ = field_value_("label");
+  const secret_ = field_value_("secret");
+  const secret_class_ = TimelessPrimitive.combine(
+    { revealed: vm$.state.draftRevealedFields, secret: secret_ },
+    function ({ revealed, secret }) {
       return "credential-field-value-input" +
-        (field.secret && !revealed.includes(field.id) ? " is-secret" : "");
+        (secret && !revealed.includes(field.id) ? " is-secret" : "");
     },
   );
   return View(
@@ -386,7 +393,7 @@ function CredentialEditorFieldView(vm$, field) {
     [
       Input({
         class: "credential-field-name-input",
-        value: field.label,
+        value: label_,
         attributes: {
           "aria-label": "字段名称",
           n: "credential-editor-field-name",
@@ -398,9 +405,11 @@ function CredentialEditorFieldView(vm$, field) {
       }),
       Textarea({
         class: secret_class_,
-        value: field.value,
+        value: field_value_("value"),
         attributes: {
-          "aria-label": field.label + "的值",
+          "aria-label": TimelessPrimitive.computed(label_, function (label) {
+            return label + "的值";
+          }),
           n: "credential-editor-field-value",
           rows: "2",
           spellcheck: "false",
@@ -417,9 +426,11 @@ function CredentialEditorFieldView(vm$, field) {
         },
         [
           Checkbox({
-            checked: field.secret,
+            checked: secret_,
             attributes: {
-              "aria-label": field.label + "是敏感字段",
+              "aria-label": TimelessPrimitive.computed(label_, function (label) {
+                return label + "是敏感字段";
+              }),
               n: "credential-editor-field-secret",
             },
             onChange(event) {
@@ -435,26 +446,29 @@ function CredentialEditorFieldView(vm$, field) {
           ),
         ],
       ),
-      field.secret
-        ? Button(
-          {
-            class: "credential-text-button",
-            attributes: {
-              n: "credential-editor-field-toggle",
-              type: "button",
+      Show({
+        when: secret_,
+        ok() {
+          return Button(
+            {
+              class: "credential-text-button",
+              attributes: {
+                n: "credential-editor-field-toggle",
+                type: "button",
+              },
+              onClick() {
+                vm$.methods.toggleDraftField(field.id);
+              },
             },
-            onClick() {
-              vm$.methods.toggleDraftField(field.id);
-            },
-          },
-          [TimelessPrimitive.computed(
-            vm$.state.draftRevealedFields,
-            function (revealed) {
-              return revealed.includes(field.id) ? "隐藏" : "显示";
-            },
-          )],
-        )
-        : null,
+            [TimelessPrimitive.computed(
+              vm$.state.draftRevealedFields,
+              function (revealed) {
+                return revealed.includes(field.id) ? "隐藏" : "显示";
+              },
+            )],
+          );
+        },
+      }),
       Button(
         {
           class: "credential-icon-button is-danger",
@@ -695,6 +709,7 @@ function CredentialEditorView(vm$) {
           ),
           For({
             each: vm$.state.draftFields,
+            key: "id",
             render(field) {
               return CredentialEditorFieldView(vm$, field);
             },
