@@ -89,8 +89,8 @@ func asMatchPhrase(t *testing.T, q query.Query) *query.MatchPhraseQuery {
 }
 
 // freeTextDisjuncts is the number of clauses a plain word fans out to: one per
-// DefaultSearch field plus one wildcard per DefaultWildcard field.
-const freeTextDisjuncts = 4
+// DefaultSearch field, plus a wildcard per DefaultSearch/DefaultWildcard field.
+const freeTextDisjuncts = 7
 
 // --- Build() tests ---
 

@@ -89,6 +89,45 @@ func TestSearchLatinWords(t *testing.T) {
 	}
 }
 
+func TestSearchLatinWordFragments(t *testing.T) {
+	indexer := newTestIndexer(t)
+	if err := indexer.Upsert(
+		Document{ID: MemoDocID("title"), MemoID: "title", Kind: KindMemo, Title: "Ubuntu server"},
+		Document{ID: MemoDocID("content"), MemoID: "content", Kind: KindMemo, Content: "FROM lscr.io/linuxserver/webtop:ubuntu-xfce"},
+		Document{ID: MemoDocID("source"), MemoID: "source", Kind: KindMemo, SourceText: "Ubuntu server"},
+	); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	for _, test_case := range []struct {
+		query string
+		total int
+	}{
+		{"ubuntu", 3},
+		{"ubu", 3},
+		{"ubun", 3},
+		{"UBUN", 3},
+		{"bunt", 3},
+		{"untu", 3},
+		{"ubu serv", 3},
+		{"kind:memo ubu", 3},
+		{"kind:comment ubu", 0},
+		{"* -ubu", 0},
+		{`"ubu"`, 0},
+		{"content:ubu", 0},
+		{"content:ubuntu", 0},
+		{"content:*ubuntu*", 1},
+		{"unrelated", 0},
+	} {
+		t.Run(test_case.query, func(t *testing.T) {
+			results := runSearch(t, indexer, SearchRequest{Query: test_case.query})
+			if results.Total != test_case.total {
+				t.Errorf("total = %d, want %d", results.Total, test_case.total)
+			}
+		})
+	}
+}
+
 func TestSearchFieldFilterAndNegation(t *testing.T) {
 	indexer := newTestIndexer(t)
 	memo := sampleMemo()

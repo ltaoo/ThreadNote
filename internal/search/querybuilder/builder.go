@@ -419,10 +419,11 @@ func getTokenQuery(t Token, now time.Time) (query.Query, bool) {
 			wcq = wcq + "*"
 		}
 		for _, field := range searchschema.Fields() {
-			switch {
-			case field.DefaultSearch:
+			if field.DefaultSearch {
 				qs = append(qs, buildFieldQuery(field.Name, t.Value))
-			case field.DefaultWildcard:
+			}
+			// Also match fragments inside Latin words, URLs, and identifiers.
+			if field.DefaultSearch || field.DefaultWildcard {
 				qs = append(qs, buildFieldQuery(field.Name, wcq))
 			}
 		}
