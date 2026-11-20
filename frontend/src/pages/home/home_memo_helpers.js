@@ -168,19 +168,35 @@ function memoCommentDocument(comment, parent) {
 }
 
 
-export function scrollMemoTocLine(control) {
+export function scrollMemoTocLine(control, expandMemo) {
   const card = closestElement(control, "article.memo-card");
   const lineNumber = String(
     (control && control.dataset && control.dataset.memoTocLine) || "",
   );
   if (!card || !lineNumber) return;
 
+  const content = card.querySelector(".memo-card-reading-main .memo-content");
+  const lines = content && content.querySelector(".memo-line-list");
+  if (!lines) return;
   const target = Array.from(
-    card.querySelectorAll(".memo-source-line[data-heading-line]"),
+    lines.children,
   ).find(function (line) {
     return line && line.dataset && line.dataset.headingLine === lineNumber;
   });
   if (!target) return;
+
+  const collapse = closestElement(content, ".memo-list-collapse.is-collapsed");
+  if (collapse && expandMemo) {
+    expandMemo(card.dataset.memoId, control);
+    content.getAnimations().forEach(function (animation) {
+      animation.finish();
+    });
+    // Expansion restores the scroll position on the next frame.
+    window.requestAnimationFrame(function () {
+      scrollMemoTocLine(control);
+    });
+    return;
+  }
 
   card.querySelectorAll("[data-memo-toc-line]").forEach(function (item) {
     item.classList.toggle("is-active", item.dataset.memoTocLine === lineNumber);

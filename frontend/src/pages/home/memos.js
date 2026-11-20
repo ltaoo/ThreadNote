@@ -2006,7 +2006,7 @@ export function mountMemosHome(root, options = {}) {
     if (tocLine && root.contains(tocLine)) {
       event.preventDefault();
       event.stopPropagation();
-      scrollMemoTocLine(tocLine);
+      scrollMemoTocLine(tocLine, expandMemo);
       return;
     }
 

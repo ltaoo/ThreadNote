@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { scrollMemoTocLine } from "./home_memo_helpers.js";
+
 import {
   activeViewMeta,
   applyContentOpsToString,
@@ -25,6 +27,80 @@ function createTestRef(initial_value) {
 function createMemoCardViewModel(options = {}) {
   return new MemoCardViewModel({ createRef: createTestRef, ...options });
 }
+
+test("memo TOC expands before scrolling and ignores embedded and comment headings", function () {
+  const original_document = globalThis.document;
+  const original_window = globalThis.window;
+  const calls = [];
+  const frames = [];
+  const classes = new Set();
+  let collapsed = true;
+  const target = {
+    dataset: { headingLine: "8" },
+    classList: { add(name) { classes.add(name); }, remove(name) { classes.delete(name); } },
+    scrollIntoView(options) { calls.push(options); },
+  };
+  const embedded_heading = { dataset: { headingLine: "8" } };
+  const content = {
+    nodeType: 1,
+    matches() { return collapsed; },
+    querySelector(selector) {
+      assert.equal(selector, ".memo-line-list");
+      return { children: [{ children: [embedded_heading] }, target] };
+    },
+    getAnimations() { return [{ finish() { calls.push("finish expansion"); } }]; },
+  };
+  const control = {
+    nodeType: 1,
+    dataset: { memoTocLine: "8" },
+    matches() { return false; },
+    classList: { toggle(_name, active) { assert.equal(active, true); } },
+  };
+  const card = {
+    nodeType: 1,
+    dataset: { memoId: "memo-toc" },
+    matches(selector) { return selector === "article.memo-card"; },
+    querySelector(selector) {
+      assert.equal(selector, ".memo-card-reading-main .memo-content");
+      return content;
+    },
+    querySelectorAll(selector) {
+      assert.equal(selector, "[data-memo-toc-line]");
+      return [control];
+    },
+  };
+  control.parentElement = card;
+
+  try {
+    globalThis.document = {};
+    globalThis.window = {
+      matchMedia() { return { matches: true }; },
+      requestAnimationFrame(callback) { frames.push(callback); },
+      setTimeout(callback) { calls.push(callback); return 1; },
+      clearTimeout() {},
+    };
+    scrollMemoTocLine(control, function (memo_id, trigger) {
+      assert.equal(memo_id, "memo-toc");
+      assert.equal(trigger, control);
+      collapsed = false;
+      frames.push(function () { calls.push("restore position"); });
+    });
+    assert.deepEqual(calls, ["finish expansion"]);
+    frames.forEach(function (callback) { callback(); });
+    assert.deepEqual(calls.slice(0, 3), [
+      "finish expansion", "restore position",
+      { behavior: "auto", block: "start", inline: "nearest" },
+    ]);
+    assert.ok(classes.has("is-toc-target"));
+    calls[3]();
+    assert.equal(classes.has("is-toc-target"), false);
+  } finally {
+    if (original_document === undefined) delete globalThis.document;
+    else globalThis.document = original_document;
+    if (original_window === undefined) delete globalThis.window;
+    else globalThis.window = original_window;
+  }
+});
 
 test("active view metadata exposes home actions only for the memo feed", function () {
   assert.equal(activeViewMeta("memos").showHomeActions, true);
