@@ -1,4 +1,5 @@
-import { normalizeMemoCommentPayload } from "./domain/memo-comments.js";
+import { loadMemoCommentsFromVault, normalizeMemoCommentPayload } from "./domain/memo-comments.js";
+import { loadMemoFromVault } from "./domain/memo-repository.js";
 import { normalizeMemoPayload } from "./domain/memos.js";
 
 export const COMMENT_DETAIL_STORAGE_PREFIX = "demo-desktop:comment-detail:v1:";
@@ -36,6 +37,27 @@ export function buildCommentDetailPayload(comments, memos, commentId, query) {
     replies,
     replyTo: reply_to,
   };
+}
+
+export async function loadCommentDetailPayload(comments, memos, commentId, query, memoId) {
+  const cached = buildCommentDetailPayload(comments, memos, commentId, query);
+  if (cached) return cached;
+
+  const comment = (Array.isArray(comments) ? comments : []).find(function (item) {
+    return item && String(item.id || "") === String(commentId || "").trim();
+  });
+  const memo_id = String(memoId || (comment && comment.memoId) || "").trim();
+  if (!memo_id) return null;
+
+  // Search can find comments whose parent memo is outside the loaded feed.
+  const [memo, loaded_comments] = await Promise.all([
+    loadMemoFromVault(memo_id),
+    loadMemoCommentsFromVault(memo_id),
+  ]);
+  const memo_list = [memo].concat((Array.isArray(memos) ? memos : []).filter(function (item) {
+    return item && item.id !== memo.id;
+  }));
+  return buildCommentDetailPayload(loaded_comments, memo_list, commentId, query);
 }
 
 export function commentDetailStorageKey(commentId) {

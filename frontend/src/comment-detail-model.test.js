@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   CommentDetailModel,
   buildCommentDetailPayload,
+  loadCommentDetailPayload,
   readCommentDetailPayload,
   writeCommentDetailPayload,
 } from "./comment-detail-model.js";
@@ -50,4 +51,65 @@ test("comment detail payload has a local fallback for browser-only mode", functi
 
   writeCommentDetailPayload(storage, payload);
   assert.deepEqual(readCommentDetailPayload(storage, "comment-2"), payload);
+});
+
+test("comment search opens an unloaded memo with the selected comment and its relations", async function (t) {
+  const original_invoke = globalThis.invoke;
+  t.after(function () {
+    if (original_invoke === undefined) delete globalThis.invoke;
+    else globalThis.invoke = original_invoke;
+  });
+  const calls = [];
+  globalThis.invoke = async function (url, options) {
+    calls.push(url);
+    assert.equal(options.method, "GET");
+    if (url === "/api/memos/get?id=memo-1") {
+      return { code: 0, data: { memo } };
+    }
+    if (url === "/api/memo-comments?memoId=memo-1") {
+      return { code: 0, data: { comments } };
+    }
+    throw new Error("unexpected URL: " + url);
+  };
+
+  const payload = await loadCommentDetailPayload([], [], "comment-2", "selected", "memo-1");
+  assert.equal(payload.comment.id, "comment-2");
+  assert.equal(payload.memo.id, "memo-1");
+  assert.equal(payload.replyTo.id, "comment-1");
+  assert.deepEqual(payload.replies.map(function (item) { return item.id; }), ["comment-3"]);
+  assert.equal(payload.query, "selected");
+  assert.equal(calls.length, 2);
+
+  const model = new CommentDetailModel({
+    async request() { return { code: 0, data: { found: true, ...payload } }; },
+  });
+  const state = await model.load("comment-2");
+  assert.equal(state.found, true);
+  assert.equal(state.comment.comment.id, "comment-2");
+  assert.equal(state.query, "selected");
+
+  assert.equal(await loadCommentDetailPayload([], [], "deleted", "", "memo-1"), null);
+  globalThis.invoke = async function () { return { code: 1, msg: "读取失败" }; };
+  await assert.rejects(loadCommentDetailPayload([], [], "comment-2", "", "memo-1"), /读取失败/);
+});
+
+test("comment detail keeps cached navigation and loads a missing parent by the comment memo ID", async function (t) {
+  const original_invoke = globalThis.invoke;
+  t.after(function () {
+    if (original_invoke === undefined) delete globalThis.invoke;
+    else globalThis.invoke = original_invoke;
+  });
+  globalThis.invoke = function () { throw new Error("cached detail must not fetch"); };
+  assert.deepEqual(
+    await loadCommentDetailPayload(comments, [memo], "comment-2", "selected"),
+    buildCommentDetailPayload(comments, [memo], "comment-2", "selected"),
+  );
+  globalThis.invoke = async function (url) {
+    if (url === "/api/memos/get?id=memo-1") return { code: 0, data: { memo } };
+    if (url === "/api/memo-comments?memoId=memo-1") return { code: 0, data: { comments } };
+    throw new Error("unexpected URL: " + url);
+  };
+  const payload = await loadCommentDetailPayload(comments, [], "comment-2", "");
+  assert.equal(payload.memo.id, "memo-1");
+  assert.equal(payload.comment.id, "comment-2");
 });

@@ -76,7 +76,7 @@ import { setCheckboxControlValue } from "@/checkbox-control.js";
 import { MemoCardExpansionModel } from "@/memo-card-model.js";
 import { SmallCalendarModel } from "@/small-calendar-model.js";
 import {
-  buildCommentDetailPayload,
+  loadCommentDetailPayload,
   writeCommentDetailPayload,
 } from "@/comment-detail-model.js";
 import {
@@ -802,7 +802,7 @@ export function mountMemosHome(root, options = {}) {
         return;
       }
       if (context.commentId) {
-        openCommentDetail(context.commentId, context.query);
+        openCommentDetail(context.commentId, context.query, context.memoId);
         return;
       }
       detachMemo(context.memoId, { query: context.query });
@@ -4460,37 +4460,43 @@ export function mountMemosHome(root, options = {}) {
     });
   }
 
-  function openCommentDetail(commentId, query) {
-    const payload = buildCommentDetailPayload(
-      state.comments,
-      state.memos,
-      commentId,
-      query,
-    );
-    if (!payload) {
-      showToast("找不到评论详情");
-      return;
-    }
-    writeMemoQuickSearchOpenContext(
-      globalThis.localStorage,
-      payload.memo.id,
-      null,
-    );
-    writeCommentDetailPayload(globalThis.localStorage, payload);
-    if (typeof invoke !== "function") {
-      window.open(
-        "comment-replies.html?id=" + encodeURIComponent(commentId),
-        "_blank",
-        "noopener",
+  async function openCommentDetail(commentId, query, memoId) {
+    try {
+      const payload = await loadCommentDetailPayload(
+        state.comments,
+        state.memos,
+        commentId,
+        query,
+        memoId,
       );
-      return;
-    }
-    invoke("/api/comment-replies/open", {
-      method: "POST",
-      args: payload,
-    }).catch(function (err) {
+      if (!payload) {
+        showToast("找不到评论详情");
+        return;
+      }
+      writeMemoQuickSearchOpenContext(
+        globalThis.localStorage,
+        payload.memo.id,
+        null,
+      );
+      writeCommentDetailPayload(globalThis.localStorage, payload);
+      if (typeof invoke !== "function") {
+        window.open(
+          "comment-replies.html?id=" + encodeURIComponent(commentId),
+          "_blank",
+          "noopener",
+        );
+        return;
+      }
+      const response = await invoke("/api/comment-replies/open", {
+        method: "POST",
+        args: payload,
+      });
+      if (!response || response.code !== 0) {
+        throw new Error((response && response.msg) || "打开评论失败");
+      }
+    } catch (err) {
       showToast("打开评论详情失败: " + errorMessage(err));
-    });
+    }
   }
 
   function exitComment(memoId) {
